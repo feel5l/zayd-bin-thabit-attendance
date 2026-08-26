@@ -12,17 +12,17 @@ import {
 } from './mockData';
 
 const STORAGE_KEYS = {
-  USERS: 'zbt_users_v5',
-  CLASSES: 'zbt_classes_v5',
-  STUDENTS: 'zbt_students_v2',
-  SUBMISSIONS: 'zbt_submissions_v2',
-  SETTINGS: 'zbt_settings_v5',
-  AUDIT_LOGS: 'zbt_logs_v2',
-  EXCUSES: 'zbt_excuses_v2',
-  SIMULATED_TIME: 'zbt_simulated_time_v2',
-  CURRENT_USER: 'zbt_current_user_v5',
-  NOTIFICATIONS: 'zbt_notifications_v2',
-  ARCHIVES: 'zbt_attendance_archives_v2'
+  USERS: 'zbt_users_prod_v1',
+  CLASSES: 'zbt_classes_prod_v1',
+  STUDENTS: 'zbt_students_prod_v1',
+  SUBMISSIONS: 'zbt_submissions_prod_v1',
+  SETTINGS: 'zbt_settings_prod_v1',
+  AUDIT_LOGS: 'zbt_logs_prod_v1',
+  EXCUSES: 'zbt_excuses_prod_v1',
+  SIMULATED_TIME: 'zbt_simulated_time_prod_v1',
+  CURRENT_USER: 'zbt_current_user_prod_v1',
+  NOTIFICATIONS: 'zbt_notifications_prod_v1',
+  ARCHIVES: 'zbt_attendance_archives_prod_v1'
 };
 
 export const NOTIFICATION_EVENT = 'attendance_notification_event';

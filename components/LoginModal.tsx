@@ -3,9 +3,8 @@ import { User, TeacherSessionValidation } from '../types';
 import { AttendanceService } from '../services/attendanceService';
 import { 
   GraduationCap, Lock, User as UserIcon, Shield, CheckCircle2, 
-  ArrowLeft, KeyRound, AlertTriangle, AlertCircle, RefreshCw, Users, Check
+  ArrowLeft, KeyRound, AlertTriangle, AlertCircle, Users, Check
 } from 'lucide-react';
-import { INITIAL_STUDENTS } from '../services/mockData';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -92,28 +91,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
     }, 300);
   };
 
-  const handleQuickLogin = (targetUsername: string, pass: string) => {
-    setUsername(targetUsername);
-    setPassword(pass);
-    const user = users.find(u => u.username === targetUsername);
+  const handleQuickAdminLogin = () => {
+    setUsername('admin');
+    setPassword('Aa12345');
+    const user = users.find(u => u.username === 'admin');
     if (user) {
-      if (user.role === 'teacher') {
-        const validation = AttendanceService.validateTeacherSessionData(user);
-        if (!validation.isValid) {
-          setSessionWarning({ user, validation });
-          return;
-        }
-      }
       completeLogin(user);
     }
-  };
-
-  const handleRestoreStudentsAndProceed = () => {
-    if (!sessionWarning) return;
-    // Restore default students from INITIAL_STUDENTS
-    localStorage.setItem('zbt_students_v2', JSON.stringify(INITIAL_STUDENTS));
-    AttendanceService.recalculateAllClassCounts();
-    completeLogin(sessionWarning.user);
   };
 
   return (
@@ -168,20 +152,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
             <div className="space-y-2 pt-2">
               <button
                 type="button"
-                onClick={handleRestoreStudentsAndProceed}
+                onClick={() => completeLogin(sessionWarning.user)}
                 className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-700/20 transition flex items-center justify-center gap-2"
               >
-                <RefreshCw className="w-4 h-4" />
-                <span>مزامنة واستعادة قوائم الطلاب الأصلية ومتابعة الدخول</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => completeLogin(sessionWarning.user)}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5"
-              >
-                <Check className="w-4 h-4 text-slate-500" />
-                <span>المتابعة إلى الكشف على أي حال</span>
+                <Check className="w-4 h-4" />
+                <span>المتابعة والدخول إلى كشف الرصد</span>
               </button>
 
               <button
@@ -212,73 +187,27 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
               <p className="text-xs text-emerald-200 mt-1">مدرسة زيد بن ثابت الابتدائية</p>
             </div>
 
-            {/* Quick Demo Accounts Selection */}
+            {/* Quick Admin Access Card */}
             <div className="p-6">
               <div className="mb-5">
-                <label className="text-xs font-bold text-slate-500 mb-2 block">
-                  حسابات تجريبية سريعة بنقرة واحدة:
-                </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {/* Admin Card */}
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('admin', 'Aa12345')}
-                    className="flex items-center justify-between p-3 rounded-2xl border border-amber-200 bg-amber-50/70 hover:bg-amber-100 hover:border-amber-400 transition text-right group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                        <Shield className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-black text-slate-900">إدارة المدرسة (المشرف / المدير)</div>
-                        <div className="text-[11px] text-amber-800 font-bold">لوحة التحكم المركزية (admin / Aa12345)</div>
-                      </div>
+                <button
+                  type="button"
+                  onClick={handleQuickAdminLogin}
+                  className="w-full flex items-center justify-between p-3.5 rounded-2xl border border-amber-200 bg-amber-50/80 hover:bg-amber-100 hover:border-amber-400 transition text-right group shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                      <Shield className="w-5 h-5" />
                     </div>
-                    <span className="text-xs text-amber-700 font-bold group-hover:translate-x-[-4px] transition flex items-center gap-1">
-                      دخول <ArrowLeft className="w-3.5 h-3.5" />
-                    </span>
-                  </button>
-
-                  {/* Teacher 1 Card */}
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('teacher1', '0550000001')}
-                    className="flex items-center justify-between p-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 hover:border-emerald-400 transition text-right group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                        <UserIcon className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-black text-slate-900">معلم الصف الثالث (1)</div>
-                        <div className="text-[11px] text-emerald-800 font-bold">كشف رصد الحصة الثانية (teacher1 / 0550000001)</div>
-                      </div>
+                    <div>
+                      <div className="text-xs font-black text-slate-900">إدارة المدرسة (المشرف / المدير)</div>
+                      <div className="text-[11px] text-amber-800 font-bold">دخول سريع للوحة التحكم المركزية (admin)</div>
                     </div>
-                    <span className="text-xs text-emerald-700 font-bold group-hover:translate-x-[-4px] transition flex items-center gap-1">
-                      دخول <ArrowLeft className="w-3.5 h-3.5" />
-                    </span>
-                  </button>
-
-                  {/* Teacher 2 Card */}
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('teacher2', '0550000002')}
-                    className="flex items-center justify-between p-3 rounded-2xl border border-teal-200 bg-teal-50/70 hover:bg-teal-100 hover:border-teal-400 transition text-right group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                        <UserIcon className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-black text-slate-900">معلم الصف الثالث (2)</div>
-                        <div className="text-[11px] text-teal-800 font-bold">كشف رصد الحصة الثانية (teacher2 / 0550000002)</div>
-                      </div>
-                    </div>
-                    <span className="text-xs text-teal-700 font-bold group-hover:translate-x-[-4px] transition flex items-center gap-1">
-                      دخول <ArrowLeft className="w-3.5 h-3.5" />
-                    </span>
-                  </button>
-                </div>
+                  </div>
+                  <span className="text-xs text-amber-700 font-bold group-hover:translate-x-[-4px] transition flex items-center gap-1">
+                    دخول <ArrowLeft className="w-3.5 h-3.5" />
+                  </span>
+                </button>
               </div>
 
               <div className="relative my-4 text-center">
@@ -286,7 +215,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
                   <div className="w-full border-t border-slate-200"></div>
                 </div>
                 <span className="relative bg-white px-3 text-[11px] font-bold text-slate-400">
-                  أو أدخل بيانات الحساب يدويًا
+                  أو تسجيل الدخول باسم المستخدم وكلمة المرور
                 </span>
               </div>
 

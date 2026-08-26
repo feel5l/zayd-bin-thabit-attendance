@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, SchoolClass, Student, StudentAttendanceItem, SchoolSettings, ClassAttendanceSubmission } from '../types';
 import { AttendanceService } from '../services/attendanceService';
-import { ABSENCE_REASONS, getTodayDateString, INITIAL_STUDENTS } from '../services/mockData';
+import { ABSENCE_REASONS, getTodayDateString } from '../services/mockData';
 import confetti from 'canvas-confetti';
 import { 
   CheckCircle2, 
@@ -22,8 +22,7 @@ import {
   Check,
   CheckCheck,
   Zap,
-  Loader2,
-  RefreshCw
+  Loader2
 } from 'lucide-react';
 
 interface TeacherAttendanceSheetProps {
@@ -312,28 +311,13 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
             </div>
             <div>
               <h4 className="text-sm font-black text-amber-950">
-                تنبيه: قائمة الطلاب لهذا الفصل فارغة (0 طالب)
+                قائمة الطلاب لهذا الفصل فارغة (0 طالب)
               </h4>
               <p className="text-xs text-amber-800 mt-0.5">
-                لم يتم العثور على أي طلاب مسجلين في شعبة <strong className="font-bold">{currentClass.name}</strong>. يرجى استعادة بيانات الطلاب أو التواصل مع الإدارة المدرسية.
+                لم يتم تسجيل أي طلاب في شعبة <strong className="font-bold">{currentClass.name}</strong> بعد. يمكنك إضافة الطلاب عبر شاشة إدارة الطلاب في لوحة الإدارة.
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.setItem('zbt_students_v2', JSON.stringify(INITIAL_STUDENTS));
-              AttendanceService.recalculateAllClassCounts();
-              const refreshed = AttendanceService.getStudents(currentClass.id);
-              setStudents(refreshed);
-              setQuickActionNotice('تمت استعادة ومزامنة بيانات الطلاب الأصلية بنجاح!');
-              setTimeout(() => setQuickActionNotice(null), 4000);
-            }}
-            className="px-4 py-2.5 bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>استعادة قائمة الطلاب المعتمدة الآن</span>
-          </button>
         </div>
       )}
 
