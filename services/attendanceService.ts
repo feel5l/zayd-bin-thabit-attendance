@@ -22,10 +22,12 @@ const STORAGE_KEYS = {
   SIMULATED_TIME: 'zbt_simulated_time_prod_v1',
   CURRENT_USER: 'zbt_current_user_prod_v1',
   NOTIFICATIONS: 'zbt_notifications_prod_v1',
-  ARCHIVES: 'zbt_attendance_archives_prod_v1'
+  ARCHIVES: 'zbt_attendance_archives_prod_v1',
+  TEACHER_REMINDERS: 'zbt_teacher_reminders_prod_v1'
 };
 
 export const NOTIFICATION_EVENT = 'attendance_notification_event';
+export const TEACHER_REMINDER_EVENT = 'attendance_teacher_reminder_event';
 
 
 export class AttendanceService {
@@ -446,6 +448,96 @@ export class AttendanceService {
     localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
   }
 
+  // --- Teacher Reminders & Alert Broadcast ---
+  static getTeacherReminders(): Record<string, { timestamp: string; teacherName: string; className: string; channel: 'whatsapp' | 'system' | 'broadcast' }> {
+    this.initStorage();
+    const data = localStorage.getItem(STORAGE_KEYS.TEACHER_REMINDERS);
+    if (!data) return {};
+    try {
+      return JSON.parse(data);
+    } catch {
+      return {};
+    }
+  }
+
+  static isTeacherRemindedToday(classId: string): boolean {
+    const reminders = this.getTeacherReminders();
+    const item = reminders[classId];
+    if (!item) return false;
+    const today = getTodayDateString();
+    return item.timestamp.startsWith(today);
+  }
+
+  static sendTeacherReminder(
+    classId: string, 
+    teacherName: string, 
+    className: string, 
+    channel: 'whatsapp' | 'system' | 'broadcast' = 'system',
+    performedBy?: User
+  ): void {
+    const reminders = this.getTeacherReminders();
+    reminders[classId] = {
+      timestamp: new Date().toISOString(),
+      teacherName,
+      className,
+      channel
+    };
+    localStorage.setItem(STORAGE_KEYS.TEACHER_REMINDERS, JSON.stringify(reminders));
+
+    if (performedBy) {
+      this.logAudit({
+        userId: performedBy.id,
+        userName: performedBy.name,
+        role: performedBy.role,
+        action: `إرسال تذكير (${channel === 'whatsapp' ? 'واتساب' : 'تنبيه فوري'}) للمعلم`,
+        details: `تم إرسال تذكير لرصد غياب الحصة الثانية للأستاذ: ${teacherName} (${className}) عبر ${channel === 'whatsapp' ? 'رابط الواتساب' : 'إشعار النظام الفوري'}`,
+        targetClass: className,
+        type: 'sms_sent'
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(TEACHER_REMINDER_EVENT, {
+        detail: { classId, teacherName, className, channel }
+      }));
+    }
+  }
+
+  static sendBroadcastTeacherReminders(
+    pendingClasses: { id: string; name: string; teacherName: string; teacherId: string }[],
+    performedBy?: User
+  ): void {
+    const reminders = this.getTeacherReminders();
+    const nowIso = new Date().toISOString();
+    
+    pendingClasses.forEach(c => {
+      reminders[c.id] = {
+        timestamp: nowIso,
+        teacherName: c.teacherName,
+        className: c.name,
+        channel: 'broadcast'
+      };
+    });
+    localStorage.setItem(STORAGE_KEYS.TEACHER_REMINDERS, JSON.stringify(reminders));
+
+    if (performedBy) {
+      this.logAudit({
+        userId: performedBy.id,
+        userName: performedBy.name,
+        role: performedBy.role,
+        action: 'تنبيه جماعي لجميع المعلمين المتأخرين',
+        details: `تم إرسال تذكير جماعي عاجل إلى (${pendingClasses.length}) معلمين لاستكمال رصد الحصة الثانية`,
+        type: 'sms_sent'
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(TEACHER_REMINDER_EVENT, {
+        detail: { count: pendingClasses.length, broadcast: true }
+      }));
+    }
+  }
+
   // Simulation generator for demo & testing
   static simulateTeacherSubmission(targetClassId?: string): AttendanceNotification {
     const classes = this.getClasses();
@@ -453,7 +545,7 @@ export class AttendanceService {
     
     // Pick class or default
     const cls = targetClassId ? classes.find(c => c.id === targetClassId) || classes[0] : classes[Math.floor(Math.random() * classes.length)];
-    const teacher = users.find(u => u.assignedClassId === cls.id) || users[0] || { id: 't-mock', name: 'أ. فهد الشمري', role: 'teacher' as const, username: 'teacher_mock' };
+    const teacher = users.find(u => u.assignedClassId === cls.id || u.id === cls.teacherId) || users[0] || { id: 't-mock', name: cls.teacherName || 'أ. فهد الشمري', role: 'teacher' as const, username: 'teacher_mock' };
     const classStudents = this.getStudents(cls.id);
 
     // Pick 1-2 absent, 1 excused, 1 late for rich demo
@@ -470,7 +562,7 @@ export class AttendanceService {
           studentName: st.name,
           status: 'absent',
           reason: 'بدون عذر مسبق',
-          notes: 'تم الاتصال بولي الأمر ولم يرد'
+          notes: 'تم التواصل مع ولي الأمر ولم يرد'
         };
       }
       if (absentStudent2 && st.id === absentStudent2.id && classStudents.length > 5) {
@@ -519,7 +611,7 @@ export class AttendanceService {
       className: cls.name,
       gradeLevel: cls.gradeLevel,
       teacherId: teacher.id,
-      teacherName: teacher.name,
+      teacherName: cls.teacherName || teacher.name,
       periodNumber: 2,
       submittedAt: new Date().toISOString(),
       totalStudents: classStudents.length,
@@ -536,6 +628,50 @@ export class AttendanceService {
     // Return latest generated notification
     const latestNotif = this.getNotifications()[0];
     return latestNotif;
+  }
+
+  // Reset today's submissions for clean testing
+  static resetTodaySubmissions(date: string = getTodayDateString()): void {
+    const subs = this.getSubmissions();
+    const filtered = subs.filter(s => s.date !== date);
+    localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(filtered));
+
+    // Clear today's teacher reminders
+    localStorage.removeItem(STORAGE_KEYS.TEACHER_REMINDERS);
+
+    this.logAudit({
+      userId: 'admin-1',
+      userName: 'إدارة المدرسة',
+      role: 'admin',
+      action: 'إعادة تعيين رصد اليوم (تصفير)',
+      details: `تمت إعادة تعيين وتصفير كشوفات غياب اليوم (${date}) لتمكين إعادة المحاكاة والاختبار`,
+      type: 'settings_change'
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(NOTIFICATION_EVENT, {
+        detail: { type: 'reset_today', date }
+      }));
+    }
+  }
+
+  // Batch simulation for multiple pending teachers
+  static simulateAllPendingTeachers(
+    date: string = getTodayDateString(),
+    onStep?: (className: string, teacherName: string, count: number) => void
+  ): number {
+    const classes = this.getClasses();
+    const todaySubs = this.getSubmissions(date);
+    const pendingClasses = classes.filter(c => !todaySubs.some(s => s.classId === c.id));
+    
+    pendingClasses.forEach((cls, idx) => {
+      this.simulateTeacherSubmission(cls.id);
+      if (onStep) {
+        onStep(cls.name, cls.teacherName, idx + 1);
+      }
+    });
+
+    return pendingClasses.length;
   }
 
 

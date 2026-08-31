@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, SchoolSettings, ClassAttendanceSubmission, SchoolClass } from '../types';
-import { AttendanceService } from '../services/attendanceService';
+import { AttendanceService, NOTIFICATION_EVENT } from '../services/attendanceService';
 import { getTodayDateString, getPastDateString } from '../services/mockData';
+import { TeacherReminderModal } from './TeacherReminderModal';
+import { TeacherLiveSimulationWidget } from './TeacherLiveSimulationWidget';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -42,7 +44,9 @@ import {
   ArrowUpRight,
   Archive,
   Database,
-  Zap
+  Zap,
+  Radio,
+  SlidersHorizontal
 } from 'lucide-react';
 
 
@@ -53,10 +57,11 @@ interface AdminDashboardProps {
   onOpenPrintReport: () => void;
   onOpenClassSheet: (classId: string) => void;
   onViewStudentProfile: (studentId: string) => void;
-  onNavigateToTab: (tab: string) => void;
+  onNavigateToTab: (tab) => void;
   onOpenPdfReport?: (type: 'daily' | 'monthly', date?: string) => void;
   onOpenArchivingModal?: () => void;
   onOpenTeacherAndClassManager?: () => void;
+  onSwitchToTeacher?: (teacherUser: User) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -69,12 +74,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onNavigateToTab,
   onOpenPdfReport,
   onOpenArchivingModal,
-  onOpenTeacherAndClassManager
+  onOpenTeacherAndClassManager,
+  onSwitchToTeacher
 }) => {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>('all');
   const [remindedTeachers, setRemindedTeachers] = useState<Record<string, boolean>>({});
+  const [isTeacherReminderModalOpen, setIsTeacherReminderModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string>('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showSimulatorPanel, setShowSimulatorPanel] = useState(true);
+
+  // Re-fetch on any teacher submission event
+  useEffect(() => {
+    const handleSubmissionsChange = () => {
+      setRefreshTrigger(prev => prev + 1);
+    };
+    window.addEventListener(NOTIFICATION_EVENT, handleSubmissionsChange);
+    return () => window.removeEventListener(NOTIFICATION_EVENT, handleSubmissionsChange);
+  }, []);
 
   const stats = AttendanceService.getTodaySchoolStats(selectedDate);
   const classes = AttendanceService.getClasses();
@@ -216,16 +234,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           <button
-            onClick={() => {
-              const notif = AttendanceService.simulateTeacherSubmission();
-              setToastMessage(`تمت محاكاة رفع كشف غياب الحصة الثانية لفصل (${notif.className}) بواسطة (${notif.teacherName}) بنجاح!`);
-              setTimeout(() => setToastMessage(''), 4500);
-            }}
-            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-amber-500/20"
-            title="تجربة فورية لإشعار التنبيه المنبثق عند رصد المعلم للغياب"
+            onClick={() => setShowSimulatorPanel(prev => !prev)}
+            className={`px-4 py-2 text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md ${
+              showSimulatorPanel 
+                ? 'bg-amber-400 text-slate-950 shadow-amber-400/20' 
+                : 'bg-indigo-700 hover:bg-indigo-600 text-white shadow-indigo-900/20'
+            }`}
+            title="إظهار/إخفاء لوحة محاكاة رصد المعلمين التفاعلية اللحظية"
           >
-            <PlayCircle className="w-4 h-4 text-slate-950" />
-            <span>محاكاة رصد معلم (تجربة الإشعار 🔔)</span>
+            <Radio className="w-4 h-4 animate-pulse" />
+            <span>{showSimulatorPanel ? 'محاكي المعلمين (نشط) ⚡' : 'فتح محاكي رصد المعلمين ⚡'}</span>
           </button>
 
           <button
@@ -280,14 +298,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
 
           <button
-            onClick={handleNudgeAllPending}
-            className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm"
+            onClick={() => setIsTeacherReminderModalOpen(true)}
+            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 border border-amber-400/60 text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-amber-500/20"
+            title="فتح مركز إرسال التنبيهات وتذكيرات الواتساب والنظام للمعلمين المتأخرين"
           >
-            <Bell className="w-4 h-4 text-amber-600" />
-            <span>تنبيه المعلمين</span>
+            <Bell className="w-4 h-4 text-slate-950 animate-bounce" />
+            <span>مركز تنبيه المعلمين ({stats.totalClasses - stats.submittedCount} متبقي) 📢</span>
           </button>
         </div>
       </div>
+
+      {/* Multi-Teacher Live Simulation Engine Widget */}
+      {showSimulatorPanel && (
+        <TeacherLiveSimulationWidget
+          currentUser={currentUser}
+          settings={settings}
+          onOpenClassSheet={onOpenClassSheet}
+          onSwitchToTeacher={onSwitchToTeacher}
+          onSimulationStep={() => setRefreshTrigger(p => p + 1)}
+        />
+      )}
 
       {/* Quick Administrative Management Hub */}
       <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 p-4 sm:p-5 rounded-3xl text-white shadow-xl flex flex-wrap items-center justify-between gap-4 border border-emerald-800/40">
@@ -790,6 +820,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
         </div>
       )}
+
+      {/* Teacher Reminder & Broadcast Modal */}
+      <TeacherReminderModal
+        isOpen={isTeacherReminderModalOpen}
+        onClose={() => setIsTeacherReminderModalOpen(false)}
+        currentUser={currentUser}
+        settings={settings}
+        simulatedTime={simulatedTime}
+        onOpenClassSheet={onOpenClassSheet}
+      />
     </div>
   );
 };

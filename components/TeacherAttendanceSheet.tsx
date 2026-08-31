@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, SchoolClass, Student, StudentAttendanceItem, SchoolSettings, ClassAttendanceSubmission } from '../types';
-import { AttendanceService } from '../services/attendanceService';
+import { AttendanceService, TEACHER_REMINDER_EVENT } from '../services/attendanceService';
 import { ABSENCE_REASONS, getTodayDateString } from '../services/mockData';
 import confetti from 'canvas-confetti';
 import { 
@@ -22,7 +22,8 @@ import {
   Check,
   CheckCheck,
   Zap,
-  Loader2
+  Loader2,
+  Bell
 } from 'lucide-react';
 
 interface TeacherAttendanceSheetProps {
@@ -51,10 +52,32 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [quickActionNotice, setQuickActionNotice] = useState<string | null>(null);
+  const [adminReminderAlert, setAdminReminderAlert] = useState<{ active: boolean; message?: string }>(() => ({
+    active: AttendanceService.isTeacherRemindedToday(selectedClassId)
+  }));
 
   const classes = AttendanceService.getClasses();
   const currentClass = classes.find(c => c.id === selectedClassId) || classes[0];
   const periodInfo = AttendanceService.isPeriod2Active(settings, simulatedTime || undefined);
+
+  // Listen to live admin reminder events
+  useEffect(() => {
+    setAdminReminderAlert({ active: AttendanceService.isTeacherRemindedToday(selectedClassId) });
+  }, [selectedClassId]);
+
+  useEffect(() => {
+    const handleReminderEvent = (e: any) => {
+      const detail = e.detail;
+      if (detail && (detail.broadcast || detail.classId === selectedClassId)) {
+        setAdminReminderAlert({ 
+          active: true, 
+          message: '📢 تنبيه عاجل من إدارة المدرسة: نرجو سرعة اعتماد كشف غياب الحصة الثانية لهذا اليوم!' 
+        });
+      }
+    };
+    window.addEventListener(TEACHER_REMINDER_EVENT, handleReminderEvent);
+    return () => window.removeEventListener(TEACHER_REMINDER_EVENT, handleReminderEvent);
+  }, [selectedClassId]);
 
   // Load students and existing submission on class change
   useEffect(() => {
@@ -244,6 +267,52 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Active Admin Reminder Alert Banner */}
+      {(!isSubmittedToday || adminReminderAlert.active) && (
+        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 p-4 sm:p-5 rounded-3xl text-slate-950 shadow-lg shadow-amber-500/20 border-2 border-amber-300 flex flex-wrap items-center justify-between gap-4 animate-in fade-in duration-300">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-white text-amber-700 flex items-center justify-center font-black shadow-inner shrink-0">
+              <Bell className="w-6 h-6 animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="bg-slate-950 text-amber-300 text-[10px] font-black px-2.5 py-0.5 rounded-full">
+                  تنبيه إدارة المدرسة 📢
+                </span>
+                <span className="text-xs font-bold text-slate-900">
+                  {currentClass?.name} ({currentClass?.teacherName})
+                </span>
+              </div>
+              <h4 className="text-sm sm:text-base font-black text-slate-950 mt-0.5">
+                {adminReminderAlert.message || 'نرجو سرعة اعتماد كشف غياب الحصة الثانية اليوم وإرساله للإدارة'}
+              </h4>
+              <p className="text-[11px] text-slate-900/80 font-medium">
+                تم تفعيل تنبيه مباشر لرصد غياب الطلاب للشعبة لضمان دقة الإحصائيات الميدانية والرسائل الفورية لأولياء الأمور
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleMarkAllPresent()}
+              className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-amber-300 text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>رصد الكل حاضر ⚡</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowConfirmModal(true)}
+              className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-950 text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md"
+            >
+              <FileCheck className="w-3.5 h-3.5 text-emerald-700" />
+              <span>اعتماد الكشف الآن ✓</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Second Period Timing Warning & Status Banner */}
       <div className={`p-5 rounded-3xl border shadow-sm transition ${
         periodInfo.isActive 

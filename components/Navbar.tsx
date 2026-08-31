@@ -35,6 +35,7 @@ interface NavbarProps {
   onOpenClassSheet?: (classId: string) => void;
   onOpenArchivingModal?: () => void;
   onOpenTeacherAndClassManager?: () => void;
+  onOpenTeacherReminderModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -50,7 +51,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   pendingClassesCount,
   onOpenClassSheet,
   onOpenArchivingModal,
-  onOpenTeacherAndClassManager
+  onOpenTeacherAndClassManager,
+  onOpenTeacherReminderModal
 }) => {
   const [currentDateStr, setCurrentDateStr] = useState('');
   const [currentTimeStr, setCurrentTimeStr] = useState('');
@@ -117,41 +119,47 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </div>
 
-        {/* Quick User Role Switcher */}
-        <div className="flex items-center gap-2">
-          <span className="text-emerald-200 text-[11px] font-medium hidden sm:inline">تبديل الحساب التجريبي:</span>
-          <div className="flex items-center gap-1 bg-emerald-900/60 p-0.5 rounded-lg border border-emerald-700/60 text-[11px]">
+        {/* Active User Indicator & Switch Modal Trigger */}
+        <div className="flex items-center gap-2.5">
+          {currentUser ? (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-black/20 px-2.5 py-1 rounded-xl border border-white/10 text-[11px]">
+                <span className="text-emerald-300 font-bold">الحساب الحالي:</span>
+                <span className="font-black text-white">
+                  {currentUser.role === 'admin' ? '👑 الإدارة المدرسية (المدير)' : `👨‍🏫 ${currentUser.name} (${currentUser.assignedClassName || 'معلم'})`}
+                </span>
+              </div>
+
+              {currentUser.role === 'admin' && onOpenTeacherReminderModal && (
+                <button
+                  type="button"
+                  onClick={onOpenTeacherReminderModal}
+                  className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] rounded-lg transition flex items-center gap-1 shadow-sm"
+                  title="فتح مركز إرسال التنبيهات وتذكير المعلمين"
+                >
+                  <Bell className="w-3 h-3 text-slate-950 animate-pulse" />
+                  <span>تنبيه المعلمين ({pendingClassesCount})</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={onOpenLoginModal}
+                className="px-2.5 py-1 bg-white/15 hover:bg-white/25 text-white font-bold text-[11px] rounded-lg transition border border-white/20 flex items-center gap-1"
+                title="تبديل الحساب (الدخول كمعلم أو إدارة)"
+              >
+                <span>تبديل الحساب</span>
+              </button>
+            </div>
+          ) : (
             <button
-              onClick={() => onQuickSwitchUser('admin')}
-              className={`px-2 py-0.5 rounded transition font-bold ${
-                currentUser?.username === 'admin' 
-                  ? 'bg-amber-400 text-slate-950 shadow-sm' 
-                  : 'text-emerald-200 hover:bg-emerald-800'
-              }`}
+              type="button"
+              onClick={onOpenLoginModal}
+              className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-lg transition flex items-center gap-1 shadow-sm"
             >
-              المدير (admin)
+              <span>تسجيل الدخول</span>
             </button>
-            <button
-              onClick={() => onQuickSwitchUser('teacher1')}
-              className={`px-2 py-0.5 rounded transition font-bold ${
-                currentUser?.username === 'teacher1' 
-                  ? 'bg-emerald-400 text-slate-950 shadow-sm' 
-                  : 'text-emerald-200 hover:bg-emerald-800'
-              }`}
-            >
-              معلم (ثالث 1)
-            </button>
-            <button
-              onClick={() => onQuickSwitchUser('teacher2')}
-              className={`px-2 py-0.5 rounded transition font-bold ${
-                currentUser?.username === 'teacher2' 
-                  ? 'bg-teal-300 text-slate-950 shadow-sm' 
-                  : 'text-emerald-200 hover:bg-emerald-800'
-              }`}
-            >
-              معلم (ثالث 2)
-            </button>
-          </div>
+          )}
         </div>
       </div>
 

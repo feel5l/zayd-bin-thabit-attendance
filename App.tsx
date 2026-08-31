@@ -16,6 +16,7 @@ import { ToastNotificationContainer } from './components/ToastNotificationContai
 import { PdfReportsExportModal } from './components/PdfReportsExportModal';
 import { DataArchivingModal } from './components/DataArchivingModal';
 import { TeacherAndClassManagerModal } from './components/TeacherAndClassManagerModal';
+import { TeacherReminderModal } from './components/TeacherReminderModal';
 import { GraduationCap, ShieldAlert, Sparkles, BookOpen, Clock, Heart } from 'lucide-react';
 import { getTodayDateString } from './services/mockData';
 
@@ -37,6 +38,7 @@ export const App: React.FC = () => {
   const [isPrintReportOpen, setIsPrintReportOpen] = useState(false);
   const [isArchivingModalOpen, setIsArchivingModalOpen] = useState(false);
   const [isTeacherAndClassModalOpen, setIsTeacherAndClassModalOpen] = useState(false);
+  const [isTeacherReminderModalOpen, setIsTeacherReminderModalOpen] = useState(false);
   const [pdfReportModal, setPdfReportModal] = useState<{
     isOpen: boolean;
     type: 'daily' | 'monthly';
@@ -102,6 +104,12 @@ export const App: React.FC = () => {
     setActiveTab('attendance');
   };
 
+  const handleSwitchToTeacher = (teacher: User) => {
+    AttendanceService.setCurrentUser(teacher);
+    setCurrentUser(teacher);
+    setActiveTab('attendance');
+  };
+
   const stats = AttendanceService.getTodaySchoolStats();
 
   return (
@@ -138,6 +146,7 @@ export const App: React.FC = () => {
         onOpenClassSheet={handleOpenClassSheetFromAdmin}
         onOpenArchivingModal={() => setIsArchivingModalOpen(true)}
         onOpenTeacherAndClassManager={() => setIsTeacherAndClassModalOpen(true)}
+        onOpenTeacherReminderModal={() => setIsTeacherReminderModalOpen(true)}
       />
 
 
@@ -158,6 +167,7 @@ export const App: React.FC = () => {
                 onNavigateToTab={(tab) => setActiveTab(tab)}
                 onOpenArchivingModal={() => setIsArchivingModalOpen(true)}
                 onOpenTeacherAndClassManager={() => setIsTeacherAndClassModalOpen(true)}
+                onSwitchToTeacher={handleSwitchToTeacher}
               />
             )}
 
@@ -286,6 +296,18 @@ export const App: React.FC = () => {
           onClose={() => setIsArchivingModalOpen(false)}
           currentUser={currentUser}
           onDataChanged={() => setRefreshTrigger(prev => prev + 1)}
+        />
+      )}
+
+      {/* Teacher Reminder & Broadcast Modal */}
+      {isTeacherReminderModalOpen && currentUser && (
+        <TeacherReminderModal
+          isOpen={isTeacherReminderModalOpen}
+          onClose={() => setIsTeacherReminderModalOpen(false)}
+          currentUser={currentUser}
+          settings={settings}
+          simulatedTime={simulatedTime}
+          onOpenClassSheet={handleOpenClassSheetFromAdmin}
         />
       )}
 
