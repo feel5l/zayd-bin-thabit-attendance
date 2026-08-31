@@ -11,6 +11,9 @@ export interface User {
   avatar?: string;
   phone?: string;
   subject?: string;
+  email?: string;
+  nationalId?: string;
+  sequenceNumber?: number;
 }
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
@@ -82,6 +85,9 @@ export interface SchoolClass {
   teacherId: string;
   teacherName: string;
   studentCount: number;
+  capacity?: number;
+  attendancePeriod?: number;
+  academicYear?: string;
   color: string;
 }
 
@@ -269,5 +275,69 @@ export interface TeacherSessionValidation {
     periodTime: string;
   };
 }
+
+export type WeekDayKey = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday';
+
+export interface DayPeriodAssignment {
+  id: string;
+  classId: string;
+  className: string; // e.g. "الصف الرابع - أ" or "رابع 1"
+  day: WeekDayKey; // 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday'
+  dayArabic: string; // 'الأحد' | 'الإثنين' | 'الثلاثاء' | 'الأربعاء' | 'الخميس'
+  teacherId: string;
+  teacherName: string;
+  periodNumber: number; // usually 2 (الحصة الثانية)
+  subject?: string;
+  notes?: string;
+}
+
+export interface DayOfWeekOption {
+  key: WeekDayKey;
+  label: string; // 'الأحد', 'الإثنين', إلخ
+  index: number; // 0 for Sunday, 1 for Monday, etc.
+}
+
+export type ContactCategory = 'parent' | 'teacher' | 'admin' | 'official' | 'medical' | 'other';
+
+export interface ContactItem {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  category: ContactCategory;
+  roleDescription?: string; // e.g. "ولي أمر الطالب: خالد الحربي (رابع 1)" or "معلم الرياضيات"
+  studentId?: string;
+  studentName?: string;
+  className?: string;
+  address?: string;
+  notes?: string;
+  isFavorite?: boolean;
+  googleResourceName?: string; // e.g. "people/c123456"
+  googleETag?: string;
+  lastUpdated: string; // ISO Timestamp
+}
+
+export interface GoogleContactPerson {
+  resourceName: string;
+  etag?: string;
+  names?: { displayName?: string; givenName?: string; familyName?: string }[];
+  phoneNumbers?: { value?: string; type?: string; canonicalForm?: string }[];
+  emailAddresses?: { value?: string; type?: string }[];
+  organizations?: { name?: string; title?: string; department?: string }[];
+  biographies?: { value?: string }[];
+  photos?: { url?: string }[];
+}
+
+export interface ContactsSyncStats {
+  totalContacts: number;
+  parentsCount: number;
+  teachersCount: number;
+  adminCount: number;
+  officialCount: number;
+  googleSyncedCount: number;
+  favoritesCount: number;
+}
+
+
 
 

@@ -3,68 +3,407 @@ import {
   SchoolSettings, AuditLog, AbsenceExcuseRequest, 
   StudentAttendanceItem, PeriodSchedule, AttendanceNotification, AbsentStudentDetail,
   MonthlyReportData, MonthlyClassReportItem, MonthlyStudentAbsenceSummary,
-  AttendanceArchiveBatch, ArchiveAnalytics, TeacherSessionValidation
+  AttendanceArchiveBatch, ArchiveAnalytics, TeacherSessionValidation,
+  DayPeriodAssignment, WeekDayKey, DayOfWeekOption
 } from '../types';
 import { 
   INITIAL_USERS, INITIAL_CLASSES, INITIAL_STUDENTS, 
   INITIAL_SUBMISSIONS, INITIAL_SETTINGS, INITIAL_AUDIT_LOGS, 
   INITIAL_EXCUSES, INITIAL_PERIODS, getTodayDateString, getPastDateString 
-} from './mockData';
+} from './initialData';
 
 const STORAGE_KEYS = {
-  USERS: 'zbt_users_prod_v1',
-  CLASSES: 'zbt_classes_prod_v1',
-  STUDENTS: 'zbt_students_prod_v1',
-  SUBMISSIONS: 'zbt_submissions_prod_v1',
-  SETTINGS: 'zbt_settings_prod_v1',
-  AUDIT_LOGS: 'zbt_logs_prod_v1',
-  EXCUSES: 'zbt_excuses_prod_v1',
-  SIMULATED_TIME: 'zbt_simulated_time_prod_v1',
-  CURRENT_USER: 'zbt_current_user_prod_v1',
-  NOTIFICATIONS: 'zbt_notifications_prod_v1',
-  ARCHIVES: 'zbt_attendance_archives_prod_v1',
-  TEACHER_REMINDERS: 'zbt_teacher_reminders_prod_v1'
+  USERS: 'zbt_users_prod_v2',
+  CLASSES: 'zbt_classes_prod_v2',
+  STUDENTS: 'zbt_students_prod_v2',
+  SUBMISSIONS: 'zbt_submissions_prod_v2',
+  SETTINGS: 'zbt_settings_prod_v2',
+  AUDIT_LOGS: 'zbt_logs_prod_v2',
+  EXCUSES: 'zbt_excuses_prod_v2',
+  SIMULATED_TIME: 'zbt_simulated_time_prod_v2',
+  CURRENT_USER: 'zbt_current_user_prod_v2',
+  NOTIFICATIONS: 'zbt_notifications_prod_v2',
+  ARCHIVES: 'zbt_attendance_archives_prod_v2',
+  TEACHER_REMINDERS: 'zbt_teacher_reminders_prod_v2',
+  PERIOD_ASSIGNMENTS: 'zbt_period_assignments_prod_v2',
+  LAST_ACTIVITY: 'zbt_last_activity_prod_v2'
 };
 
 export const NOTIFICATION_EVENT = 'attendance_notification_event';
 export const TEACHER_REMINDER_EVENT = 'attendance_teacher_reminder_event';
+export const SESSION_TIMEOUT_EVENT = 'attendance_session_timeout_event';
+
+export const WEEKDAYS_LIST: { key: WeekDayKey; label: string; index: number }[] = [
+  { key: 'sunday', label: 'الأحد', index: 0 },
+  { key: 'monday', label: 'الإثنين', index: 1 },
+  { key: 'tuesday', label: 'الثلاثاء', index: 2 },
+  { key: 'wednesday', label: 'الأربعاء', index: 3 },
+  { key: 'thursday', label: 'الخميس', index: 4 }
+];
+
 
 
 export class AttendanceService {
+  // --- In-Memory Fast Cache Layer ---
+  private static _initialized = false;
+  private static _cacheUsers: User[] | null = null;
+  private static _cacheClasses: SchoolClass[] | null = null;
+  private static _cacheStudents: Student[] | null = null;
+  private static _cacheSubmissions: ClassAttendanceSubmission[] | null = null;
+  private static _cacheSettings: SchoolSettings | null = null;
+  private static _cacheAuditLogs: AuditLog[] | null = null;
+  private static _cacheExcuses: AbsenceExcuseRequest[] | null = null;
+  private static _cachePeriodAssignments: DayPeriodAssignment[] | null = null;
+  private static _cacheNotifications: AttendanceNotification[] | null = null;
+  private static _cacheTeacherReminders: Record<string, any> | null = null;
+  private static _cacheCurrentUser: User | null = null;
+  private static _currentUserLoaded = false;
+
   // --- Initialization & Local Storage ---
   static initStorage(): void {
-    if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));
+    if (this._initialized) return;
+    this._initialized = true;
+
+    // Purge legacy mock data if present
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const legacyKeys = [
+          'zbt_users_prod_v1',
+          'zbt_classes_prod_v1',
+          'zbt_students_prod_v1',
+          'zbt_submissions_prod_v1',
+          'zbt_settings_prod_v1',
+          'zbt_logs_prod_v1',
+          'zbt_excuses_prod_v1',
+          'zbt_current_user_prod_v1',
+          'zbt_contacts_prod_v1'
+        ];
+        legacyKeys.forEach(k => {
+          if (localStorage.getItem(k)) {
+            localStorage.removeItem(k);
+          }
+        });
+      }
+    } catch (e) {}
+
+    // 1. Users (Leadership: Ziyad Al-Otaibi & Mohammed Al-Zamami)
+    const storedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+    if (!storedUsers) {
+      this._cacheUsers = INITIAL_USERS;
+      try { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS)); } catch (e) {}
+    } else {
+      try {
+        const parsed: User[] = JSON.parse(storedUsers);
+        this._cacheUsers = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_USERS;
+      } catch (e) {
+        this._cacheUsers = INITIAL_USERS;
+        try { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS)); } catch (err) {}
+      }
     }
-    if (!localStorage.getItem(STORAGE_KEYS.CLASSES)) {
-      localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(INITIAL_CLASSES));
+
+    // 2. Classes
+    const storedClasses = localStorage.getItem(STORAGE_KEYS.CLASSES);
+    if (!storedClasses) {
+      this._cacheClasses = INITIAL_CLASSES;
+      try { localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(INITIAL_CLASSES)); } catch (e) {}
+    } else {
+      try {
+        const parsed: SchoolClass[] = JSON.parse(storedClasses);
+        this._cacheClasses = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_CLASSES;
+      } catch (e) {
+        this._cacheClasses = INITIAL_CLASSES;
+        try { localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(INITIAL_CLASSES)); } catch (err) {}
+      }
     }
-    if (!localStorage.getItem(STORAGE_KEYS.STUDENTS)) {
-      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(INITIAL_STUDENTS));
+
+    // 3. Students
+    const storedStudents = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+    if (!storedStudents) {
+      this._cacheStudents = INITIAL_STUDENTS;
+      try { localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(INITIAL_STUDENTS)); } catch (e) {}
+    } else {
+      try {
+        const parsed: Student[] = JSON.parse(storedStudents);
+        this._cacheStudents = Array.isArray(parsed) ? parsed : INITIAL_STUDENTS;
+      } catch (e) {
+        this._cacheStudents = INITIAL_STUDENTS;
+        try { localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(INITIAL_STUDENTS)); } catch (err) {}
+      }
     }
+
+    // Recalculate class student counts in memory
+    if (this._cacheClasses && this._cacheStudents) {
+      const studentCountMap: Record<string, number> = {};
+      this._cacheStudents.forEach(s => {
+        if (s.classId) {
+          studentCountMap[s.classId] = (studentCountMap[s.classId] || 0) + 1;
+        }
+      });
+      let updated = false;
+      this._cacheClasses.forEach(c => {
+        const count = studentCountMap[c.id] || 0;
+        if (c.studentCount !== count) {
+          c.studentCount = count;
+          updated = true;
+        }
+      });
+      if (updated) {
+        try { localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(this._cacheClasses)); } catch (e) {}
+      }
+    }
+
+    // Submissions
     if (!localStorage.getItem(STORAGE_KEYS.SUBMISSIONS)) {
-      localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(INITIAL_SUBMISSIONS));
+      this._cacheSubmissions = INITIAL_SUBMISSIONS;
+      try { localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(INITIAL_SUBMISSIONS)); } catch (e) {}
     }
+    // Settings
     if (!localStorage.getItem(STORAGE_KEYS.SETTINGS)) {
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(INITIAL_SETTINGS));
+      this._cacheSettings = INITIAL_SETTINGS;
+      try { localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(INITIAL_SETTINGS)); } catch (e) {}
     }
+    // Audit Logs
     if (!localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS)) {
-      localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(INITIAL_AUDIT_LOGS));
+      this._cacheAuditLogs = INITIAL_AUDIT_LOGS;
+      try { localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(INITIAL_AUDIT_LOGS)); } catch (e) {}
     }
+    // Excuses
     if (!localStorage.getItem(STORAGE_KEYS.EXCUSES)) {
-      localStorage.setItem(STORAGE_KEYS.EXCUSES, JSON.stringify(INITIAL_EXCUSES));
+      this._cacheExcuses = INITIAL_EXCUSES;
+      try { localStorage.setItem(STORAGE_KEYS.EXCUSES, JSON.stringify(INITIAL_EXCUSES)); } catch (e) {}
+    }
+    // Period Assignments
+    if (!localStorage.getItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS)) {
+      this.initDefaultPeriodAssignments();
     }
   }
+
+  // --- Day-by-Day Period 2 Teacher Assignments Engine ---
+  static initDefaultPeriodAssignments(): void {
+    const classes = this.getClasses();
+    const teachers = this.getUsers().filter(u => u.role === 'teacher');
+    if (classes.length === 0 || teachers.length === 0) return;
+
+    const assignments: DayPeriodAssignment[] = [];
+
+    // Helper day map
+    const days: { key: WeekDayKey; label: string }[] = [
+      { key: 'sunday', label: 'الأحد' },
+      { key: 'monday', label: 'الإثنين' },
+      { key: 'tuesday', label: 'الثلاثاء' },
+      { key: 'wednesday', label: 'الأربعاء' },
+      { key: 'thursday', label: 'الخميس' }
+    ];
+
+    // Build standard weekly assignments for each class across all 5 school days
+    classes.forEach((cls, classIndex) => {
+      days.forEach((day, dayIndex) => {
+        const teacherOffset = (classIndex + dayIndex) % teachers.length;
+        const assignedTeacher = teachers[teacherOffset];
+
+        assignments.push({
+          id: `assign_${cls.id}_${day.key}`,
+          classId: cls.id,
+          className: cls.name,
+          day: day.key,
+          dayArabic: day.label,
+          teacherId: assignedTeacher.id,
+          teacherName: assignedTeacher.name,
+          periodNumber: 2,
+          subject: assignedTeacher.subject || 'الحصة الثانية',
+          notes: `جدول الحصة الثانية ليوم ${day.label}`
+        });
+      });
+    });
+
+    this._cachePeriodAssignments = assignments;
+    try { localStorage.setItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS, JSON.stringify(assignments)); } catch (e) {}
+  }
+
+  static getPeriodAssignments(): DayPeriodAssignment[] {
+    this.initStorage();
+    if (this._cachePeriodAssignments) {
+      return this._cachePeriodAssignments;
+    }
+    const data = localStorage.getItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS);
+    if (!data) {
+      this.initDefaultPeriodAssignments();
+      return this._cachePeriodAssignments || [];
+    }
+    try {
+      this._cachePeriodAssignments = JSON.parse(data);
+      return this._cachePeriodAssignments || [];
+    } catch {
+      return [];
+    }
+  }
+
+  static savePeriodAssignment(assignment: DayPeriodAssignment, performedBy?: User): void {
+    const assignments = [...this.getPeriodAssignments()];
+    const index = assignments.findIndex(a => 
+      a.id === assignment.id || 
+      (a.classId === assignment.classId && a.day === assignment.day && a.periodNumber === assignment.periodNumber)
+    );
+
+    if (index >= 0) {
+      assignments[index] = { ...assignments[index], ...assignment };
+    } else {
+      assignments.push(assignment);
+    }
+
+    this._cachePeriodAssignments = assignments;
+    try { localStorage.setItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS, JSON.stringify(assignments)); } catch (e) {}
+
+    if (performedBy) {
+      this.logAudit({
+        userId: performedBy.id,
+        userName: performedBy.name,
+        role: performedBy.role,
+        action: 'تحديث جدول إسناد الحصة الثانية',
+        details: `تم إسناد فصل (${assignment.className}) ليوم (${assignment.dayArabic}) إلى المعلم: ${assignment.teacherName}`,
+        type: 'settings_change'
+      });
+    }
+  }
+
+  static saveAllPeriodAssignments(assignments: DayPeriodAssignment[], performedBy?: User): void {
+    this._cachePeriodAssignments = assignments;
+    try { localStorage.setItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS, JSON.stringify(assignments)); } catch (e) {}
+    if (performedBy) {
+      this.logAudit({
+        userId: performedBy.id,
+        userName: performedBy.name,
+        role: performedBy.role,
+        action: 'تحديث الجدول الأسبوعي لإسناد الحصة الثانية',
+        details: `تم حفظ وتحديث الجدول الأسبوعي الشامل لتوزيع المعلمين على الفصول في الحصة الثانية (${assignments.length} إسناد).`,
+        type: 'settings_change'
+      });
+    }
+  }
+
+  /**
+   * Returns current day-of-week key: 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday'
+   * Defaults to 'sunday' if today is weekend (Friday/Saturday) for smooth previewing
+   */
+  static getCurrentDayKey(): { key: WeekDayKey; label: string } {
+    const d = new Date();
+    const dayNum = d.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday
+    switch (dayNum) {
+      case 0: return { key: 'sunday', label: 'الأحد' };
+      case 1: return { key: 'monday', label: 'الإثنين' };
+      case 2: return { key: 'tuesday', label: 'الثلاثاء' };
+      case 3: return { key: 'wednesday', label: 'الأربعاء' };
+      case 4: return { key: 'thursday', label: 'الخميس' };
+      default: return { key: 'sunday', label: 'الأحد (يوم عمل تجريبي)' };
+    }
+  }
+
+  /**
+   * Get the assigned class for a teacher for a specific day (default: current day)
+   */
+  static getTeacherAssignedClassForDay(teacherId: string, dayKey?: WeekDayKey): SchoolClass | null {
+    const currentDay = dayKey || this.getCurrentDayKey().key;
+    const assignments = this.getPeriodAssignments();
+    const match = assignments.find(a => a.teacherId === teacherId && a.day === currentDay && a.periodNumber === 2);
+    
+    const classes = this.getClasses();
+    if (match) {
+      const foundCls = classes.find(c => c.id === match.classId);
+      if (foundCls) return foundCls;
+    }
+
+    // Fallback: If no day assignment, check static assignedClassId on user profile
+    const users = this.getUsers();
+    const teacher = users.find(u => u.id === teacherId);
+    if (teacher?.assignedClassId) {
+      const staticCls = classes.find(c => c.id === teacher.assignedClassId);
+      if (staticCls) return staticCls;
+    }
+
+    return null;
+  }
+
+  /**
+   * Get the teacher assigned to a specific class for a specific day
+   */
+  static getClassAssignedTeacherForDay(classId: string, dayKey?: WeekDayKey): User | null {
+    const currentDay = dayKey || this.getCurrentDayKey().key;
+    const assignments = this.getPeriodAssignments();
+    const match = assignments.find(a => a.classId === classId && a.day === currentDay && a.periodNumber === 2);
+    
+    const users = this.getUsers();
+    if (match) {
+      const foundTeacher = users.find(u => u.id === match.teacherId);
+      if (foundTeacher) return foundTeacher;
+    }
+
+    // Fallback: class default teacherId
+    const classes = this.getClasses();
+    const cls = classes.find(c => c.id === classId);
+    if (cls?.teacherId) {
+      const defaultTeacher = users.find(u => u.id === cls.teacherId);
+      if (defaultTeacher) return defaultTeacher;
+    }
+
+    return null;
+  }
+
+  /**
+   * Get full weekly schedule for a teacher (all 5 days)
+   */
+  static getTeacherWeeklySchedule(teacherId: string): { day: WeekDayKey; dayArabic: string; classItem: SchoolClass | null }[] {
+    const days = WEEKDAYS_LIST;
+    const assignments = this.getPeriodAssignments();
+    const classes = this.getClasses();
+
+    return days.map(d => {
+      const match = assignments.find(a => a.teacherId === teacherId && a.day === d.key && a.periodNumber === 2);
+      const classItem = match ? classes.find(c => c.id === match.classId) || null : null;
+      return {
+        day: d.key,
+        dayArabic: d.label,
+        classItem
+      };
+    });
+  }
+
+  // --- Session Inactivity Timeout (30 minutes) ---
+  static updateLastActivity(): void {
+    try { localStorage.setItem(STORAGE_KEYS.LAST_ACTIVITY, Date.now().toString()); } catch (e) {}
+  }
+
+  static getLastActivity(): number {
+    const item = localStorage.getItem(STORAGE_KEYS.LAST_ACTIVITY);
+    return item ? parseInt(item, 10) : Date.now();
+  }
+
+  static checkSessionExpired(timeoutMinutes: number = 30): boolean {
+    const currentUser = this.getCurrentUser();
+    if (!currentUser) return false;
+    const last = this.getLastActivity();
+    const now = Date.now();
+    const timeoutMs = timeoutMinutes * 60 * 1000;
+    return (now - last) > timeoutMs;
+  }
+
 
   // --- Users & Auth ---
   static getUsers(): User[] {
     this.initStorage();
+    if (this._cacheUsers) return this._cacheUsers;
     const data = localStorage.getItem(STORAGE_KEYS.USERS);
-    return data ? JSON.parse(data) : INITIAL_USERS;
+    if (!data) return INITIAL_USERS;
+    try {
+      const parsed = JSON.parse(data);
+      this._cacheUsers = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_USERS;
+      return this._cacheUsers;
+    } catch {
+      return INITIAL_USERS;
+    }
   }
 
   static saveUser(user: User, performedBy?: User): void {
-    const users = this.getUsers();
+    const users = [...this.getUsers()];
     const idx = users.findIndex(u => u.id === user.id);
     const isNew = idx === -1;
     if (isNew) {
@@ -72,16 +411,18 @@ export class AttendanceService {
     } else {
       users[idx] = user;
     }
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    this._cacheUsers = users;
+    try { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users)); } catch (e) {}
 
     // If teacher is assigned to a class, sync the class's teacher info
     if (user.assignedClassId) {
-      const classes = this.getClasses();
+      const classes = [...this.getClasses()];
       const targetCls = classes.find(c => c.id === user.assignedClassId);
       if (targetCls) {
         targetCls.teacherId = user.id;
         targetCls.teacherName = user.name;
-        localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classes));
+        this._cacheClasses = classes;
+        try { localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classes)); } catch (e) {}
       }
     }
 
@@ -98,19 +439,20 @@ export class AttendanceService {
   }
 
   static deleteUser(userId: string, performedBy?: User): void {
-    let users = this.getUsers();
-    const target = users.find(u => u.id === userId);
-    users = users.filter(u => u.id !== userId);
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    let users = this.getUsers().filter(u => u.id !== userId);
+    const target = this.getUsers().find(u => u.id === userId);
+    this._cacheUsers = users;
+    try { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users)); } catch (e) {}
 
     // If teacher was assigned to class, clear assignment
     if (target?.assignedClassId) {
-      const classes = this.getClasses();
+      const classes = [...this.getClasses()];
       const cls = classes.find(c => c.id === target.assignedClassId);
       if (cls && cls.teacherId === userId) {
         cls.teacherId = '';
         cls.teacherName = 'لم يُحدد مربي الفصل';
-        localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classes));
+        this._cacheClasses = classes;
+        try { localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classes)); } catch (e) {}
       }
     }
 
@@ -127,20 +469,27 @@ export class AttendanceService {
   }
 
   static getCurrentUser(): User | null {
+    if (this._currentUserLoaded) return this._cacheCurrentUser;
     const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    this._currentUserLoaded = true;
     if (data) {
       try {
-        return JSON.parse(data);
+        this._cacheCurrentUser = JSON.parse(data);
+        return this._cacheCurrentUser;
       } catch (e) {
+        this._cacheCurrentUser = null;
         return null;
       }
     }
+    this._cacheCurrentUser = null;
     return null;
   }
 
   static setCurrentUser(user: User | null): void {
+    this._cacheCurrentUser = user;
+    this._currentUserLoaded = true;
     if (user) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      try { localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user)); } catch (e) {}
       this.logAudit({
         userId: user.id,
         userName: user.name,
@@ -150,19 +499,27 @@ export class AttendanceService {
         type: 'login'
       });
     } else {
-      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      try { localStorage.removeItem(STORAGE_KEYS.CURRENT_USER); } catch (e) {}
     }
   }
 
   // --- Classes & Students ---
   static getClasses(): SchoolClass[] {
     this.initStorage();
+    if (this._cacheClasses) return this._cacheClasses;
     const data = localStorage.getItem(STORAGE_KEYS.CLASSES);
-    return data ? JSON.parse(data) : INITIAL_CLASSES;
+    if (!data) return INITIAL_CLASSES;
+    try {
+      const parsed = JSON.parse(data);
+      this._cacheClasses = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_CLASSES;
+      return this._cacheClasses;
+    } catch {
+      return INITIAL_CLASSES;
+    }
   }
 
   static saveClass(schoolClass: SchoolClass, performedBy?: User): void {
-    const classes = this.getClasses();
+    const classes = [...this.getClasses()];
     const idx = classes.findIndex(c => c.id === schoolClass.id);
     const isNew = idx === -1;
     
@@ -175,16 +532,18 @@ export class AttendanceService {
     } else {
       classes[idx] = schoolClass;
     }
-    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classes));
+    this._cacheClasses = classes;
+    try { localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classes)); } catch (e) {}
 
     // Sync teacher's assigned class if assigned
     if (schoolClass.teacherId) {
-      const users = this.getUsers();
+      const users = [...this.getUsers()];
       const teacher = users.find(u => u.id === schoolClass.teacherId);
       if (teacher) {
         teacher.assignedClassId = schoolClass.id;
         teacher.assignedClassName = `${schoolClass.gradeLevel} (${schoolClass.section})`;
-        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+        this._cacheUsers = users;
+        try { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users)); } catch (e) {}
       }
     }
 
@@ -202,10 +561,10 @@ export class AttendanceService {
   }
 
   static deleteClass(classId: string, performedBy?: User): void {
-    let classes = this.getClasses();
-    const target = classes.find(c => c.id === classId);
-    classes = classes.filter(c => c.id !== classId);
-    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classes));
+    let classes = this.getClasses().filter(c => c.id !== classId);
+    const target = this.getClasses().find(c => c.id === classId);
+    this._cacheClasses = classes;
+    try { localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classes)); } catch (e) {}
 
     if (performedBy && target) {
       this.logAudit({
@@ -221,18 +580,37 @@ export class AttendanceService {
   }
 
   static recalculateAllClassCounts(): void {
-    const classes = this.getClasses();
+    const classes = [...this.getClasses()];
     const students = this.getStudents();
-    classes.forEach(c => {
-      c.studentCount = students.filter(s => s.classId === c.id).length;
+    const countMap: Record<string, number> = {};
+    students.forEach(s => {
+      if (s.classId) countMap[s.classId] = (countMap[s.classId] || 0) + 1;
     });
-    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classes));
+    classes.forEach(c => {
+      c.studentCount = countMap[c.id] || 0;
+    });
+    this._cacheClasses = classes;
+    try { localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classes)); } catch (e) {}
   }
 
   static getStudents(classId?: string): Student[] {
     this.initStorage();
-    const data = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-    const list: Student[] = data ? JSON.parse(data) : INITIAL_STUDENTS;
+    let list = this._cacheStudents;
+    if (!list) {
+      const data = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+      if (data) {
+        try {
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            list = parsed;
+          }
+        } catch {
+          list = INITIAL_STUDENTS;
+        }
+      }
+      if (!list) list = INITIAL_STUDENTS;
+      this._cacheStudents = list;
+    }
     if (classId) {
       return list.filter(s => s.classId === classId);
     }
@@ -240,7 +618,7 @@ export class AttendanceService {
   }
 
   static saveStudent(student: Student, performedBy?: User): void {
-    const students = this.getStudents();
+    const students = [...this.getStudents()];
     const idx = students.findIndex(s => s.id === student.id);
     const isNew = idx === -1;
     if (isNew) {
@@ -248,7 +626,8 @@ export class AttendanceService {
     } else {
       students[idx] = student;
     }
-    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+    this._cacheStudents = students;
+    try { localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students)); } catch (e) {}
     
     // Recalculate class counts
     this.recalculateAllClassCounts();
@@ -267,7 +646,7 @@ export class AttendanceService {
   }
 
   static transferStudent(studentId: string, targetClassId: string, performedBy?: User): Student | null {
-    const students = this.getStudents();
+    const students = [...this.getStudents()];
     const student = students.find(s => s.id === studentId);
     if (!student) return null;
 
@@ -280,7 +659,8 @@ export class AttendanceService {
     student.className = targetClass.shortName;
     student.gradeLevel = targetClass.gradeLevel;
 
-    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+    this._cacheStudents = students;
+    try { localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students)); } catch (e) {}
     this.recalculateAllClassCounts();
 
     if (performedBy) {
@@ -299,10 +679,10 @@ export class AttendanceService {
   }
 
   static deleteStudent(studentId: string, performedBy?: User): void {
-    let students = this.getStudents();
-    const student = students.find(s => s.id === studentId);
-    students = students.filter(s => s.id !== studentId);
-    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+    let students = this.getStudents().filter(s => s.id !== studentId);
+    const student = this.getStudents().find(s => s.id === studentId);
+    this._cacheStudents = students;
+    try { localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students)); } catch (e) {}
 
     this.recalculateAllClassCounts();
 
@@ -319,11 +699,148 @@ export class AttendanceService {
     }
   }
 
+  // --- Batch Import & Distribution ---
+  static createDefaultElementaryClasses(performedBy?: User): SchoolClass[] {
+    const grades = [
+      { num: 1, name: 'الصف الأول الابتدائي', short: 'أول' },
+      { num: 2, name: 'الصف الثاني الابتدائي', short: 'ثاني' },
+      { num: 3, name: 'الصف الثالث الابتدائي', short: 'ثالث' },
+      { num: 4, name: 'الصف الرابع الابتدائي', short: 'رابع' },
+      { num: 5, name: 'الصف الخامس الابتدائي', short: 'خامس' },
+      { num: 6, name: 'الصف السادس الابتدائي', short: 'سادس' }
+    ];
+    const sections = [
+      { key: '1', name: 'أ', label: '1' },
+      { key: '2', name: 'ب', label: '2' }
+    ];
+    const colors = ['#059669', '#2563eb', '#d97706', '#7c3aed', '#dc2626', '#0891b2', '#4f46e5', '#ca8a04', '#0d9488', '#ea580c', '#e11d48', '#475569'];
+    
+    const existingClasses = this.getClasses();
+    const teachers = this.getUsers().filter(u => u.role === 'teacher');
+    let colorIdx = 0;
+    let teacherIdx = 0;
+    const generated: SchoolClass[] = [...existingClasses];
+
+    grades.forEach(grade => {
+      sections.forEach(sec => {
+        const classId = `c_${grade.num}_${sec.key}`;
+        if (!generated.some(c => c.id === classId)) {
+          const assignedTeacher = teachers[teacherIdx % Math.max(1, teachers.length)];
+          teacherIdx++;
+          const newCls: SchoolClass = {
+            id: classId,
+            name: `${grade.name} (${sec.name})`,
+            shortName: `${grade.short} ${sec.label}`,
+            gradeLevel: grade.name,
+            section: sec.name,
+            roomNumber: `قاعة ${grade.num}0${sec.key}`,
+            teacherId: assignedTeacher ? assignedTeacher.id : '',
+            teacherName: assignedTeacher ? assignedTeacher.name : 'غير محدد',
+            studentCount: 0,
+            color: colors[colorIdx % colors.length]
+          };
+          colorIdx++;
+          generated.push(newCls);
+
+          if (assignedTeacher) {
+            assignedTeacher.assignedClassId = newCls.id;
+            assignedTeacher.assignedClassName = `${newCls.gradeLevel} (${newCls.section})`;
+          }
+        }
+      });
+    });
+
+    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(generated));
+    const allUsers = this.getUsers();
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allUsers));
+
+    if (performedBy) {
+      this.logAudit({
+        userId: performedBy.id,
+        userName: performedBy.name,
+        role: performedBy.role,
+        action: 'توليد فصول المدرسة الابتدائية',
+        details: `تم إنشاء وتجهيز ${generated.length} فصول وشعب دراسية للمدرسة وتوزيع المعلمين عليها`,
+        type: 'settings_change'
+      });
+    }
+
+    return generated;
+  }
+
+  static saveStudentsBatch(
+    newStudents: Student[], 
+    mode: 'merge' | 'replace' | 'skip_duplicates' = 'merge', 
+    performedBy?: User
+  ): { added: number; updated: number; skipped: number; total: number } {
+    let currentStudents = mode === 'replace' ? [] : this.getStudents();
+    let added = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    for (const student of newStudents) {
+      if (!student.name || student.name.trim() === '') continue;
+
+      const existingIdx = currentStudents.findIndex(s => 
+        (student.nationalId && s.nationalId === student.nationalId) ||
+        (student.studentNumber && s.studentNumber === student.studentNumber) ||
+        (s.name.trim().toLowerCase() === student.name.trim().toLowerCase() && s.classId === student.classId)
+      );
+
+      if (existingIdx !== -1) {
+        if (mode === 'skip_duplicates') {
+          skipped++;
+        } else {
+          // Merge / Update
+          currentStudents[existingIdx] = {
+            ...currentStudents[existingIdx],
+            ...student,
+            id: currentStudents[existingIdx].id // Keep existing ID
+          };
+          updated++;
+        }
+      } else {
+        currentStudents.push(student);
+        added++;
+      }
+    }
+
+    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(currentStudents));
+    this.recalculateAllClassCounts();
+
+    if (performedBy) {
+      this.logAudit({
+        userId: performedBy.id,
+        userName: performedBy.name,
+        role: performedBy.role,
+        action: 'استيراد قائمة طلاب وتوزيعهم',
+        details: `تم استيراد قائمة الطلاب بنجاح: إضافة ${added} جديد، تحديث ${updated}، وتخطي ${skipped} مكرر (إجمالي المسجلين: ${currentStudents.length})`,
+        type: 'settings_change'
+      });
+    }
+
+    return { added, updated, skipped, total: currentStudents.length };
+  }
+
   // --- Submissions ---
   static getSubmissions(date?: string): ClassAttendanceSubmission[] {
     this.initStorage();
-    const data = localStorage.getItem(STORAGE_KEYS.SUBMISSIONS);
-    const list: ClassAttendanceSubmission[] = data ? JSON.parse(data) : INITIAL_SUBMISSIONS;
+    let list = this._cacheSubmissions;
+    if (!list) {
+      const data = localStorage.getItem(STORAGE_KEYS.SUBMISSIONS);
+      if (data) {
+        try {
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed)) {
+            list = parsed;
+          }
+        } catch {
+          list = INITIAL_SUBMISSIONS;
+        }
+      }
+      if (!list) list = INITIAL_SUBMISSIONS;
+      this._cacheSubmissions = list;
+    }
     if (date) {
       return list.filter(s => s.date === date);
     }
@@ -336,7 +853,7 @@ export class AttendanceService {
   }
 
   static saveAttendanceSubmission(submission: ClassAttendanceSubmission, user: User): void {
-    const subs = this.getSubmissions();
+    const subs = [...this.getSubmissions()];
     const existingIdx = subs.findIndex(s => s.classId === submission.classId && s.date === submission.date);
     
     if (existingIdx > -1) {
@@ -365,7 +882,8 @@ export class AttendanceService {
         type: 'attendance_submit'
       });
     }
-    localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs));
+    this._cacheSubmissions = subs;
+    try { localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(subs)); } catch (e) {}
 
     // Create and dispatch real-time Toast Notification for Admin
     const absentStudents: AbsentStudentDetail[] = (submission.students || [])
@@ -406,20 +924,23 @@ export class AttendanceService {
   // --- Notifications Management ---
   static getNotifications(): AttendanceNotification[] {
     this.initStorage();
+    if (this._cacheNotifications) return this._cacheNotifications;
     const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
     if (!data) return [];
     try {
-      return JSON.parse(data);
+      this._cacheNotifications = JSON.parse(data);
+      return this._cacheNotifications || [];
     } catch {
       return [];
     }
   }
 
   static saveNotification(notification: AttendanceNotification): void {
-    const list = this.getNotifications();
+    const list = [...this.getNotifications()];
     list.unshift(notification);
-    // Keep last 50 notifications
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(list.slice(0, 50)));
+    const trimmed = list.slice(0, 50);
+    this._cacheNotifications = trimmed;
+    try { localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(trimmed)); } catch (e) {}
 
     // Dispatch DOM event for instant React reactive toast popup across components
     if (typeof window !== 'undefined') {
@@ -430,31 +951,36 @@ export class AttendanceService {
   }
 
   static markNotificationAsRead(id: string): void {
-    const list = this.getNotifications();
+    const list = [...this.getNotifications()];
     const item = list.find(n => n.id === id);
     if (item) {
       item.read = true;
-      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(list));
+      this._cacheNotifications = list;
+      try { localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(list)); } catch (e) {}
     }
   }
 
   static markAllNotificationsAsRead(): void {
-    const list = this.getNotifications();
+    const list = [...this.getNotifications()];
     list.forEach(n => { n.read = true; });
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(list));
+    this._cacheNotifications = list;
+    try { localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(list)); } catch (e) {}
   }
 
   static clearNotifications(): void {
-    localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
+    this._cacheNotifications = [];
+    try { localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS); } catch (e) {}
   }
 
   // --- Teacher Reminders & Alert Broadcast ---
   static getTeacherReminders(): Record<string, { timestamp: string; teacherName: string; className: string; channel: 'whatsapp' | 'system' | 'broadcast' }> {
     this.initStorage();
+    if (this._cacheTeacherReminders) return this._cacheTeacherReminders;
     const data = localStorage.getItem(STORAGE_KEYS.TEACHER_REMINDERS);
     if (!data) return {};
     try {
-      return JSON.parse(data);
+      this._cacheTeacherReminders = JSON.parse(data);
+      return this._cacheTeacherReminders || {};
     } catch {
       return {};
     }
@@ -475,14 +1001,15 @@ export class AttendanceService {
     channel: 'whatsapp' | 'system' | 'broadcast' = 'system',
     performedBy?: User
   ): void {
-    const reminders = this.getTeacherReminders();
+    const reminders = { ...this.getTeacherReminders() };
     reminders[classId] = {
       timestamp: new Date().toISOString(),
       teacherName,
       className,
       channel
     };
-    localStorage.setItem(STORAGE_KEYS.TEACHER_REMINDERS, JSON.stringify(reminders));
+    this._cacheTeacherReminders = reminders;
+    try { localStorage.setItem(STORAGE_KEYS.TEACHER_REMINDERS, JSON.stringify(reminders)); } catch (e) {}
 
     if (performedBy) {
       this.logAudit({
@@ -507,7 +1034,7 @@ export class AttendanceService {
     pendingClasses: { id: string; name: string; teacherName: string; teacherId: string }[],
     performedBy?: User
   ): void {
-    const reminders = this.getTeacherReminders();
+    const reminders = { ...this.getTeacherReminders() };
     const nowIso = new Date().toISOString();
     
     pendingClasses.forEach(c => {
@@ -518,7 +1045,8 @@ export class AttendanceService {
         channel: 'broadcast'
       };
     });
-    localStorage.setItem(STORAGE_KEYS.TEACHER_REMINDERS, JSON.stringify(reminders));
+    this._cacheTeacherReminders = reminders;
+    try { localStorage.setItem(STORAGE_KEYS.TEACHER_REMINDERS, JSON.stringify(reminders)); } catch (e) {}
 
     if (performedBy) {
       this.logAudit({
@@ -538,14 +1066,22 @@ export class AttendanceService {
     }
   }
 
-  // Simulation generator for demo & testing
+  // Test submission generator for linked database models
   static simulateTeacherSubmission(targetClassId?: string): AttendanceNotification {
     const classes = this.getClasses();
+    if (classes.length === 0) {
+      throw new Error('لا توجد فصول دراسية مسجلة في قاعدة البيانات حالياً');
+    }
     const users = this.getUsers().filter(u => u.role === 'teacher');
     
     // Pick class or default
     const cls = targetClassId ? classes.find(c => c.id === targetClassId) || classes[0] : classes[Math.floor(Math.random() * classes.length)];
-    const teacher = users.find(u => u.assignedClassId === cls.id || u.id === cls.teacherId) || users[0] || { id: 't-mock', name: cls.teacherName || 'أ. فهد الشمري', role: 'teacher' as const, username: 'teacher_mock' };
+    const teacher = users.find(u => u.assignedClassId === cls.id || u.id === cls.teacherId) || users[0] || { 
+      id: cls.teacherId || 'teacher-default', 
+      name: cls.teacherName || 'مربي الفصل', 
+      role: 'teacher' as const, 
+      username: 'teacher' 
+    };
     const classStudents = this.getStudents(cls.id);
 
     // Pick 1-2 absent, 1 excused, 1 late for rich demo
@@ -634,10 +1170,12 @@ export class AttendanceService {
   static resetTodaySubmissions(date: string = getTodayDateString()): void {
     const subs = this.getSubmissions();
     const filtered = subs.filter(s => s.date !== date);
-    localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(filtered));
+    this._cacheSubmissions = filtered;
+    try { localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(filtered)); } catch (e) {}
 
     // Clear today's teacher reminders
-    localStorage.removeItem(STORAGE_KEYS.TEACHER_REMINDERS);
+    this._cacheTeacherReminders = {};
+    try { localStorage.removeItem(STORAGE_KEYS.TEACHER_REMINDERS); } catch (e) {}
 
     this.logAudit({
       userId: 'admin-1',
@@ -678,12 +1216,21 @@ export class AttendanceService {
   // --- Settings ---
   static getSettings(): SchoolSettings {
     this.initStorage();
+    if (this._cacheSettings) return this._cacheSettings;
     const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    return data ? JSON.parse(data) : INITIAL_SETTINGS;
+    if (!data) return INITIAL_SETTINGS;
+    try {
+      const parsed = JSON.parse(data);
+      this._cacheSettings = parsed && typeof parsed === 'object' ? parsed : INITIAL_SETTINGS;
+      return this._cacheSettings;
+    } catch {
+      return INITIAL_SETTINGS;
+    }
   }
 
   static saveSettings(settings: SchoolSettings, user: User): void {
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    this._cacheSettings = settings;
+    try { localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings)); } catch (e) {}
     this.logAudit({
       userId: user.id,
       userName: user.name,
@@ -697,37 +1244,56 @@ export class AttendanceService {
   // --- Audit Logs ---
   static getAuditLogs(): AuditLog[] {
     this.initStorage();
+    if (this._cacheAuditLogs) return this._cacheAuditLogs;
     const data = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
-    return data ? JSON.parse(data) : INITIAL_AUDIT_LOGS;
+    if (!data) return INITIAL_AUDIT_LOGS;
+    try {
+      const parsed = JSON.parse(data);
+      this._cacheAuditLogs = Array.isArray(parsed) ? parsed : INITIAL_AUDIT_LOGS;
+      return this._cacheAuditLogs;
+    } catch {
+      return INITIAL_AUDIT_LOGS;
+    }
   }
 
   static logAudit(log: Omit<AuditLog, 'id' | 'timestamp'>): void {
-    const logs = this.getAuditLogs();
+    const logs = [...this.getAuditLogs()];
     const newEntry: AuditLog = {
       ...log,
       id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       timestamp: new Date().toISOString()
     };
     logs.unshift(newEntry);
-    localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(logs.slice(0, 100))); // Keep last 100
+    const trimmed = logs.slice(0, 100);
+    this._cacheAuditLogs = trimmed;
+    try { localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(trimmed)); } catch (e) {}
   }
 
   // --- Excuses ---
   static getExcuses(): AbsenceExcuseRequest[] {
     this.initStorage();
+    if (this._cacheExcuses) return this._cacheExcuses;
     const data = localStorage.getItem(STORAGE_KEYS.EXCUSES);
-    return data ? JSON.parse(data) : INITIAL_EXCUSES;
+    if (!data) return INITIAL_EXCUSES;
+    try {
+      const parsed = JSON.parse(data);
+      this._cacheExcuses = Array.isArray(parsed) ? parsed : INITIAL_EXCUSES;
+      return this._cacheExcuses;
+    } catch {
+      return INITIAL_EXCUSES;
+    }
   }
 
   static saveExcuse(excuse: AbsenceExcuseRequest): void {
-    const excuses = this.getExcuses();
+    const excuses = [...this.getExcuses()];
     const idx = excuses.findIndex(e => e.id === excuse.id);
     if (idx > -1) {
       excuses[idx] = excuse;
     } else {
       excuses.unshift(excuse);
     }
-    localStorage.setItem(STORAGE_KEYS.EXCUSES, JSON.stringify(excuses));
+    this._cacheExcuses = excuses;
+    try { localStorage.setItem(STORAGE_KEYS.EXCUSES, JSON.stringify(excuses)); } catch (e) {}
   }
 
   // --- Periods & Time Check Logic ---
@@ -921,6 +1487,52 @@ export class AttendanceService {
       attendanceRate,
       classStatuses
     };
+  }
+
+  // Get detailed absences and tardiness records for a specific date
+  static getDetailedAbsences(date: string = getTodayDateString()): {
+    studentId: string;
+    studentName: string;
+    className: string;
+    gradeLevel?: string;
+    status: 'absent' | 'excused' | 'late';
+    reason?: string;
+    notes?: string;
+    contactedParent?: boolean;
+    minutesLate?: number;
+  }[] {
+    const subs = this.getSubmissions(date);
+    const results: {
+      studentId: string;
+      studentName: string;
+      className: string;
+      gradeLevel?: string;
+      status: 'absent' | 'excused' | 'late';
+      reason?: string;
+      notes?: string;
+      contactedParent?: boolean;
+      minutesLate?: number;
+    }[] = [];
+
+    subs.forEach(sub => {
+      sub.students.forEach(st => {
+        if (st.status !== 'present') {
+          results.push({
+            studentId: st.studentId,
+            studentName: st.studentName,
+            className: sub.className,
+            gradeLevel: sub.gradeLevel,
+            status: st.status as 'absent' | 'excused' | 'late',
+            reason: st.reason,
+            notes: st.notes,
+            contactedParent: st.contactedParent,
+            minutesLate: st.minutesLate
+          });
+        }
+      });
+    });
+
+    return results;
   }
 
   // Calculate Student History
@@ -1132,7 +1744,13 @@ export class AttendanceService {
   static getArchives(): AttendanceArchiveBatch[] {
     this.initStorage();
     const data = localStorage.getItem(STORAGE_KEYS.ARCHIVES);
-    return data ? JSON.parse(data) : [];
+    if (!data) return [];
+    try {
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   }
 
   static getArchiveById(id: string): AttendanceArchiveBatch | undefined {

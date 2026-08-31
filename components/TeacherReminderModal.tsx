@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, SchoolSettings, SchoolClass } from '../types';
 import { AttendanceService, TEACHER_REMINDER_EVENT } from '../services/attendanceService';
-import { getTodayDateString } from '../services/mockData';
+import { getTodayDateString } from '../services/initialData';
 import { 
   Bell, 
   Send, 

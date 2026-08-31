@@ -27,9 +27,7 @@ interface ToastNotificationContainerProps {
 interface ActiveToast {
   id: string;
   notification: AttendanceNotification;
-  timer: number;
   duration: number;
-  isPaused: boolean;
   expanded: boolean;
 }
 
@@ -111,13 +109,16 @@ export const ToastNotificationContainer: React.FC<ToastNotificationContainerProp
       const newToast: ActiveToast = {
         id: toastId,
         notification: notif,
-        timer: 100, // percentage remaining
-        duration: 9000, // 9 seconds
-        isPaused: false,
+        duration: 8000, // 8 seconds
         expanded: notif.absentStudents.length > 0
       };
 
-      setToasts(prev => [newToast, ...prev.slice(0, 3)]); // Keep max 4 active toasts
+      setToasts(prev => [newToast, ...prev.slice(0, 2)]); // Keep max 3 active toasts
+
+      // Auto-dismiss without interval
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== toastId));
+      }, 8000);
     };
 
     window.addEventListener(NOTIFICATION_EVENT, handleNotification);
@@ -126,37 +127,8 @@ export const ToastNotificationContainer: React.FC<ToastNotificationContainerProp
     };
   }, [isAdmin, soundEnabled]);
 
-  // Tick countdown timers
-  useEffect(() => {
-    if (toasts.length === 0) return;
-
-    const interval = setInterval(() => {
-      setToasts(prev => {
-        const next: ActiveToast[] = [];
-        for (const t of prev) {
-          if (t.isPaused) {
-            next.push(t);
-            continue;
-          }
-          const step = (100 / (t.duration / 100));
-          const newTimer = t.timer - step;
-          if (newTimer > 0) {
-            next.push({ ...t, timer: newTimer });
-          }
-        }
-        return next;
-      });
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [toasts.length]);
-
   const dismissToast = (id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
-  };
-
-  const pauseToast = (id: string, paused: boolean) => {
-    setToasts(prev => prev.map(t => t.id === id ? { ...t, isPaused: paused } : t));
   };
 
   const toggleExpand = (id: string) => {
@@ -171,7 +143,7 @@ export const ToastNotificationContainer: React.FC<ToastNotificationContainerProp
       className="fixed top-24 left-4 z-50 flex flex-col gap-3 max-w-md w-[calc(100vw-2rem)] sm:w-[420px] pointer-events-none"
     >
       {toasts.map((toast) => {
-        const { notification, timer, expanded } = toast;
+        const { notification, expanded } = toast;
         const unexcusedList = notification.absentStudents.filter(s => s.status === 'absent');
         const excusedList = notification.absentStudents.filter(s => s.status === 'excused');
         const lateList = notification.absentStudents.filter(s => s.status === 'late');
@@ -180,8 +152,6 @@ export const ToastNotificationContainer: React.FC<ToastNotificationContainerProp
         return (
           <div
             key={toast.id}
-            onMouseEnter={() => pauseToast(toast.id, true)}
-            onMouseLeave={() => pauseToast(toast.id, false)}
             className="pointer-events-auto bg-slate-900/95 backdrop-blur-xl text-white rounded-3xl p-4 shadow-2xl border border-slate-700/80 ring-1 ring-white/10 transition-all duration-300 transform animate-in slide-in-from-top-4 fade-in overflow-hidden relative"
           >
             {/* Ambient Background Glow based on absence type */}
@@ -391,17 +361,19 @@ export const ToastNotificationContainer: React.FC<ToastNotificationContainerProp
               </button>
             </div>
 
-            {/* Auto-dismiss Progress Bar */}
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-800/80">
+            {/* Auto-dismiss Animated Progress Bar */}
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-800/80 overflow-hidden">
               <div
-                className={`h-full transition-all duration-100 ease-linear ${
+                className={`h-full origin-left transition-all duration-[8000ms] ease-linear ${
                   unexcusedList.length > 0 
                     ? 'bg-rose-500' 
                     : excusedList.length > 0 
                       ? 'bg-blue-500' 
                       : 'bg-emerald-500'
                 }`}
-                style={{ width: `${timer}%` }}
+                style={{
+                  animation: 'shrinkWidth 8s linear forwards'
+                }}
               />
             </div>
           </div>

@@ -2,5 +2,5 @@
   "name": "نظام متابعة غياب الطلاب — مدرسة زيد بن ثابت",
   "description": "نظام رقمي ذكي متكامل لتسجيل ومتابعة حضور وغياب الطلاب اليومي مع إدارة الحصة الثانية والإحصائيات الفورية والتقارير المعتمدة بمدرسة زيد بن ثابت.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

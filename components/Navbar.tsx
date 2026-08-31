@@ -18,7 +18,9 @@ import {
   Bell,
   CheckCircle2,
   AlertCircle,
-  Archive
+  Archive,
+  FileSpreadsheet,
+  Phone
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -36,6 +38,9 @@ interface NavbarProps {
   onOpenArchivingModal?: () => void;
   onOpenTeacherAndClassManager?: () => void;
   onOpenTeacherReminderModal?: () => void;
+  onOpenGoogleSheetsModal?: () => void;
+  onOpenStudentImportModal?: () => void;
+  onOpenContactsModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -52,7 +57,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenClassSheet,
   onOpenArchivingModal,
   onOpenTeacherAndClassManager,
-  onOpenTeacherReminderModal
+  onOpenTeacherReminderModal,
+  onOpenGoogleSheetsModal,
+  onOpenStudentImportModal,
+  onOpenContactsModal
 }) => {
   const [currentDateStr, setCurrentDateStr] = useState('');
   const [currentTimeStr, setCurrentTimeStr] = useState('');
@@ -76,18 +84,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   useEffect(() => {
+    // Format Arabic Gregorian date once
+    const now = new Date();
+    const optionsDate: Intl.DateTimeFormatOptions = { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    setCurrentDateStr(now.toLocaleDateString('ar-SA', optionsDate));
+
     const updateTime = () => {
-      const now = new Date();
-      // Format Arabic Gregorian & Hijri Date
-      const optionsDate: Intl.DateTimeFormatOptions = { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      };
-      setCurrentDateStr(now.toLocaleDateString('ar-SA', optionsDate));
-      
-      const timeStr = simulatedTime || now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const current = new Date();
+      const timeStr = simulatedTime || current.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       setCurrentTimeStr(timeStr);
     };
 
@@ -129,6 +138,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {currentUser.role === 'admin' ? '👑 الإدارة المدرسية (المدير)' : `👨‍🏫 ${currentUser.name} (${currentUser.assignedClassName || 'معلم'})`}
                 </span>
               </div>
+
+              {currentUser.role === 'admin' && onOpenGoogleSheetsModal && (
+                <button
+                  type="button"
+                  onClick={onOpenGoogleSheetsModal}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] rounded-lg transition flex items-center gap-1 shadow-sm border border-emerald-400/40"
+                  title="تصدير ومزامنة كشف الحصة الثانية وسجل الطلاب مع Google Sheets"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
+                  <span>Google Sheets</span>
+                </button>
+              )}
 
               {currentUser.role === 'admin' && onOpenTeacherReminderModal && (
                 <button
@@ -238,6 +259,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <FileText className="w-4 h-4 text-emerald-600" />
                 <span>الأعذار والتقارير</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('contacts')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  activeTab === 'contacts'
+                    ? 'bg-white shadow-md text-emerald-800 ring-1 ring-slate-900/5'
+                    : 'text-slate-600 hover:bg-white/60 hover:text-slate-900'
+                }`}
+              >
+                <Phone className="w-4 h-4 text-emerald-600" />
+                <span>دليل جهات الاتصال 📱</span>
               </button>
 
               <button
@@ -370,6 +403,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </button>
                       )}
 
+                      {onOpenStudentImportModal && (
+                        <button
+                          onClick={() => {
+                            onOpenStudentImportModal();
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className="w-full text-right px-3 py-2 text-xs font-bold text-emerald-900 bg-emerald-50/60 hover:bg-emerald-100 rounded-xl transition flex items-center gap-2"
+                        >
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                          <span>استيراد وتوزيع الطلاب (Excel/CSV) 📥</span>
+                        </button>
+                      )}
+
                       <button
                         onClick={() => {
                           onOpenSettings();
@@ -393,6 +439,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <span>أرشفة واسترجاع البيانات 📦</span>
                         </button>
                       )}
+
+                      {onOpenGoogleSheetsModal && (
+                        <button
+                          onClick={() => {
+                            onOpenGoogleSheetsModal();
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className="w-full text-right px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 rounded-xl transition flex items-center gap-2"
+                        >
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                          <span>تكامل Google Sheets وDrive 📊</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          if (onOpenContactsModal) onOpenContactsModal();
+                          else setActiveTab('contacts');
+                          setIsUserDropdownOpen(false);
+                        }}
+                        className="w-full text-right px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 rounded-xl transition flex items-center gap-2"
+                      >
+                        <Phone className="w-4 h-4 text-emerald-600" />
+                        <span>دليل جهات الاتصال والتواصل 📱</span>
+                      </button>
                     </>
                   )}
 
@@ -486,6 +557,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               الأعذار والتقارير
+            </button>
+            <button
+              onClick={() => setActiveTab('contacts')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${
+                activeTab === 'contacts' ? 'bg-emerald-700 text-white' : 'text-slate-600'
+              }`}
+            >
+              جهات الاتصال 📱
             </button>
             <button
               onClick={() => setActiveTab('ai-advisor')}

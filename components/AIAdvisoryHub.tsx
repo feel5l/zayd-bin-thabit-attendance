@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { SchoolSettings, User } from '../types';
 import { AttendanceService } from '../services/attendanceService';
 import { analyzeSchoolAttendance, generateParentCircular, generateAbsenceWarningLetter } from '../services/geminiService';
-import { getTodayDateString } from '../services/mockData';
+import { getTodayDateString } from '../services/initialData';
 import { 
   Sparkles, 
   AlertTriangle, 

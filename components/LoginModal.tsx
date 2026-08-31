@@ -31,14 +31,17 @@ interface LoginModalProps {
   onClose: () => void;
   onLoginSuccess: (user: User) => void;
   initialRole?: 'teacher' | 'admin' | null;
+  sessionExpiredNotice?: boolean;
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ 
   isOpen, 
   onClose, 
   onLoginSuccess,
-  initialRole = null
+  initialRole = null,
+  sessionExpiredNotice = false
 }) => {
+
   // Navigation step: 'select_role' (Step 1) or 'enter_credentials' (Step 2)
   const [selectedRole, setSelectedRole] = useState<'teacher' | 'admin' | null>(initialRole);
   const [teacherSearch, setTeacherSearch] = useState('');
@@ -106,13 +109,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       const user = teachersList.find(u => 
         u.username.toLowerCase() === trimmed || 
         (u.phone && u.phone.trim() === teacherIdentifier.trim()) ||
+        (u.nationalId && u.nationalId.trim() === teacherIdentifier.trim()) ||
+        (u.email && u.email.toLowerCase() === trimmed) ||
         u.name.toLowerCase().includes(trimmed)
       );
 
       const enteredPass = teacherPassword.trim();
 
       if (!user) {
-        setError('لم يتم العثور على معلم بهذا الاسم أو رقم الجوال. يرجى اختيار المعلم من القائمة أو التواصل مع الإدارة.');
+        setError('لم يتم العثور على معلم بهذا السجل المدني أو رقم الجوال أو الاسم. يرجى اختيار المعلم من القائمة أو التواصل مع الإدارة.');
         setLoading(false);
         return;
       }
@@ -122,6 +127,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       if (enteredPass) {
         isValid = (
           (user.phone && enteredPass === user.phone) ||
+          (user.nationalId && enteredPass === user.nationalId) ||
           (user.password && enteredPass === user.password) ||
           enteredPass === '123456' ||
           enteredPass === `${user.username}123`
@@ -184,9 +190,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   // Filtered teachers list for teacher tab
   const filteredTeachers = teachersList.filter(t => {
     if (!teacherSearch) return true;
-    const q = teacherSearch.toLowerCase();
+    const q = teacherSearch.toLowerCase().trim();
     return t.name.toLowerCase().includes(q) || 
            (t.assignedClassName && t.assignedClassName.toLowerCase().includes(q)) ||
+           (t.nationalId && t.nationalId.includes(q)) ||
+           (t.email && t.email.toLowerCase().includes(q)) ||
+           (t.subject && t.subject.toLowerCase().includes(q)) ||
            (t.phone && t.phone.includes(q));
   });
 
@@ -312,6 +321,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 مدرسة زيد بن ثابت الابتدائية — رصد الحصة الثانية
               </p>
             </div>
+
+            {/* Session Expired Notice Banner */}
+            {sessionExpiredNotice && (
+              <div className="bg-amber-500/90 border-b border-amber-600 text-slate-950 p-3 text-xs font-black text-center flex items-center justify-center gap-2 animate-in fade-in">
+                <AlertTriangle className="w-4 h-4 text-slate-950 shrink-0" />
+                <span>انتهت صلاحية الجلسة تلقائياً بعد 30 دقيقة من الخمول لحماية خصوصية بيانات الطلاب. يرجى تسجيل الدخول مجدداً.</span>
+              </div>
+            )}
+
 
             {/* STEP 1: INITIAL ROLE SELECTION SCREEN (WHEN NO ROLE CHOSEN YET) */}
             {selectedRole === null && (
@@ -463,35 +481,52 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     </div>
 
                     {/* Teacher Direct Selection Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-52 overflow-y-auto pr-1">
-                      {filteredTeachers.map(teacher => {
-                        const assignedClass = classes.find(c => c.id === teacher.assignedClassId || c.teacherId === teacher.id);
-                        return (
-                          <button
-                            key={teacher.id}
-                            type="button"
-                            onClick={() => handleTeacherCardSelect(teacher)}
-                            className="p-3 rounded-2xl border border-slate-200 bg-white hover:bg-emerald-50/70 hover:border-emerald-400 transition-all text-right group shadow-sm flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-2.5 overflow-hidden">
-                              <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition">
-                                <UserIcon className="w-4 h-4" />
-                              </div>
-                              <div className="overflow-hidden">
-                                <div className="text-xs font-black text-slate-900 truncate">{teacher.name}</div>
-                                <div className="text-[11px] text-emerald-800 font-bold truncate">
-                                  {assignedClass ? assignedClass.name : (teacher.assignedClassName || 'معلم')}
+                    {filteredTeachers.length === 0 ? (
+                      <div className="p-6 text-center bg-slate-50 border border-dashed border-slate-300 rounded-2xl space-y-2">
+                        <Users className="w-8 h-8 text-slate-400 mx-auto" />
+                        <p className="text-xs font-bold text-slate-700">لم يتم تسجيل معلمين في النظام بعد</p>
+                        <p className="text-[11px] text-slate-500">يمكن لإدارة المدرسة إضافة المعلمين وتوزيعهم على الفصول من لوحة الإدارة أو استيرادهم</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-52 overflow-y-auto pr-1">
+                        {filteredTeachers.map(teacher => {
+                          const currentDayInfo = AttendanceService.getCurrentDayKey();
+                          const todayAssignedClass = AttendanceService.getTeacherAssignedClassForDay(teacher.id, currentDayInfo.key);
+                          const displayClass = todayAssignedClass 
+                            ? `${todayAssignedClass.name} (اليوم)` 
+                            : (teacher.assignedClassName || teacher.subject || 'معلم');
+
+                          return (
+                            <button
+                              key={teacher.id}
+                              type="button"
+                              onClick={() => handleTeacherCardSelect(teacher)}
+                              className="p-3 rounded-2xl border border-slate-200 bg-white hover:bg-emerald-50/70 hover:border-emerald-400 transition-all text-right group shadow-sm flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-2.5 overflow-hidden">
+                                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition">
+                                  <UserIcon className="w-4 h-4" />
+                                </div>
+                                <div className="overflow-hidden">
+                                  <div className="text-xs font-black text-slate-900 truncate">{teacher.name}</div>
+                                  <div className="text-[11px] text-emerald-800 font-bold truncate flex items-center gap-1">
+                                    <span>{displayClass}</span>
+                                    {teacher.phone && (
+                                      <span className="text-[10px] text-slate-400 font-mono">({teacher.phone})</span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            <span className="text-emerald-700 text-xs font-bold shrink-0 opacity-0 group-hover:opacity-100 transition flex items-center gap-0.5">
-                              <span>دخول</span>
-                              <ChevronLeft className="w-3.5 h-3.5" />
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                              <span className="text-emerald-700 text-xs font-bold shrink-0 opacity-0 group-hover:opacity-100 transition flex items-center gap-0.5">
+                                <span>دخول</span>
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
 
                     <div className="relative my-3 text-center">
                       <div className="absolute inset-0 flex items-center">

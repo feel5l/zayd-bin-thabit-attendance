@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { User, SchoolClass, SchoolSettings } from '../types';
 import { AttendanceService } from '../services/attendanceService';
+import { StudentImportModal } from './StudentImportModal';
+import { Period2AssignmentScheduleTable } from './Period2AssignmentScheduleTable';
 import { 
   Users, 
   GraduationCap, 
@@ -20,7 +22,9 @@ import {
   Sparkles,
   Layers,
   ChevronLeft,
-  KeyRound
+  KeyRound,
+  FileSpreadsheet,
+  CalendarDays
 } from 'lucide-react';
 
 interface TeacherAndClassManagerModalProps {
@@ -38,8 +42,9 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
   settings,
   onDataChanged
 }) => {
-  const [activeTab, setActiveTab] = useState<'teachers' | 'classes'>('teachers');
+  const [activeTab, setActiveTab] = useState<'teachers' | 'classes' | 'period2_schedule'>('period2_schedule');
   const [searchQuery, setSearchQuery] = useState('');
+
   
   // Teachers state
   const [teachers, setTeachers] = useState<User[]>(() => AttendanceService.getUsers());
@@ -48,7 +53,10 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
   const [isAddingTeacher, setIsAddingTeacher] = useState(false);
   const [teacherFormData, setTeacherFormData] = useState({
     id: '',
+    sequenceNumber: 0,
     name: '',
+    nationalId: '',
+    email: '',
     username: '',
     role: 'teacher' as 'admin' | 'teacher',
     assignedClassId: '',
@@ -61,6 +69,7 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
   const [selectedClass, setSelectedClass] = useState<SchoolClass | null>(null);
   const [isEditingClass, setIsEditingClass] = useState(false);
   const [isAddingClass, setIsAddingClass] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [classFormData, setClassFormData] = useState({
     id: '',
     name: '',
@@ -91,7 +100,10 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
   const handleOpenAddTeacher = () => {
     setTeacherFormData({
       id: `u_${Date.now()}`,
+      sequenceNumber: teachers.length + 1,
       name: '',
+      nationalId: '',
+      email: '',
       username: `teacher_${Math.floor(100 + Math.random() * 900)}`,
       role: 'teacher',
       assignedClassId: '',
@@ -106,7 +118,10 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
     setSelectedTeacher(teacher);
     setTeacherFormData({
       id: teacher.id,
+      sequenceNumber: teacher.sequenceNumber || 0,
       name: teacher.name,
+      nationalId: teacher.nationalId || '',
+      email: teacher.email || '',
       username: teacher.username,
       role: teacher.role,
       assignedClassId: teacher.assignedClassId || '',
@@ -128,13 +143,16 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
 
     const updatedTeacher: User = {
       id: teacherFormData.id || `u_${Date.now()}`,
+      sequenceNumber: teacherFormData.sequenceNumber || undefined,
       name: teacherFormData.name.trim(),
+      nationalId: teacherFormData.nationalId.trim() || undefined,
+      email: teacherFormData.email.trim() || undefined,
       username: teacherFormData.username.trim() || `teacher_${Date.now().toString().slice(-4)}`,
       role: teacherFormData.role,
       assignedClassId: teacherFormData.assignedClassId || undefined,
       assignedClassName: assignedCls ? `${assignedCls.gradeLevel} (${assignedCls.section})` : undefined,
       phone: teacherFormData.phone.trim(),
-      password: teacherFormData.role === 'admin' ? 'Aa12345' : (teacherFormData.phone.trim() || '123456'),
+      password: teacherFormData.role === 'admin' ? 'Aa12345' : (teacherFormData.nationalId?.trim() || teacherFormData.phone.trim() || '123456'),
       subject: teacherFormData.subject.trim()
     };
 
@@ -238,6 +256,9 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
   const filteredTeachers = teachers.filter(t => 
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (t.nationalId && t.nationalId.includes(searchQuery)) ||
+    (t.phone && t.phone.includes(searchQuery)) ||
+    (t.email && t.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (t.subject && t.subject.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (t.assignedClassName && t.assignedClassName.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -289,22 +310,34 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
 
         {/* Tabs Bar & Controls */}
         <div className="p-4 sm:p-6 border-b border-slate-200/80 bg-slate-50 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2 bg-slate-200/80 p-1 rounded-2xl">
+          <div className="flex items-center gap-2 bg-slate-200/80 p-1 rounded-2xl flex-wrap">
+            <button
+              onClick={() => { setActiveTab('period2_schedule'); setSearchQuery(''); }}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
+                activeTab === 'period2_schedule'
+                  ? 'bg-emerald-700 shadow-sm text-white'
+                  : 'text-slate-700 hover:text-slate-900'
+              }`}
+            >
+              <CalendarDays className="w-4 h-4" />
+              <span>جدول إسناد الحصة الثانية حسب الأيام ⭐</span>
+            </button>
+
             <button
               onClick={() => { setActiveTab('teachers'); setSearchQuery(''); }}
-              className={`px-5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
                 activeTab === 'teachers'
                   ? 'bg-white shadow-sm text-emerald-800'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>هيئة المعلمين ومربيي الفصول ({teachers.length})</span>
+              <span>هيئة المعلمين ({teachers.length})</span>
             </button>
 
             <button
               onClick={() => { setActiveTab('classes'); setSearchQuery(''); }}
-              className={`px-5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
                 activeTab === 'classes'
                   ? 'bg-white shadow-sm text-emerald-800'
                   : 'text-slate-600 hover:text-slate-900'
@@ -316,16 +349,18 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={activeTab === 'teachers' ? 'بحث باسم المعلم أو المادة...' : 'بحث باسم الشعبة أو القاعة...'}
-                className="w-full pl-3 pr-9 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
-              />
-              <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
-            </div>
+            {activeTab !== 'period2_schedule' && (
+              <div className="relative flex-1 sm:w-64">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={activeTab === 'teachers' ? 'بحث باسم المعلم أو المادة...' : 'بحث باسم الشعبة أو القاعة...'}
+                  className="w-full pl-3 pr-9 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+              </div>
+            )}
 
             {activeTab === 'teachers' ? (
               <button
@@ -335,21 +370,40 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
                 <Plus className="w-4 h-4" />
                 <span>إضافة معلم جديد</span>
               </button>
-            ) : (
-              <button
-                onClick={handleOpenAddClass}
-                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-emerald-700/20 shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>إضافة شعبة جديدة</span>
-              </button>
-            )}
+            ) : activeTab === 'classes' ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="px-4 py-2 bg-emerald-900 hover:bg-emerald-950 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-emerald-900/20 shrink-0 border border-emerald-700/50"
+                  title="استيراد وتوزيع أسماء الطلاب على الفصول والشعب تلقائياً"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+                  <span>استيراد وتوزيع الطلاب (Excel) 📥</span>
+                </button>
+                <button
+                  onClick={handleOpenAddClass}
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-emerald-700/20 shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>إضافة شعبة جديدة</span>
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           
+          {/* PERIOD 2 SCHEDULE MATRIX TAB */}
+          {activeTab === 'period2_schedule' && (
+            <Period2AssignmentScheduleTable
+              currentUser={currentUser}
+              onAssignmentsUpdated={refreshData}
+              onShowNotification={showNotification}
+            />
+          )}
+
           {/* TEACHERS TAB */}
           {activeTab === 'teachers' && (
             <div>
@@ -406,10 +460,22 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
                             {assignedCls ? `${assignedCls.name} (${assignedCls.shortName})` : 'لا يوجد فصل مسند'}
                           </span>
                         </div>
+                        {teacher.nationalId && (
+                          <div className="flex items-center justify-between text-slate-600">
+                            <span>السجل المدني (الهوية):</span>
+                            <span className="font-mono font-bold text-slate-800">{teacher.nationalId}</span>
+                          </div>
+                        )}
                         {teacher.phone && (
                           <div className="flex items-center justify-between text-slate-600">
                             <span>رقم الجوال:</span>
                             <span className="font-mono font-bold text-slate-800">{teacher.phone}</span>
+                          </div>
+                        )}
+                        {teacher.email && (
+                          <div className="flex items-center justify-between text-slate-600">
+                            <span>البريد الإلكتروني:</span>
+                            <span className="font-mono text-[11px] text-slate-700 truncate max-w-[160px]">{teacher.email}</span>
                           </div>
                         )}
                         <div className="flex items-center justify-between text-slate-500 text-[11px]">
@@ -555,6 +621,30 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
                   placeholder="مثال: أ. عبدالله بن محمد الغامدي"
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">السجل المدني (رقم الهوية)</label>
+                  <input
+                    type="text"
+                    value={teacherFormData.nationalId}
+                    onChange={(e) => setTeacherFormData({ ...teacherFormData, nationalId: e.target.value })}
+                    placeholder="10xxxxxxxx"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">البريد الإلكتروني</label>
+                  <input
+                    type="email"
+                    value={teacherFormData.email}
+                    onChange={(e) => setTeacherFormData({ ...teacherFormData, email: e.target.value })}
+                    placeholder="teacher@example.com"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -771,6 +861,19 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
             </form>
           </div>
         </div>
+      )}
+
+      {/* Student Import Modal */}
+      {isImportModalOpen && (
+        <StudentImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          currentUser={currentUser}
+          onSuccess={() => {
+            refreshData();
+            showNotification('تم استيراد قائمة الطلاب وتوزيعهم على الفصول وتحديث السجلات بنجاح', 'success');
+          }}
+        />
       )}
 
     </div>

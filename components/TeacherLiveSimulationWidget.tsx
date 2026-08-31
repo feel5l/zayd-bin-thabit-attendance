@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, SchoolClass, SchoolSettings } from '../types';
 import { AttendanceService, NOTIFICATION_EVENT } from '../services/attendanceService';
-import { getTodayDateString } from '../services/mockData';
+import { getTodayDateString } from '../services/initialData';
 import confetti from 'canvas-confetti';
 import { 
   Play, 

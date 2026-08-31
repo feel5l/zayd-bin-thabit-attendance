@@ -17,8 +17,13 @@ import { PdfReportsExportModal } from './components/PdfReportsExportModal';
 import { DataArchivingModal } from './components/DataArchivingModal';
 import { TeacherAndClassManagerModal } from './components/TeacherAndClassManagerModal';
 import { TeacherReminderModal } from './components/TeacherReminderModal';
-import { GraduationCap, ShieldAlert, Sparkles, BookOpen, Clock, Heart } from 'lucide-react';
-import { getTodayDateString } from './services/mockData';
+import { GoogleSheetsExportModal } from './components/GoogleSheetsExportModal';
+import { StudentImportModal } from './components/StudentImportModal';
+import { ContactsManager } from './components/ContactsManager';
+import { ContactsManagerModal } from './components/ContactsManagerModal';
+import { useSessionTimeout } from './hooks/useSessionTimeout';
+import { GraduationCap, ShieldAlert, Sparkles, BookOpen, Clock, Heart, ShieldCheck } from 'lucide-react';
+import { getTodayDateString } from './services/initialData';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -39,6 +44,10 @@ export const App: React.FC = () => {
   const [isArchivingModalOpen, setIsArchivingModalOpen] = useState(false);
   const [isTeacherAndClassModalOpen, setIsTeacherAndClassModalOpen] = useState(false);
   const [isTeacherReminderModalOpen, setIsTeacherReminderModalOpen] = useState(false);
+  const [isGoogleSheetsModalOpen, setIsGoogleSheetsModalOpen] = useState(false);
+  const [isStudentImportModalOpen, setIsStudentImportModalOpen] = useState(false);
+  const [isContactsModalOpen, setIsContactsModalOpen] = useState(false);
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
   const [pdfReportModal, setPdfReportModal] = useState<{
     isOpen: boolean;
     type: 'daily' | 'monthly';
@@ -50,6 +59,15 @@ export const App: React.FC = () => {
   });
   const [selectedStudentForModal, setSelectedStudentForModal] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // 30-Minute Inactivity Session Timeout to protect student data
+  useSessionTimeout({
+    timeoutMinutes: 30,
+    isEnabled: !!currentUser,
+    onTimeout: () => {
+      handleLogout(true);
+    }
+  });
 
   // Sync tab when user role changes
   useEffect(() => {
@@ -73,6 +91,7 @@ export const App: React.FC = () => {
     if (user) {
       AttendanceService.setCurrentUser(user);
       setCurrentUser(user);
+      AttendanceService.updateLastActivity();
       if (user.role === 'admin') {
         setActiveTab('dashboard');
       } else {
@@ -81,11 +100,15 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = (isExpired = false) => {
     AttendanceService.setCurrentUser(null);
     setCurrentUser(null);
+    if (isExpired) {
+      setSessionExpiredNotice(true);
+    }
     setIsLoginModalOpen(true);
   };
+
 
   const handleUpdateSettings = (newSettings: SchoolSettings) => {
     setSettings(newSettings);
@@ -147,6 +170,9 @@ export const App: React.FC = () => {
         onOpenArchivingModal={() => setIsArchivingModalOpen(true)}
         onOpenTeacherAndClassManager={() => setIsTeacherAndClassModalOpen(true)}
         onOpenTeacherReminderModal={() => setIsTeacherReminderModalOpen(true)}
+        onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
+        onOpenStudentImportModal={() => setIsStudentImportModalOpen(true)}
+        onOpenContactsModal={() => setIsContactsModalOpen(true)}
       />
 
 
@@ -168,6 +194,9 @@ export const App: React.FC = () => {
                 onOpenArchivingModal={() => setIsArchivingModalOpen(true)}
                 onOpenTeacherAndClassManager={() => setIsTeacherAndClassModalOpen(true)}
                 onSwitchToTeacher={handleSwitchToTeacher}
+                onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
+                onOpenStudentImportModal={() => setIsStudentImportModalOpen(true)}
+                onOpenContactsModal={() => setIsContactsModalOpen(true)}
               />
             )}
 
@@ -197,6 +226,15 @@ export const App: React.FC = () => {
               <ExcuseManager
                 currentUser={currentUser}
                 settings={settings}
+              />
+            )}
+
+            {/* Contacts Directory and Communication Hub */}
+            {activeTab === 'contacts' && (
+              <ContactsManager
+                currentUser={currentUser}
+                settings={settings}
+                onOpenStudentProfile={handleViewStudentProfile}
               />
             )}
 
@@ -251,13 +289,19 @@ export const App: React.FC = () => {
       {/* Modals */}
       <LoginModal
         isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
+        sessionExpiredNotice={sessionExpiredNotice}
+        onClose={() => {
+          setIsLoginModalOpen(false);
+          setSessionExpiredNotice(false);
+        }}
         onLoginSuccess={(user) => {
           setCurrentUser(user);
+          setSessionExpiredNotice(false);
           if (user.role === 'admin') setActiveTab('dashboard');
           else setActiveTab('attendance');
         }}
       />
+
 
       <SchoolSettingsModal
         isOpen={isSettingsModalOpen}
@@ -308,6 +352,38 @@ export const App: React.FC = () => {
           settings={settings}
           simulatedTime={simulatedTime}
           onOpenClassSheet={handleOpenClassSheetFromAdmin}
+        />
+      )}
+
+      {/* Google Sheets Live Export and Sync Modal */}
+      {isGoogleSheetsModalOpen && (
+        <GoogleSheetsExportModal
+          isOpen={isGoogleSheetsModalOpen}
+          onClose={() => setIsGoogleSheetsModalOpen(false)}
+          settings={settings}
+        />
+      )}
+
+      {/* Student Import and Automatic Distribution Modal */}
+      {isStudentImportModalOpen && currentUser && (
+        <StudentImportModal
+          isOpen={isStudentImportModalOpen}
+          onClose={() => setIsStudentImportModalOpen(false)}
+          currentUser={currentUser}
+          onSuccess={() => {
+            setRefreshTrigger(prev => prev + 1);
+          }}
+        />
+      )}
+
+      {/* Contacts Manager Modal */}
+      {isContactsModalOpen && currentUser && (
+        <ContactsManagerModal
+          isOpen={isContactsModalOpen}
+          onClose={() => setIsContactsModalOpen(false)}
+          currentUser={currentUser}
+          settings={settings}
+          onOpenStudentProfile={handleViewStudentProfile}
         />
       )}
 

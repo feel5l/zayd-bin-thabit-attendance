@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AbsenceExcuseRequest, User, SchoolSettings } from '../types';
 import { AttendanceService } from '../services/attendanceService';
-import { getTodayDateString } from '../services/mockData';
+import { getTodayDateString } from '../services/initialData';
 import { 
   FileCheck, 
   CheckCircle2, 

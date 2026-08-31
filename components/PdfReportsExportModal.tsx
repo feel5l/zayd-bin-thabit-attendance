@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { SchoolSettings, MonthlyReportData } from '../types';
 import { AttendanceService } from '../services/attendanceService';
-import { getTodayDateString } from '../services/mockData';
+import { getTodayDateString } from '../services/initialData';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { 

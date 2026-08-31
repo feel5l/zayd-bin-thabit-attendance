@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Student, User, SchoolSettings, SchoolClass } from '../types';
 import { AttendanceService } from '../services/attendanceService';
 import { generateAbsenceWarningLetter } from '../services/geminiService';
+import { StudentImportModal } from './StudentImportModal';
 import { 
   Users, 
   Search, 
@@ -27,7 +28,8 @@ import {
   ArrowRightLeft,
   Save,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  FileSpreadsheet
 } from 'lucide-react';
 
 interface StudentDirectoryProps {
@@ -59,6 +61,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [transferringStudent, setTransferringStudent] = useState<Student | null>(null);
   const [targetTransferClassId, setTargetTransferClassId] = useState('');
@@ -307,6 +310,16 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {currentUser.role === 'admin' && (
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="px-4 py-2.5 bg-emerald-900 hover:bg-emerald-950 text-white rounded-2xl text-xs font-black transition flex items-center gap-2 shadow-md shadow-emerald-900/20 border border-emerald-700/50"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+                <span>استيراد وتوزيع من Excel / CSV</span>
+              </button>
+            )}
+
             <button
               onClick={handleOpenAddModal}
               className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-black transition flex items-center gap-2 shadow-md shadow-emerald-700/20"
@@ -1166,6 +1179,19 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Student Import and Distribution Modal */}
+      {isImportModalOpen && (
+        <StudentImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          currentUser={currentUser}
+          onSuccess={() => {
+            refreshData();
+            showFeedback('تم استيراد قائمة الطلاب وتوزيعهم على الفصول بنجاح', 'success');
+          }}
+        />
       )}
     </div>
   );

@@ -50,3 +50,54 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Responsive Grid & Touch Optimizations for Mobile Attendance */
+.attendance-grid-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .attendance-grid-container {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .attendance-grid-container {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.125rem;
+  }
+}
+
+/* Mobile touch helpers */
+.touch-card-action {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.touch-target-min {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Status glow effects */
+.card-glow-absent {
+  box-shadow: 0 4px 14px -2px rgba(225, 29, 72, 0.12), 0 0 0 1.5px rgba(244, 63, 94, 0.35);
+}
+
+.card-glow-excused {
+  box-shadow: 0 4px 14px -2px rgba(37, 99, 235, 0.12), 0 0 0 1.5px rgba(59, 130, 246, 0.35);
+}
+
+.card-glow-late {
+  box-shadow: 0 4px 14px -2px rgba(217, 119, 6, 0.12), 0 0 0 1.5px rgba(245, 158, 11, 0.35);
+}
+
+.card-glow-present {
+  box-shadow: 0 2px 8px -1px rgba(16, 185, 129, 0.08), 0 0 0 1px rgba(226, 232, 240, 0.9);
+}
+

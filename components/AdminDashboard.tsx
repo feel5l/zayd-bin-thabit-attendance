@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, SchoolSettings, ClassAttendanceSubmission, SchoolClass } from '../types';
 import { AttendanceService, NOTIFICATION_EVENT } from '../services/attendanceService';
-import { getTodayDateString, getPastDateString } from '../services/mockData';
+import { getTodayDateString, getPastDateString } from '../services/initialData';
 import { TeacherReminderModal } from './TeacherReminderModal';
 import { TeacherLiveSimulationWidget } from './TeacherLiveSimulationWidget';
 import { 
@@ -46,7 +46,14 @@ import {
   Database,
   Zap,
   Radio,
-  SlidersHorizontal
+  SlidersHorizontal,
+  FileSpreadsheet,
+  Search,
+  Filter,
+  CheckCheck,
+  AlertCircle,
+  Phone,
+  ExternalLink
 } from 'lucide-react';
 
 
@@ -62,6 +69,9 @@ interface AdminDashboardProps {
   onOpenArchivingModal?: () => void;
   onOpenTeacherAndClassManager?: () => void;
   onSwitchToTeacher?: (teacherUser: User) => void;
+  onOpenGoogleSheetsModal?: () => void;
+  onOpenStudentImportModal?: () => void;
+  onOpenContactsModal?: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -75,10 +85,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onOpenPdfReport,
   onOpenArchivingModal,
   onOpenTeacherAndClassManager,
-  onSwitchToTeacher
+  onSwitchToTeacher,
+  onOpenGoogleSheetsModal,
+  onOpenStudentImportModal,
+  onOpenContactsModal
 }) => {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'pending' | 'submitted'>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [remindedTeachers, setRemindedTeachers] = useState<Record<string, boolean>>({});
   const [isTeacherReminderModalOpen, setIsTeacherReminderModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string>('');
@@ -186,10 +201,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { name: 'تأخر وسيلة نقل', value: stats.lateCount > 0 ? stats.lateCount : 1, color: '#F59E0B' }
   ];
 
-  // Filtered Class Statuses
+  // Pending & Submitted class lists
+  const pendingClassesList = stats.classStatuses.filter(c => !c.isSubmitted);
+  const submittedClassesList = stats.classStatuses.filter(c => c.isSubmitted);
+
+  // Filtered Class Statuses based on grade, status, and search query
   const filteredClassStatuses = stats.classStatuses.filter(c => {
-    if (selectedGradeFilter === 'all') return true;
-    return c.gradeLevel === selectedGradeFilter;
+    if (selectedGradeFilter !== 'all' && c.gradeLevel !== selectedGradeFilter) return false;
+    if (selectedStatusFilter === 'pending' && c.isSubmitted) return false;
+    if (selectedStatusFilter === 'submitted' && !c.isSubmitted) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchName = c.name?.toLowerCase().includes(q);
+      const matchTeacher = c.teacherName?.toLowerCase().includes(q);
+      const matchGrade = c.gradeLevel?.toLowerCase().includes(q);
+      const matchShort = c.shortName?.toLowerCase().includes(q);
+      if (!matchName && !matchTeacher && !matchGrade && !matchShort) return false;
+    }
+    return true;
   });
 
   return (
@@ -268,6 +297,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <Users className="w-4 h-4 text-indigo-300" />
             <span>التقرير الشهري PDF 📊</span>
+          </button>
+
+          {onOpenStudentImportModal && (
+            <button
+              onClick={onOpenStudentImportModal}
+              className="px-4 py-2 bg-gradient-to-r from-emerald-800 to-teal-900 hover:from-emerald-900 hover:to-teal-950 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-950/20 border border-emerald-600/40"
+              title="استيراد وتوزيع أسماء الطلاب من ملف Excel أو CSV وتوزيعهم على الفصول آلياً"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+              <span>استيراد وتوزيع الطلاب (Excel) 📥</span>
+            </button>
+          )}
+
+          {onOpenGoogleSheetsModal && (
+            <button
+              onClick={onOpenGoogleSheetsModal}
+              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-900/20"
+              title="تصدير ومزامنة كشوفات الحصة الثانية والتقارير الشهرية وسجل الطلاب مع Google Sheets وDrive"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+              <span>تصدير Google Sheets 📊</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              if (onOpenContactsModal) onOpenContactsModal();
+              else onNavigateToTab('contacts');
+            }}
+            className="px-4 py-2 bg-gradient-to-r from-teal-700 to-emerald-800 hover:from-teal-800 hover:to-emerald-900 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-teal-900/20"
+            title="فتح دليل جهات الاتصال وأرقام المعلمين وأولياء الأمور"
+          >
+            <Phone className="w-4 h-4 text-emerald-300" />
+            <span>دليل الاتصال المدرسي 📱</span>
           </button>
 
           {onOpenArchivingModal && (
@@ -543,164 +606,496 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </div>
 
-      {/* Section: Real-time Period 2 Classes Monitor Grid */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+      {/* Section: Real-time Period 2 Classes Monitor Grid & Status Indicators Matrix */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+        
+        {/* Section Header & Live Progress Stats */}
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping"></div>
-              <h3 className="text-base font-black font-brand text-slate-900">
-                متابعة رصد الحصة الثانية للفصول (مباشر)
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-600"></span>
+              </span>
+              <h3 className="text-lg font-black font-brand text-slate-900">
+                متابعة ورصد فصول الحصة الثانية اللحظي
               </h3>
+              <span className="bg-slate-100 text-slate-700 text-xs font-black px-2.5 py-0.5 rounded-full border border-slate-200">
+                نافذة الرصد: {settings.period2StartTime} ص - {settings.period2EndTime} ص
+              </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              حالة استلام كشوفات الحضور من مربيي الفصول في نافذة الحصة الثانية ({settings.period2StartTime} ص - {settings.period2EndTime} ص)
+            <p className="text-xs text-slate-500 font-semibold mt-1">
+              مؤشرات بصرية دقيقة لمتابعة حالة رصد كشوفات الحضور من مربيي الفصول وتنبيه المتأخرين فورياً
             </p>
           </div>
 
-          {/* Grade filter */}
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl text-xs font-bold">
-            <button
-              onClick={() => setSelectedGradeFilter('all')}
-              className={`px-3 py-1 rounded-xl transition ${selectedGradeFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-            >
-              كافة الصفوف
-            </button>
-            <button
-              onClick={() => setSelectedGradeFilter('الصف الرابع')}
-              className={`px-3 py-1 rounded-xl transition ${selectedGradeFilter === 'الصف الرابع' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-            >
-              الصف الرابع
-            </button>
-            <button
-              onClick={() => setSelectedGradeFilter('الصف الخامس')}
-              className={`px-3 py-1 rounded-xl transition ${selectedGradeFilter === 'الصف الخامس' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-            >
-              الصف الخامس
-            </button>
-            <button
-              onClick={() => setSelectedGradeFilter('الصف السادس')}
-              className={`px-3 py-1 rounded-xl transition ${selectedGradeFilter === 'الصف السادس' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-            >
-              الصف السادس
-            </button>
+          {/* Quick Progress Bar Indicator */}
+          <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-2xl flex items-center gap-4 min-w-[280px]">
+            <div className="flex-1">
+              <div className="flex items-center justify-between text-xs font-black mb-1.5">
+                <span className="text-slate-700">نسبة اكتمال الرصد اليومي</span>
+                <span className={stats.pendingCount > 0 ? 'text-amber-600' : 'text-emerald-600'}>
+                  {stats.completionRate}% ({stats.submittedCount} من {stats.totalClasses})
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    stats.completionRate === 100 
+                      ? 'bg-emerald-500' 
+                      : stats.completionRate >= 50 
+                        ? 'bg-amber-500' 
+                        : 'bg-rose-500'
+                  }`}
+                  style={{ width: `${stats.completionRate}%` }}
+                />
+              </div>
+            </div>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+              stats.pendingCount === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+            }`}>
+              {stats.pendingCount === 0 ? <CheckCheck className="w-5 h-5 text-emerald-600" /> : <AlertTriangle className="w-5 h-5 text-rose-600 animate-pulse" />}
+            </div>
           </div>
         </div>
 
-        {/* Classes Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredClassStatuses.map(cls => {
-            const isSubmitted = cls.isSubmitted;
-            const sub = cls.submission;
-            const isReminded = remindedTeachers[cls.teacherId];
+        {/* 🔴 Status Indicators Live Matrix Bar (مصفوفة شارات الحالة اللحظية لجميع الفصول) */}
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-4 rounded-2xl text-white shadow-md border border-slate-700 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Radio className="w-4 h-4 text-amber-400 animate-pulse" />
+              <span className="font-black text-slate-200">مصفوفة المؤشرات البصرية المباشرة لكافة الفصول:</span>
+            </div>
+            <div className="flex items-center gap-3 text-[11px] font-bold">
+              <span className="flex items-center gap-1.5 text-emerald-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                <span>تم الرصد ({stats.submittedCount})</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-rose-300">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+                </span>
+                <span>لم ترصد بعد ({stats.pendingCount})</span>
+              </span>
+            </div>
+          </div>
 
-            return (
-              <div
-                key={cls.id}
-                className={`p-5 rounded-3xl border transition-all ${
-                  isSubmitted 
-                    ? 'bg-gradient-to-b from-emerald-50/40 to-white border-emerald-200/80 shadow-sm hover:border-emerald-300' 
-                    : 'bg-gradient-to-b from-amber-50/40 to-white border-amber-200/80 shadow-sm hover:border-amber-300'
-                }`}
-              >
-                {/* Card Top */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm ${
-                      isSubmitted ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'
-                    }`}>
-                      {cls.shortName}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-black text-slate-900">{cls.name}</h4>
-                      <p className="text-xs text-slate-500 font-semibold">{cls.teacherName}</p>
-                    </div>
-                  </div>
+          {/* Quick Matrix Class Chips */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {stats.classStatuses.map(cls => {
+              const isSub = cls.isSubmitted;
+              return (
+                <button
+                  key={cls.id}
+                  onClick={() => {
+                    if (isSub) {
+                      onOpenClassSheet(cls.id);
+                    } else {
+                      setSelectedStatusFilter('pending');
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1.5 border shadow-sm ${
+                    isSub
+                      ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border-emerald-600/60'
+                      : 'bg-rose-950/90 hover:bg-rose-900 text-rose-100 border-rose-500/80 animate-pulse ring-1 ring-rose-400/40'
+                  }`}
+                  title={isSub ? `فصل ${cls.name}: تم الرصد بنجاح (انقر لعرض الكشف)` : `فصل ${cls.name}: لم يتم الرصد بعد - المعلم: ${cls.teacherName}`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${isSub ? 'bg-emerald-400' : 'bg-rose-500 animate-ping'}`} />
+                  <span>{cls.name}</span>
+                  <span>{isSub ? '✓' : '⏳'}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-                  <span className={`text-[11px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1 border ${
-                    isSubmitted 
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
-                      : 'bg-amber-100 text-amber-800 border-amber-200 animate-pulse'
-                  }`}>
-                    {isSubmitted ? (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>تم الرصد</span>
-                      </>
-                    ) : (
-                      <>
-                        <Clock className="w-3.5 h-3.5 text-amber-600" />
-                        <span>بانتظار الرصد</span>
-                      </>
-                    )}
-                  </span>
+        {/* ⚠️ Priority Alert Panel for Unsubmitted Classes (لوحة تنبيه الفصول المتأخرة عن الرصد) */}
+        {pendingClassesList.length > 0 ? (
+          <div className="bg-gradient-to-r from-rose-50 via-amber-50/60 to-rose-50 border-2 border-rose-200 p-5 rounded-3xl space-y-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-md shadow-rose-500/20">
+                  <AlertCircle className="w-6 h-6 animate-bounce" />
                 </div>
-
-                {/* Sub details */}
-                <div className="mt-4 pt-3 border-t border-slate-100">
-                  {isSubmitted && sub ? (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                        <div className="bg-emerald-50 p-2 rounded-xl border border-emerald-100">
-                          <span className="block text-[10px] text-emerald-600 font-bold">حضور</span>
-                          <span className="font-black text-emerald-700 text-sm">{sub.presentCount}</span>
-                        </div>
-                        <div className="bg-rose-50 p-2 rounded-xl border border-rose-100">
-                          <span className="block text-[10px] text-rose-600 font-bold">غياب</span>
-                          <span className="font-black text-rose-700 text-sm">{sub.absentCount}</span>
-                        </div>
-                        <div className="bg-blue-50 p-2 rounded-xl border border-blue-100">
-                          <span className="block text-[10px] text-blue-600 font-bold">بعذر</span>
-                          <span className="font-black text-blue-700 text-sm">{sub.excusedCount}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold pt-1">
-                        <span>وقت الاعتماد: {new Date(sub.submittedAt).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</span>
-                        <button
-                          onClick={() => onOpenClassSheet(cls.id)}
-                          className="text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1 hover:underline"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>عرض الكشف</span>
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="p-3 bg-amber-50/70 border border-amber-100 rounded-2xl text-xs text-amber-800 flex items-center justify-between">
-                        <span>لم يقم المعلم برفع كشف الحصة الثانية بعد.</span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleSendReminder(cls.teacherName, cls.name, cls.teacherId)}
-                          disabled={isReminded}
-                          className={`w-full py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                            isReminded
-                              ? 'bg-slate-100 text-slate-400 border border-slate-200'
-                              : 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'
-                          }`}
-                        >
-                          <Bell className="w-3.5 h-3.5" />
-                          <span>{isReminded ? 'تم إرسال التذكير ✓' : 'إرسال تذكير عاجل للمعلم'}</span>
-                        </button>
-                        
-                        <button
-                          onClick={() => onOpenClassSheet(cls.id)}
-                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
-                          title="رصد بالإنابة (إدارة)"
-                        >
-                          رصد نيابة
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                <div>
+                  <h4 className="font-black text-rose-900 text-sm flex items-center gap-2">
+                    <span>تنبيه عاجل: متبقي ({pendingClassesList.length}) فصول لم تقم برصد الحصة الثانية حتى الآن</span>
+                    <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">مطلوب المتابعة</span>
+                  </h4>
+                  <p className="text-xs text-rose-700 font-semibold mt-0.5">
+                    يرجى التواصل الفوري مع مربيي الفصول الموضحين أدناه أو الرصد بالإنابة لضمان اكتمال إحصائيات المدرسة
+                  </p>
                 </div>
               </div>
-            );
-          })}
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleNudgeAllPending}
+                  className="px-4 py-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-rose-600/20"
+                  title="إرسال تنبيه جماعي عبر النظام لكافة المعلمين المتأخرين عن الرصد"
+                >
+                  <Bell className="w-4 h-4 animate-bounce" />
+                  <span>تنبيه جماعي لجميع الفصول المتأخرة ({pendingClassesList.length}) 📢</span>
+                </button>
+
+                <button
+                  onClick={() => setIsTeacherReminderModalOpen(true)}
+                  className="px-3.5 py-2 bg-white hover:bg-rose-100/60 text-rose-800 border border-rose-300 text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <MessageSquare className="w-4 h-4 text-rose-600" />
+                  <span>رسائل واتساب المعلمين</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Unsubmitted Classes List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+              {pendingClassesList.map(cls => {
+                const isReminded = remindedTeachers[cls.teacherId];
+                return (
+                  <div
+                    key={cls.id}
+                    className="bg-white p-3.5 rounded-2xl border border-rose-200/90 shadow-sm flex flex-col justify-between space-y-2.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
+                        </span>
+                        <span className="font-black text-xs text-slate-900">{cls.name}</span>
+                        <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-md">
+                          {cls.gradeLevel}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200">
+                        لم يرصد ⏳
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-600 flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">مربي الفصل:</span>
+                        <span className="font-bold text-slate-800">{cls.teacherName || 'غير مسند'}</span>
+                      </div>
+                      {cls.roomNumber && (
+                        <span className="text-[11px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                          قاعة {cls.roomNumber}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <button
+                        onClick={() => handleSendReminder(cls.teacherName, cls.name, cls.teacherId)}
+                        disabled={isReminded}
+                        className={`flex-1 py-1.5 rounded-xl text-[11px] font-black transition flex items-center justify-center gap-1 ${
+                          isReminded 
+                            ? 'bg-slate-100 text-slate-400 border border-slate-200' 
+                            : 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-sm'
+                        }`}
+                      >
+                        <Bell className="w-3 h-3" />
+                        <span>{isReminded ? 'تم التذكير ✓' : 'تذكير عاجل'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => onOpenClassSheet(cls.id)}
+                        className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black rounded-xl transition flex items-center gap-1 shadow-sm"
+                        title="رصد الحضور فورياً بالإنابة من قبل الإدارة"
+                      >
+                        <FileCheck className="w-3 h-3" />
+                        <span>رصد نيابة</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <span>مبارك! اكتمل رصد الحصة الثانية لكافة فصول المدرسة بنجاح (100%) ولا توجد أي فصول متأخرة اليوم.</span>
+            </div>
+            <span className="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-1 rounded-xl">
+              مكتمل 100% ✓
+            </span>
+          </div>
+        )}
+
+        {/* Filters and Search Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          {/* Status Filter Tabs */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5" />
+              <span>تصفية الحالة:</span>
+            </span>
+
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl text-xs font-bold">
+              <button
+                onClick={() => setSelectedStatusFilter('all')}
+                className={`px-3 py-1 rounded-xl transition flex items-center gap-1.5 ${
+                  selectedStatusFilter === 'all' 
+                    ? 'bg-white text-slate-900 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <span>الكل</span>
+                <span className="bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.2 rounded-full">
+                  {stats.totalClasses}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStatusFilter('pending')}
+                className={`px-3 py-1 rounded-xl transition flex items-center gap-1.5 ${
+                  selectedStatusFilter === 'pending' 
+                    ? 'bg-rose-600 text-white shadow-sm font-black' 
+                    : 'text-rose-700 hover:bg-rose-100/60'
+                }`}
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                </span>
+                <span>لم ترصد بعد ⏳</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                  selectedStatusFilter === 'pending' ? 'bg-rose-800 text-white' : 'bg-rose-200 text-rose-800'
+                }`}>
+                  {stats.pendingCount}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStatusFilter('submitted')}
+                className={`px-3 py-1 rounded-xl transition flex items-center gap-1.5 ${
+                  selectedStatusFilter === 'submitted' 
+                    ? 'bg-emerald-600 text-white shadow-sm font-black' 
+                    : 'text-emerald-700 hover:bg-emerald-100/60'
+                }`}
+              >
+                <span>مكتملة الرصد ✓</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                  selectedStatusFilter === 'submitted' ? 'bg-emerald-800 text-white' : 'bg-emerald-200 text-emerald-800'
+                }`}>
+                  {stats.submittedCount}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Grade filter & Search */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="بحث بالفصل أو المعلم..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 pr-8 pl-3 py-1.5 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition w-44"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Grade Filter */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl text-xs font-bold">
+              <button
+                onClick={() => setSelectedGradeFilter('all')}
+                className={`px-2.5 py-1 rounded-xl transition ${selectedGradeFilter === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+              >
+                كافة الصفوف
+              </button>
+              <button
+                onClick={() => setSelectedGradeFilter('الصف الرابع')}
+                className={`px-2.5 py-1 rounded-xl transition ${selectedGradeFilter === 'الصف الرابع' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+              >
+                الرابع
+              </button>
+              <button
+                onClick={() => setSelectedGradeFilter('الصف الخامس')}
+                className={`px-2.5 py-1 rounded-xl transition ${selectedGradeFilter === 'الصف الخامس' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+              >
+                الخامس
+              </button>
+              <button
+                onClick={() => setSelectedGradeFilter('الصف السادس')}
+                className={`px-2.5 py-1 rounded-xl transition ${selectedGradeFilter === 'الصف السادس' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+              >
+                السادس
+              </button>
+            </div>
+          </div>
         </div>
+
+        {/* Classes Cards Grid with Visual Status Badges */}
+        {filteredClassStatuses.length === 0 ? (
+          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+            <p className="text-xs font-bold text-slate-500">لا توجد فصول دراسية تطابق معايير التصفية والبحث المحددة.</p>
+            <button
+              onClick={() => { setSelectedGradeFilter('all'); setSelectedStatusFilter('all'); setSearchQuery(''); }}
+              className="text-xs font-black text-emerald-600 hover:underline"
+            >
+              إعادة ضبط الفلاتر
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredClassStatuses.map(cls => {
+              const isSubmitted = cls.isSubmitted;
+              const sub = cls.submission;
+              const isReminded = remindedTeachers[cls.teacherId];
+
+              return (
+                <div
+                  key={cls.id}
+                  className={`p-5 rounded-3xl border-2 transition-all relative overflow-hidden ${
+                    isSubmitted 
+                      ? 'bg-gradient-to-b from-emerald-50/50 via-white to-white border-emerald-300/80 shadow-sm hover:border-emerald-400' 
+                      : 'bg-gradient-to-b from-rose-50/60 via-amber-50/20 to-white border-rose-300 shadow-md hover:border-rose-400 ring-2 ring-rose-100'
+                  }`}
+                >
+                  {/* Status Indicator Stripe on Top */}
+                  <div className={`absolute top-0 inset-x-0 h-1.5 ${
+                    isSubmitted ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'
+                  }`} />
+
+                  {/* Card Top Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm relative ${
+                        isSubmitted ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+                      }`}>
+                        {cls.shortName}
+                        {!isSubmitted && (
+                          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500 border border-white"></span>
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-sm font-black text-slate-900">{cls.name}</h4>
+                          {cls.roomNumber && (
+                            <span className="text-[10px] text-slate-400 font-mono bg-slate-100 px-1.5 py-0.2 rounded">
+                              {cls.roomNumber}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 font-bold">{cls.teacherName || 'مربي الفصل غير محدد'}</p>
+                      </div>
+                    </div>
+
+                    {/* Prominent Visual Status Badge */}
+                    <span className={`text-[11px] font-black px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${
+                      isSubmitted 
+                        ? 'bg-emerald-100 text-emerald-900 border-emerald-300' 
+                        : 'bg-rose-100 text-rose-900 border-rose-300 animate-pulse font-black'
+                    }`}>
+                      {isSubmitted ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>تم الرصد والاعتماد ✓</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+                          </span>
+                          <span>لم يتم الرصد بعد ⏳</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Sub details & Actions */}
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                    {isSubmitted && sub ? (
+                      <div className="space-y-2.5">
+                        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                          <div className="bg-emerald-50 p-2 rounded-xl border border-emerald-200">
+                            <span className="block text-[10px] text-emerald-600 font-bold">حضور</span>
+                            <span className="font-black text-emerald-700 text-sm">{sub.presentCount}</span>
+                          </div>
+                          <div className="bg-rose-50 p-2 rounded-xl border border-rose-200">
+                            <span className="block text-[10px] text-rose-600 font-bold">غياب</span>
+                            <span className="font-black text-rose-700 text-sm">{sub.absentCount}</span>
+                          </div>
+                          <div className="bg-blue-50 p-2 rounded-xl border border-blue-200">
+                            <span className="block text-[10px] text-blue-600 font-bold">بعذر</span>
+                            <span className="font-black text-blue-700 text-sm">{sub.excusedCount}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold pt-1">
+                          <span className="flex items-center gap-1 text-slate-500">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            <span>اعتماد: {new Date(sub.submittedAt).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</span>
+                          </span>
+                          <button
+                            onClick={() => onOpenClassSheet(cls.id)}
+                            className="text-emerald-700 hover:text-emerald-900 font-black flex items-center gap-1 hover:underline bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>عرض وتعديل الكشف</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="p-3 bg-rose-50/80 border border-rose-200 rounded-2xl text-xs text-rose-800 font-bold flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                            <span>لم يقم المعلم برفع كشف الحصة الثانية بعد.</span>
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleSendReminder(cls.teacherName, cls.name, cls.teacherId)}
+                            disabled={isReminded}
+                            className={`flex-1 py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 shadow-sm ${
+                              isReminded
+                                ? 'bg-slate-100 text-slate-400 border border-slate-200'
+                                : 'bg-amber-500 hover:bg-amber-600 text-slate-950'
+                            }`}
+                          >
+                            <Bell className="w-3.5 h-3.5" />
+                            <span>{isReminded ? 'تم إرسال التذكير ✓' : 'إرسال تذكير عاجل للمعلم'}</span>
+                          </button>
+                          
+                          <button
+                            onClick={() => onOpenClassSheet(cls.id)}
+                            className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition flex items-center gap-1 shadow-sm"
+                            title="رصد الحضور فورياً بالإنابة من قبل الإدارة"
+                          >
+                            <FileCheck className="w-3.5 h-3.5" />
+                            <span>رصد نيابة</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Analytics & Visual Charts */}

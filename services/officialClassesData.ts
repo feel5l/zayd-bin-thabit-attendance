@@ -1,0 +1,176 @@
+import { SchoolClass } from '../types';
+
+export const OFFICIAL_CLASSES_LIST: SchoolClass[] = [
+  // الصف الثالث الابتدائي (3 فصول)
+  {
+    id: 'class-3-1',
+    name: 'الصف الثالث الابتدائي - فصل 1',
+    shortName: 'ثالث 1',
+    gradeLevel: 'الصف الثالث الابتدائي',
+    section: '1',
+    roomNumber: '101',
+    capacity: 35,
+    studentCount: 0,
+    color: '#3b82f6',
+    teacherId: '',
+    teacherName: 'غير محدد',
+    attendancePeriod: 2,
+    academicYear: '1447 - 1448 هـ'
+  },
+  {
+    id: 'class-3-2',
+    name: 'الصف الثالث الابتدائي - فصل 2',
+    shortName: 'ثالث 2',
+    gradeLevel: 'الصف الثالث الابتدائي',
+    section: '2',
+    roomNumber: '102',
+    capacity: 35,
+    studentCount: 0,
+    color: '#0ea5e9',
+    teacherId: '',
+    teacherName: 'غير محدد',
+    attendancePeriod: 2,
+    academicYear: '1447 - 1448 هـ'
+  },
+  {
+    id: 'class-3-3',
+    name: 'الصف الثالث الابتدائي - فصل 3',
+    shortName: 'ثالث 3',
+    gradeLevel: 'الصف الثالث الابتدائي',
+    section: '3',
+    roomNumber: '103',
+    capacity: 35,
+    studentCount: 0,
+    color: '#06b6d4',
+    teacherId: '',
+    teacherName: 'غير محدد',
+    attendancePeriod: 2,
+    academicYear: '1447 - 1448 هـ'
+  },
+
+  // الصف الرابع الابتدائي (3 فصول)
+  {
+    id: 'class-4-1',
+    name: 'الصف الرابع الابتدائي - فصل 1',
+    shortName: 'رابع 1',
+    gradeLevel: 'الصف الرابع الابتدائي',
+    section: '1',
+    roomNumber: '201',
+    capacity: 35,
+    studentCount: 0,
+    color: '#10b981',
+    teacherId: '',
+    teacherName: 'غير محدد',
+    attendancePeriod: 2,
+    academicYear: '1447 - 1448 هـ'
+  },
+  {
+    id: 'class-4-2',
+    name: 'الصف الرابع الابتدائي - فصل 2',
+    shortName: 'رابع 2',
+    gradeLevel: 'الصف الرابع الابتدائي',
+    section: '2',
+    roomNumber: '202',
+    capacity: 35,
+    studentCount: 0,
+    color: '#14b8a6',
+    teacherId: '',
+    teacherName: 'غير محدد',
+    attendancePeriod: 2,
+    academicYear: '1447 - 1448 هـ'
+  },
+  {
+    id: 'class-4-3',
+    name: 'الصف الرابع الابتدائي - فصل 3',
+    shortName: 'رابع 3',
+    gradeLevel: 'الصف الرابع الابتدائي',
+    section: '3',
+    roomNumber: '203',
+    capacity: 35,
+    studentCount: 0,
+    color: '#059669',
+    teacherId: '',
+    teacherName: 'غير محدد',
+    attendancePeriod: 2,
+    academicYear: '1447 - 1448 هـ'
+  },
+
+  // الصف الخامس الابتدائي (3 فصول)
+  {
+    id: 'class-5-1',
+    name: 'الصف الخامس الابتدائي - فصل 1',
+    shortName: 'خامس 1',
+    gradeLevel: 'الصف الخامس الابتدائي',
+    section: '1',
+    roomNumber: '301',
+    capacity: 35,
+    studentCount: 0,
+    color: '#f59e0b',
+    teacherId: '',
+    teacherName: 'غير محدد',
+    attendancePeriod: 2,
+    academicYear: '1447 - 1448 هـ'
+  },
+  {
+    id: 'class-5-2',
+    name: 'الصف الخامس الابتدائي - فصل 2',
+    shortName: 'خامس 2',
+    gradeLevel: 'الصف الخامس الابتدائي',
+    section: '2',
+    roomNumber: '302',
+    capacity: 35,
+    studentCount: 0,
+    color: '#d97706',
+    teacherId: '',
+    teacherName: 'غير محدد',
+    attendancePeriod: 2,
+    academicYear: '1447 - 1448 هـ'
+  },
+  {
+    id: 'class-5-3',
+    name: 'الصف الخامس الابتدائي - فصل 3',
+    shortName: 'خامس 3',
+    gradeLevel: 'الصف الخامس الابتدائي',
+    section: '3',
+    roomNumber: '303',
+    capacity: 35,
+    studentCount: 0,
+    color: '#b45309',
+    teacherId: '',
+    teacherName: 'غير محدد',
+    attendancePeriod: 2,
+    academicYear: '1447 - 1448 هـ'
+  },
+
+  // الصف السادس الابتدائي (شعبتان)
+  {
+    id: 'class-6-1',
+    name: 'الصف السادس الابتدائي - فصل 1',
+    shortName: 'سادس 1',
+    gradeLevel: 'الصف السادس الابتدائي',
+    section: '1',
+    roomNumber: '401',
+    capacity: 35,
+    studentCount: 0,
+    color: '#8b5cf6',
+    teacherId: '',
+    teacherName: 'غير محدد',
+    attendancePeriod: 2,
+    academicYear: '1447 - 1448 هـ'
+  },
+  {
+    id: 'class-6-2',
+    name: 'الصف السادس الابتدائي - فصل 2',
+    shortName: 'سادس 2',
+    gradeLevel: 'الصف السادس الابتدائي',
+    section: '2',
+    roomNumber: '402',
+    capacity: 35,
+    studentCount: 0,
+    color: '#7c3aed',
+    teacherId: '',
+    teacherName: 'غير محدد',
+    attendancePeriod: 2,
+    academicYear: '1447 - 1448 هـ'
+  }
+];
