@@ -26,6 +26,7 @@ interface LoginModalProps {
   onLoginSuccess: (user: User) => void;
   initialRole?: 'teacher' | 'admin' | null;
   sessionExpiredNotice?: boolean;
+  requireAuth?: boolean;
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ 
@@ -33,7 +34,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onClose, 
   onLoginSuccess,
   initialRole = null,
-  sessionExpiredNotice = false
+  sessionExpiredNotice = false,
+  requireAuth = false
 }) => {
 
   // Navigation step: 'select_role' (Step 1) or 'enter_credentials' (Step 2)
@@ -153,11 +155,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
       let isValid = false;
       if (user) {
-        isValid = (
-          enteredPass === 'Aa12345' || 
-          (user.password && enteredPass === user.password) ||
-          enteredPass === 'admin123'
-        );
+        isValid = !!(user.password && enteredPass === user.password);
       }
 
       if (user && isValid) {
@@ -167,14 +165,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       }
       setLoading(false);
     }, 250);
-  };
-
-  // Quick 1-click admin login
-  const handleQuickAdminLogin = () => {
-    const adminUser = users.find(u => u.username === 'admin') || users.find(u => u.role === 'admin');
-    if (adminUser) {
-      completeLogin(adminUser);
-    }
   };
 
   return (
@@ -256,14 +246,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 : 'bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 border-emerald-900/60'
             }`}>
               <button
-                onClick={onClose}
-                className="absolute top-4 left-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-sm transition"
+                onClick={requireAuth ? undefined : onClose}
+                disabled={requireAuth}
+                className={`absolute top-4 left-4 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm transition ${
+                  requireAuth ? 'bg-white/5 opacity-40 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20'
+                }`}
               >
                 <X className="w-4 h-4" />
               </button>
               
               {/* Back to Step 1 Button if inside a role portal */}
-              {selectedRole !== null && (
+              {selectedRole !== null && !initialRole && (
                 <button
                   type="button"
                   onClick={() => {
@@ -290,9 +283,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               
               <h2 className="text-lg font-black font-brand text-white">
                 {selectedRole === 'admin' 
-                  ? 'بوابة الإدارة المدرسية المركزية' 
+                  ? 'بوابة الإدارة المدرسية' 
                   : selectedRole === 'teacher' 
-                  ? 'بوابة المعلم ومربي الفصل' 
+                  ? 'رصد الحصة الثانية' 
                   : 'منظومة متابعة الحضور والغياب'}
               </h2>
               <p className="text-xs text-slate-300 mt-0.5">
@@ -310,7 +303,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
 
             {/* STEP 1: INITIAL ROLE SELECTION SCREEN (WHEN NO ROLE CHOSEN YET) */}
-            {selectedRole === null && (
+            {selectedRole === null && !initialRole && (
               <div className="p-6 sm:p-7 overflow-y-auto flex-1 space-y-5 animate-in fade-in duration-200">
                 <div className="text-center space-y-1">
                   <span className="bg-emerald-100 text-emerald-900 text-[11px] font-black px-3 py-1 rounded-full border border-emerald-200 inline-block">
@@ -521,36 +514,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 {/* --- ROLE B: ADMIN LOGIN PATH & INPUTS --- */}
                 {selectedRole === 'admin' && (
                   <div className="space-y-4 animate-in fade-in">
-                    {/* Quick 1-Click Fast Admin Login */}
-                    <button
-                      type="button"
-                      onClick={handleQuickAdminLogin}
-                      className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 hover:bg-amber-100 transition text-right group shadow-sm"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-sm shadow-sm">
-                          <Shield className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-black text-slate-900">دخول فوري مباشر للإدارة (المشرف / المدير)</div>
-                          <div className="text-[11px] text-amber-900 font-bold">لوحة التحكم المركزية والمتابعة الميدانية الكاملة</div>
-                        </div>
-                      </div>
-                      <span className="text-xs bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl font-black group-hover:scale-105 transition flex items-center gap-1 shadow-sm">
-                        دخول سريع <ArrowLeft className="w-3.5 h-3.5" />
-                      </span>
-                    </button>
-
-                    <div className="relative my-3 text-center">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-slate-200"></div>
-                      </div>
-                      <span className="relative bg-white px-3 text-[11px] font-bold text-slate-400">
-                        أو إدخال بيانات الدخول المعتمدة
-                      </span>
-                    </div>
-
-                    {/* Manual Admin Form */}
                     <form onSubmit={handleAdminSubmit} className="space-y-3.5">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1.5">اسم مستخدم الإدارة</label>

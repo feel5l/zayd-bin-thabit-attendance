@@ -44,6 +44,7 @@ interface TeacherAttendanceSheetProps {
   onAttendanceSubmitted: () => void;
   onViewStudentProfile?: (studentId: string) => void;
   onOpenReferralModal?: (studentId: string) => void;
+  initialClassId?: string;
 }
 
 export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
@@ -52,15 +53,18 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
   simulatedTime,
   onAttendanceSubmitted,
   onViewStudentProfile,
-  onOpenReferralModal
+  onOpenReferralModal,
+  initialClassId
 }) => {
+  const isTeacherView = currentUser.role === 'teacher';
   const currentDayInfo = AttendanceService.getCurrentDayKey();
   const classes = AttendanceService.getClasses();
   const periods = AttendanceService.getPeriods();
   const activePeriod = AttendanceService.getCurrentlyActivePeriod(simulatedTime || undefined);
 
   // Determine initial assigned class for this teacher today from day-by-day database assignments table
-  const initialClassId = () => {
+  const initialClassIdValue = () => {
+    if (initialClassId) return initialClassId;
     if (currentUser.role === 'admin') {
       return currentUser.assignedClassId || classes[0]?.id || '4-A';
     }
@@ -68,7 +72,7 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
     return todayAssignedClass ? todayAssignedClass.id : (currentUser.assignedClassId || classes[0]?.id || '4-A');
   };
 
-  const [selectedClassId, setSelectedClassId] = useState<string>(initialClassId);
+  const [selectedClassId, setSelectedClassId] = useState<string>(initialClassIdValue);
   const [selectedPeriodNumber, setSelectedPeriodNumber] = useState<number>(2);
 
   // Validate period attendance based on system rules:
@@ -94,7 +98,7 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
   const [successMessage, setSuccessMessage] = useState('');
   const [quickActionNotice, setQuickActionNotice] = useState<string | null>(null);
   const [adminReminderAlert, setAdminReminderAlert] = useState<{ active: boolean; message?: string }>(() => ({
-    active: AttendanceService.isTeacherRemindedToday(initialClassId())
+    active: AttendanceService.isTeacherRemindedToday(initialClassIdValue())
   }));
 
   const currentClass = classes.find(c => c.id === selectedClassId) || classes[0];
@@ -102,7 +106,21 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
     ? AttendanceService.getTeacherAssignedClassForDay(currentUser.id, currentDayInfo.key)
     : null;
 
-  // Listen to live admin reminder events
+  useEffect(() => {
+    if (initialClassId) {
+      setSelectedClassId(initialClassId);
+    }
+  }, [initialClassId]);
+
+  useEffect(() => {
+    if (!isTeacherView) return;
+    const assigned = AttendanceService.getTeacherAssignedClassForDay(currentUser.id, currentDayInfo.key);
+    if (assigned) {
+      setSelectedClassId(assigned.id);
+    }
+    setSelectedPeriodNumber(2);
+  }, [currentUser.id, currentDayInfo.key, isTeacherView]);
+
   useEffect(() => {
     setAdminReminderAlert({ active: AttendanceService.isTeacherRemindedToday(selectedClassId) });
   }, [selectedClassId]);
@@ -374,13 +392,19 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-900">اختيار الحصة الدراسية للرصد</h3>
-              <p className="text-[11px] text-slate-500 font-medium">الرصد متاح في أي حصة مطابقة للجدول الدراسي عدا الحصة الثانية</p>
+              <h3 className="text-sm font-black text-slate-900">
+                {isTeacherView ? 'الحصة الثانية — فترة الرصد المعتمدة' : 'اختيار الحصة الدراسية للرصد'}
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium">
+                {isTeacherView
+                  ? 'رصد الغياب والسلوك للحصة الثانية فقط (07:45 – 08:30)'
+                  : 'الرصد متاح في أي حصة مطابقة للجدول الدراسي'}
+              </p>
             </div>
           </div>
 
           {/* Class Indicator & Selector */}
-          {currentUser.role === 'admin' ? (
+          {!isTeacherView ? (
             <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl">
               <span className="text-xs font-bold px-2 text-slate-600">الفصل:</span>
               <select
@@ -405,51 +429,60 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
           )}
         </div>
 
-        {/* 7 Periods Navigation Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-          {periods.map(period => {
-            const isSelected = selectedPeriodNumber === period.periodNumber;
-            const isP2 = period.periodNumber === 2;
-            const isLive = activePeriod?.periodNumber === period.periodNumber;
+        {isTeacherView ? (
+          <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black text-emerald-900">الحصة الثانية (الرصد المعتمد)</p>
+              <p className="text-[11px] text-emerald-700 font-mono dir-ltr text-right">07:45 - 08:30</p>
+            </div>
+            <span className="text-[10px] bg-emerald-700 text-white font-black px-2 py-1 rounded-lg">الحصة الوحيدة للمعلم</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+            {periods.map(period => {
+              const isSelected = selectedPeriodNumber === period.periodNumber;
+              const isP2 = period.periodNumber === 2;
+              const isLive = activePeriod?.periodNumber === period.periodNumber;
 
-            return (
-              <button
-                key={period.periodNumber}
-                type="button"
-                onClick={() => setSelectedPeriodNumber(period.periodNumber)}
-                className={`p-2.5 rounded-2xl border text-right transition flex flex-col justify-between relative select-none cursor-pointer ${
-                  isSelected
-                    ? isP2
-                      ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-500/40 text-emerald-950 shadow-sm'
-                      : 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-950 shadow-sm'
-                    : isP2
-                      ? 'bg-emerald-50/40 border-emerald-300 text-emerald-900 hover:bg-emerald-50'
-                      : isLive
-                        ? 'bg-teal-50/70 border-teal-300 text-teal-900 hover:bg-teal-50'
-                        : 'bg-slate-50 border-slate-200/80 text-slate-700 hover:bg-slate-100/80'
-                }`}
-              >
-                <div className="flex items-center justify-between w-full mb-1">
-                  <span className="text-xs font-black">{period.name}</span>
-                  {isP2 ? (
-                    <span className="text-[10px] bg-emerald-700 text-white font-black px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
-                      <Sparkles className="w-2.5 h-2.5 text-amber-300" />
-                      الرصد المعتمد
-                    </span>
-                  ) : isLive ? (
-                    <span className="text-[10px] bg-emerald-600 text-white font-black px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-ping"></span>
-                      الحالية
-                    </span>
-                  ) : null}
-                </div>
-                <div className="text-[10px] font-mono text-slate-500 font-semibold dir-ltr text-right">
-                  {period.startTime} - {period.endTime}
-                </div>
-              </button>
-            );
-          })}
-        </div>
+              return (
+                <button
+                  key={period.periodNumber}
+                  type="button"
+                  onClick={() => setSelectedPeriodNumber(period.periodNumber)}
+                  className={`p-2.5 rounded-2xl border text-right transition flex flex-col justify-between relative select-none cursor-pointer ${
+                    isSelected
+                      ? isP2
+                        ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-500/40 text-emerald-950 shadow-sm'
+                        : 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-950 shadow-sm'
+                      : isP2
+                        ? 'bg-emerald-50/40 border-emerald-300 text-emerald-900 hover:bg-emerald-50'
+                        : isLive
+                          ? 'bg-teal-50/70 border-teal-300 text-teal-900 hover:bg-teal-50'
+                          : 'bg-slate-50 border-slate-200/80 text-slate-700 hover:bg-slate-100/80'
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <span className="text-xs font-black">{period.name}</span>
+                    {isP2 ? (
+                      <span className="text-[10px] bg-emerald-700 text-white font-black px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                        <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                        الرصد المعتمد
+                      </span>
+                    ) : isLive ? (
+                      <span className="text-[10px] bg-emerald-600 text-white font-black px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-ping"></span>
+                        الحالية
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-500 font-semibold dir-ltr text-right">
+                    {period.startTime} - {period.endTime}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Dynamic Period Status Banner (Clear High-Visibility Alert) */}
         {periodValidation.status === 'unassigned_teacher' ? (
@@ -474,7 +507,7 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
               </div>
             </div>
 
-            {teacherDayAssignedClass && teacherDayAssignedClass.id !== selectedClassId && (
+            {teacherDayAssignedClass && teacherDayAssignedClass.id !== selectedClassId && !isTeacherView && (
               <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
                 <button
                   type="button"

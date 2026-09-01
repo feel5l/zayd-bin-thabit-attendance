@@ -29,11 +29,13 @@ import {
 interface StudentReferralsManagerProps {
   currentUser: User | null;
   settings: SchoolSettings;
+  classIdFilter?: string;
 }
 
 export const StudentReferralsManager: React.FC<StudentReferralsManagerProps> = ({
   currentUser,
-  settings
+  settings,
+  classIdFilter
 }) => {
   const [referrals, setReferrals] = useState<StudentReferralForm[]>(() => AttendanceService.getReferralForms());
   const [classes, setClasses] = useState<SchoolClass[]>(() => AttendanceService.getClasses());
@@ -81,6 +83,12 @@ export const StudentReferralsManager: React.FC<StudentReferralsManagerProps> = (
 
   // Filtered referrals
   const filteredReferrals = referrals.filter(r => {
+    if (classIdFilter) {
+      const cls = classes.find(c => c.id === classIdFilter);
+      if (cls && r.className !== cls.name && !r.className.includes(cls.name)) {
+        return false;
+      }
+    }
     if (classFilter !== 'all' && r.className !== classFilter && !r.className.includes(classFilter)) {
       return false;
     }

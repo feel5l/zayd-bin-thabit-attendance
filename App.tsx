@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, SchoolSettings } from './types';
 import { AttendanceService } from './services/attendanceService';
-import { Navbar } from './components/Navbar';
-import { TimeSimulatorBar } from './components/TimeSimulatorBar';
-import { AdminDashboard } from './components/AdminDashboard';
-import { TeacherAttendanceSheet } from './components/TeacherAttendanceSheet';
-import { StudentDirectory } from './components/StudentDirectory';
-import { ExcuseManager } from './components/ExcuseManager';
-import { AIAdvisoryHub } from './components/AIAdvisoryHub';
-import { ClassHistoryViewer } from './components/ClassHistoryViewer';
 import { LoginModal } from './components/LoginModal';
 import { SchoolSettingsModal } from './components/SchoolSettingsModal';
 import { PrintableDailyReport } from './components/PrintableDailyReport';
@@ -19,47 +11,40 @@ import { TeacherAndClassManagerModal } from './components/TeacherAndClassManager
 import { TeacherReminderModal } from './components/TeacherReminderModal';
 import { GoogleSheetsExportModal } from './components/GoogleSheetsExportModal';
 import { StudentImportModal } from './components/StudentImportModal';
-import { ContactsManager } from './components/ContactsManager';
 import { ContactsManagerModal } from './components/ContactsManagerModal';
 import { PortalLinksModal } from './components/PortalLinksModal';
-import { StudentReferralsManager } from './components/StudentReferralsManager';
 import { StudentReferralModal } from './components/StudentReferralModal';
+import { TeacherShell } from './components/layouts/TeacherShell';
+import { AdminShell } from './components/layouts/AdminShell';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
-import { GraduationCap, ShieldAlert, Sparkles, BookOpen, Clock, Heart, ShieldCheck } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
 import { getTodayDateString } from './services/initialData';
 
-export const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    AttendanceService.initStorage();
-    const existing = AttendanceService.getCurrentUser();
-    if (existing) return existing;
-    
-    // Check URL parameters on first load
-    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const portal = params?.get('portal') || params?.get('role');
-    const hash = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
-    
-    const users = AttendanceService.getUsers();
-    if (portal === 'teacher' || hash.includes('teacher')) {
-      const teacher = users.find(u => u.role === 'teacher');
-      return teacher || users[0];
-    }
-    return users.find(u => u.username === 'admin') || users[0];
-  });
+const TEACHER_TABS = new Set(['attendance', 'referrals']);
+const ADMIN_TABS = new Set(['dashboard', 'attendance', 'students', 'excuses', 'referrals', 'contacts', 'ai-advisor']);
 
+const getPortalRole = (): 'teacher' | 'admin' | null => {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const portal = params.get('portal') || params.get('role');
+  const hash = window.location.hash.toLowerCase();
+  if (portal === 'teacher' || hash.includes('teacher')) return 'teacher';
+  if (portal === 'admin' || hash.includes('admin')) return 'admin';
+  return null;
+};
+
+export const App: React.FC = () => {
+  AttendanceService.initStorage();
+
+  const [currentUser, setCurrentUser] = useState<User | null>(() => AttendanceService.getCurrentUser());
   const [settings, setSettings] = useState<SchoolSettings>(() => AttendanceService.getSettings());
-  const [simulatedTime, setSimulatedTime] = useState<string | null>('08:15'); // Start inside period 2 by default for great UX
+  const [simulatedTime, setSimulatedTime] = useState<string | null>('08:15');
+  const [loginInitialRole, setLoginInitialRole] = useState<'teacher' | 'admin' | null>(() => getPortalRole());
   const [activeTab, setActiveTab] = useState<string>(() => {
-    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const portal = params?.get('portal') || params?.get('role');
-    const hash = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
-    if (portal === 'teacher' || hash.includes('teacher')) {
-      return 'attendance';
-    }
-    return 'dashboard';
+    const portal = getPortalRole();
+    return portal === 'teacher' ? 'attendance' : 'dashboard';
   });
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [loginInitialRole, setLoginInitialRole] = useState<'teacher' | 'admin' | null>(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(() => !AttendanceService.getCurrentUser());
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isPrintReportOpen, setIsPrintReportOpen] = useState(false);
   const [isArchivingModalOpen, setIsArchivingModalOpen] = useState(false);
@@ -70,37 +55,11 @@ export const App: React.FC = () => {
   const [isContactsModalOpen, setIsContactsModalOpen] = useState(false);
   const [isPortalLinksModalOpen, setIsPortalLinksModalOpen] = useState(false);
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
-
-  // Parse direct portal URL query params (?portal=teacher / ?portal=admin)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const portal = params.get('portal') || params.get('role');
-    const hash = window.location.hash.toLowerCase();
-
-    if (portal === 'teacher' || hash.includes('teacher')) {
-      setLoginInitialRole('teacher');
-      const current = AttendanceService.getCurrentUser();
-      if (!current || current.role !== 'teacher') {
-        const teachers = AttendanceService.getUsers().filter(u => u.role === 'teacher');
-        if (teachers.length > 0) {
-          AttendanceService.setCurrentUser(teachers[0]);
-          setCurrentUser(teachers[0]);
-        }
-      }
-      setActiveTab('attendance');
-    } else if (portal === 'admin' || hash.includes('admin')) {
-      setLoginInitialRole('admin');
-      const current = AttendanceService.getCurrentUser();
-      if (!current || current.role !== 'admin') {
-        const adminUser = AttendanceService.getUsers().find(u => u.role === 'admin');
-        if (adminUser) {
-          AttendanceService.setCurrentUser(adminUser);
-          setCurrentUser(adminUser);
-        }
-      }
-      setActiveTab('dashboard');
-    }
-  }, []);
+  const [adminViewClassId, setAdminViewClassId] = useState<string | null>(null);
+  const [selectedStudentForModal, setSelectedStudentForModal] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
+  const [referralStudentId, setReferralStudentId] = useState<string | null>(null);
   const [pdfReportModal, setPdfReportModal] = useState<{
     isOpen: boolean;
     type: 'daily' | 'monthly';
@@ -110,17 +69,22 @@ export const App: React.FC = () => {
     type: 'daily',
     date: getTodayDateString()
   });
-  const [selectedStudentForModal, setSelectedStudentForModal] = useState<string | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
-  const [referralStudentId, setReferralStudentId] = useState<string | null>(null);
 
-  const handleOpenReferralModal = (studentId?: string) => {
-    setReferralStudentId(studentId || null);
-    setIsReferralModalOpen(true);
-  };
+  useEffect(() => {
+    const portal = getPortalRole();
+    if (portal) {
+      setLoginInitialRole(portal);
+    }
+  }, []);
 
-  // 30-Minute Inactivity Session Timeout to protect student data
+  useEffect(() => {
+    if (!currentUser) return;
+    const allowed = currentUser.role === 'admin' ? ADMIN_TABS : TEACHER_TABS;
+    if (!allowed.has(activeTab)) {
+      setActiveTab(currentUser.role === 'admin' ? 'dashboard' : 'attendance');
+    }
+  }, [currentUser, activeTab]);
+
   useSessionTimeout({
     timeoutMinutes: 30,
     isEnabled: !!currentUser,
@@ -129,34 +93,18 @@ export const App: React.FC = () => {
     }
   });
 
-  // Sync tab when user role changes
-  useEffect(() => {
-    if (currentUser) {
-      if (currentUser.role === 'admin') {
-        if (activeTab === 'attendance' || activeTab === 'class-history') {
-          setActiveTab('dashboard');
-        }
-      } else {
-        if (activeTab === 'dashboard' || activeTab === 'students' || activeTab === 'ai-advisor') {
-          setActiveTab('attendance');
-        }
-      }
-    }
-  }, [currentUser]);
+  const handleOpenReferralModal = (studentId?: string) => {
+    setReferralStudentId(studentId || null);
+    setIsReferralModalOpen(true);
+  };
 
-  // Quick switch user
   const handleQuickSwitchUser = (username: string) => {
-    const users = AttendanceService.getUsers();
-    const user = users.find(u => u.username === username);
+    const user = AttendanceService.getUsers().find(u => u.username === username);
     if (user) {
       AttendanceService.setCurrentUser(user);
       setCurrentUser(user);
       AttendanceService.updateLastActivity();
-      if (user.role === 'admin') {
-        setActiveTab('dashboard');
-      } else {
-        setActiveTab('attendance');
-      }
+      setActiveTab(user.role === 'admin' ? 'dashboard' : 'attendance');
     }
   };
 
@@ -164,6 +112,7 @@ export const App: React.FC = () => {
     const wasTeacher = currentUser?.role === 'teacher';
     AttendanceService.setCurrentUser(null);
     setCurrentUser(null);
+    setAdminViewClassId(null);
     if (isExpired) {
       setSessionExpiredNotice(true);
     }
@@ -171,21 +120,15 @@ export const App: React.FC = () => {
     setIsLoginModalOpen(true);
   };
 
-
-  const handleUpdateSettings = (newSettings: SchoolSettings) => {
-    setSettings(newSettings);
-    if (currentUser) {
-      AttendanceService.saveSettings(newSettings, currentUser);
-    }
-  };
-
-  const handleViewStudentProfile = (studentId: string) => {
-    setSelectedStudentForModal(studentId);
-    setActiveTab('students');
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    setSessionExpiredNotice(false);
+    setIsLoginModalOpen(false);
+    setActiveTab(user.role === 'admin' ? 'dashboard' : 'attendance');
   };
 
   const handleOpenClassSheetFromAdmin = (classId: string) => {
-    // Switch view or open attendance
+    setAdminViewClassId(classId);
     setActiveTab('attendance');
   };
 
@@ -195,198 +138,103 @@ export const App: React.FC = () => {
     setActiveTab('attendance');
   };
 
+  const handleViewStudentProfile = (studentId: string) => {
+    setSelectedStudentForModal(studentId);
+    if (currentUser?.role === 'admin') {
+      setActiveTab('students');
+    }
+  };
+
   const stats = AttendanceService.getTodaySchoolStats();
 
   return (
     <div className="min-h-screen bg-slate-50/70 text-slate-900 flex flex-col font-sans selection:bg-emerald-200 selection:text-emerald-900">
-      {/* Real-time Toast Notifications for Admin */}
       <ToastNotificationContainer
         isAdmin={currentUser?.role === 'admin'}
-        onOpenClassSheet={(classId) => {
-          handleOpenClassSheetFromAdmin(classId);
-        }}
+        onOpenClassSheet={handleOpenClassSheetFromAdmin}
         onViewStudentProfile={handleViewStudentProfile}
       />
 
-      {/* Top Time Simulator Toolbar */}
-      <TimeSimulatorBar
-        settings={settings}
-        simulatedTime={simulatedTime}
-        onSetSimulatedTime={setSimulatedTime}
-        onUpdateSettings={handleUpdateSettings}
-      />
-
-      {/* Main Navbar */}
-      <Navbar
-        currentUser={currentUser}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenLoginModal={() => setIsLoginModalOpen(true)}
-        onLogout={handleLogout}
-        onQuickSwitchUser={handleQuickSwitchUser}
-        settings={settings}
-        simulatedTime={simulatedTime}
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
-        pendingClassesCount={stats.pendingCount}
-        onOpenClassSheet={handleOpenClassSheetFromAdmin}
-        onOpenArchivingModal={() => setIsArchivingModalOpen(true)}
-        onOpenTeacherAndClassManager={() => setIsTeacherAndClassModalOpen(true)}
-        onOpenTeacherReminderModal={() => setIsTeacherReminderModalOpen(true)}
-        onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
-        onOpenStudentImportModal={() => setIsStudentImportModalOpen(true)}
-        onOpenContactsModal={() => setIsContactsModalOpen(true)}
-        onOpenPortalLinksModal={() => setIsPortalLinksModalOpen(true)}
-      />
-
-
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {currentUser ? (
-          <>
-            {/* Admin Dashboard */}
-            {activeTab === 'dashboard' && currentUser.role === 'admin' && (
-              <AdminDashboard
-                currentUser={currentUser}
-                settings={settings}
-                simulatedTime={simulatedTime}
-                onOpenPrintReport={() => setPdfReportModal({ isOpen: true, type: 'daily', date: getTodayDateString() })}
-                onOpenPdfReport={(type, date) => setPdfReportModal({ isOpen: true, type, date })}
-                onOpenClassSheet={handleOpenClassSheetFromAdmin}
-                onViewStudentProfile={handleViewStudentProfile}
-                onNavigateToTab={(tab) => setActiveTab(tab)}
-                onOpenArchivingModal={() => setIsArchivingModalOpen(true)}
-                onOpenTeacherAndClassManager={() => setIsTeacherAndClassModalOpen(true)}
-                onSwitchToTeacher={handleSwitchToTeacher}
-                onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
-                onOpenStudentImportModal={() => setIsStudentImportModalOpen(true)}
-                onOpenContactsModal={() => setIsContactsModalOpen(true)}
-                onOpenPortalLinksModal={() => setIsPortalLinksModalOpen(true)}
-              />
-            )}
-
-            {/* Teacher Attendance Sheet (Also accessible by Admin) */}
-            {activeTab === 'attendance' && (
-              <TeacherAttendanceSheet
-                currentUser={currentUser}
-                settings={settings}
-                simulatedTime={simulatedTime}
-                onAttendanceSubmitted={() => setRefreshTrigger(prev => prev + 1)}
-                onViewStudentProfile={handleViewStudentProfile}
-                onOpenReferralModal={handleOpenReferralModal}
-              />
-            )}
-
-            {/* Student Directory */}
-            {activeTab === 'students' && (
-              <StudentDirectory
-                currentUser={currentUser}
-                settings={settings}
-                onOpenStudentModal={selectedStudentForModal}
-                onCloseStudentModal={() => setSelectedStudentForModal(null)}
-                onOpenReferralModal={handleOpenReferralModal}
-              />
-            )}
-
-            {/* Excuses Management */}
-            {activeTab === 'excuses' && (
-              <ExcuseManager
-                currentUser={currentUser}
-                settings={settings}
-              />
-            )}
-
-            {/* Student Referral Forms to Counselor (استمارات التحويل للمرشد الطلابي) */}
-            {activeTab === 'referrals' && (
-              <StudentReferralsManager
-                currentUser={currentUser}
-                settings={settings}
-              />
-            )}
-
-            {/* Contacts Directory and Communication Hub */}
-            {activeTab === 'contacts' && (
-              <ContactsManager
-                currentUser={currentUser}
-                settings={settings}
-                onOpenStudentProfile={handleViewStudentProfile}
-              />
-            )}
-
-            {/* AI Advisor Hub */}
-            {activeTab === 'ai-advisor' && (
-              <AIAdvisoryHub
-                currentUser={currentUser}
-                settings={settings}
-              />
-            )}
-
-            {/* Class History Viewer */}
-            {activeTab === 'class-history' && (
-              <ClassHistoryViewer
-                currentUser={currentUser}
-              />
-            )}
-          </>
-        ) : (
-          /* Guest Screen */
-          <div className="text-center py-20 bg-white rounded-3xl border border-slate-200 shadow-sm p-8 max-w-lg mx-auto space-y-4">
+      {currentUser?.role === 'teacher' ? (
+        <TeacherShell
+          currentUser={currentUser}
+          settings={settings}
+          simulatedTime={null}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onLogout={() => handleLogout(false)}
+          onAttendanceSubmitted={() => setRefreshTrigger(prev => prev + 1)}
+          onOpenReferralModal={handleOpenReferralModal}
+        />
+      ) : currentUser?.role === 'admin' ? (
+        <AdminShell
+          currentUser={currentUser}
+          settings={settings}
+          simulatedTime={simulatedTime}
+          onSetSimulatedTime={setSimulatedTime}
+          onUpdateSettings={(newSettings) => {
+            setSettings(newSettings);
+            AttendanceService.saveSettings(newSettings, currentUser);
+          }}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onLogout={() => handleLogout(false)}
+          onQuickSwitchUser={handleQuickSwitchUser}
+          pendingClassesCount={stats.pendingCount}
+          onAttendanceSubmitted={() => setRefreshTrigger(prev => prev + 1)}
+          onViewStudentProfile={handleViewStudentProfile}
+          onOpenReferralModal={handleOpenReferralModal}
+          selectedStudentForModal={selectedStudentForModal}
+          onCloseStudentModal={() => setSelectedStudentForModal(null)}
+          adminViewClassId={adminViewClassId}
+          onOpenClassSheet={handleOpenClassSheetFromAdmin}
+          onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onOpenArchivingModal={() => setIsArchivingModalOpen(true)}
+          onOpenTeacherAndClassManager={() => setIsTeacherAndClassModalOpen(true)}
+          onOpenTeacherReminderModal={() => setIsTeacherReminderModalOpen(true)}
+          onOpenGoogleSheetsModal={() => setIsGoogleSheetsModalOpen(true)}
+          onOpenStudentImportModal={() => setIsStudentImportModalOpen(true)}
+          onOpenContactsModal={() => setIsContactsModalOpen(true)}
+          onOpenPortalLinksModal={() => setIsPortalLinksModalOpen(true)}
+          onOpenPrintReport={() => setPdfReportModal({ isOpen: true, type: 'daily', date: getTodayDateString() })}
+          onOpenPdfReport={(type, date) => setPdfReportModal({ isOpen: true, type, date })}
+          onSwitchToTeacher={handleSwitchToTeacher}
+        />
+      ) : (
+        <main className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm p-8 max-w-lg w-full space-y-4">
             <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center">
               <GraduationCap className="w-9 h-9" />
             </div>
             <h2 className="text-xl font-black font-brand text-slate-900">
-              مرحباً بكم في نظام متابعة غياب الطلاب
+              نظام متابعة غياب الطلاب
             </h2>
             <p className="text-xs text-slate-500 font-medium">
-              يرجى تسجيل الدخول بحساب المعلم أو مدير مدرسة زيد بن ثابت لرصد كشف غياب الحصة الثانية ومتابعة الإحصائيات.
+              مدرسة زيد بن ثابت الابتدائية — يرجى تسجيل الدخول للمتابعة
             </p>
             <button
               onClick={() => setIsLoginModalOpen(true)}
-              className="px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-bold shadow-lg shadow-emerald-700/20 transition"
+              className="min-h-[44px] px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-bold shadow-lg shadow-emerald-700/20 transition touch-manipulation"
             >
-              تسجيل الدخول الآن
+              تسجيل الدخول
             </button>
           </div>
-        )}
-      </main>
+        </main>
+      )}
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200/80 py-8 px-6 text-center text-xs text-slate-500 space-y-2 no-print">
-        <div className="flex flex-wrap items-center justify-center gap-4 font-bold text-slate-700">
-          <div className="flex items-center gap-2">
-            <GraduationCap className="w-4 h-4 text-emerald-600" />
-            <span>نظام متابعة غياب الطلاب — مدرسة زيد بن ثابت الابتدائية</span>
-          </div>
-          <span className="text-slate-300 hidden sm:inline">•</span>
-          <button
-            type="button"
-            onClick={() => setIsPortalLinksModalOpen(true)}
-            className="text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
-          >
-            <span>🔗 روابط الدخول المباشرة (المعلم / الإدارة)</span>
-          </button>
-        </div>
-        <p className="text-[11px] text-slate-400">
-          منظومة الإدارة المدرسية الرقمية © {new Date().getFullYear()} — رصد الحصة الثانية ولائحة المواظبة المعتمدة
-        </p>
-      </footer>
-
-      {/* Modals */}
       <LoginModal
-        isOpen={isLoginModalOpen}
+        isOpen={isLoginModalOpen || !currentUser}
         initialRole={loginInitialRole}
         sessionExpiredNotice={sessionExpiredNotice}
+        requireAuth={!currentUser}
         onClose={() => {
-          setIsLoginModalOpen(false);
-          setSessionExpiredNotice(false);
+          if (currentUser) {
+            setIsLoginModalOpen(false);
+            setSessionExpiredNotice(false);
+          }
         }}
-        onLoginSuccess={(user) => {
-          setCurrentUser(user);
-          setSessionExpiredNotice(false);
-          if (user.role === 'admin') setActiveTab('dashboard');
-          else setActiveTab('attendance');
-        }}
+        onLoginSuccess={handleLoginSuccess}
       />
-
 
       <SchoolSettingsModal
         isOpen={isSettingsModalOpen}
@@ -396,7 +244,6 @@ export const App: React.FC = () => {
         onSaveSettings={(s) => setSettings(s)}
       />
 
-      {/* Official PDF & Printable Reports Export Modal */}
       {pdfReportModal.isOpen && (
         <PdfReportsExportModal
           isOpen={pdfReportModal.isOpen}
@@ -407,7 +254,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Teachers & Classes Management Modal */}
       {isTeacherAndClassModalOpen && currentUser && (
         <TeacherAndClassManagerModal
           isOpen={isTeacherAndClassModalOpen}
@@ -418,7 +264,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Database Data Archiving & Restore Modal */}
       {isArchivingModalOpen && currentUser && (
         <DataArchivingModal
           isOpen={isArchivingModalOpen}
@@ -428,7 +273,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Teacher Reminder & Broadcast Modal */}
       {isTeacherReminderModalOpen && currentUser && (
         <TeacherReminderModal
           isOpen={isTeacherReminderModalOpen}
@@ -440,7 +284,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Google Sheets Live Export and Sync Modal */}
       {isGoogleSheetsModalOpen && (
         <GoogleSheetsExportModal
           isOpen={isGoogleSheetsModalOpen}
@@ -449,19 +292,15 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Student Import and Automatic Distribution Modal */}
       {isStudentImportModalOpen && currentUser && (
         <StudentImportModal
           isOpen={isStudentImportModalOpen}
           onClose={() => setIsStudentImportModalOpen(false)}
           currentUser={currentUser}
-          onSuccess={() => {
-            setRefreshTrigger(prev => prev + 1);
-          }}
+          onSuccess={() => setRefreshTrigger(prev => prev + 1)}
         />
       )}
 
-      {/* Contacts Manager Modal */}
       {isContactsModalOpen && currentUser && (
         <ContactsManagerModal
           isOpen={isContactsModalOpen}
@@ -472,7 +311,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Portal Access Links Modal */}
       {isPortalLinksModalOpen && (
         <PortalLinksModal
           isOpen={isPortalLinksModalOpen}
@@ -481,7 +319,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Direct Student Referral Modal Triggered From Tables / Sheets */}
       {isReferralModalOpen && (
         <StudentReferralModal
           isOpen={isReferralModalOpen}
@@ -491,9 +328,7 @@ export const App: React.FC = () => {
           }}
           preselectedStudentId={referralStudentId}
           currentUser={currentUser}
-          onSaved={() => {
-            setRefreshTrigger(prev => prev + 1);
-          }}
+          onSaved={() => setRefreshTrigger(prev => prev + 1)}
         />
       )}
 
