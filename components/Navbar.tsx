@@ -243,6 +243,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
 
               <button
+                onClick={() => setActiveTab('attendance')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  activeTab === 'attendance'
+                    ? 'bg-white shadow-md text-emerald-800 ring-1 ring-slate-900/5'
+                    : 'text-slate-600 hover:bg-white/60 hover:text-slate-900'
+                }`}
+              >
+                <ClipboardList className="w-4 h-4 text-emerald-600" />
+                <span>رصد الحضور</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('students')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                   activeTab === 'students'
@@ -593,6 +605,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               لوحة المتابعة
+            </button>
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${
+                activeTab === 'attendance' ? 'bg-emerald-700 text-white' : 'text-slate-600'
+              }`}
+            >
+              رصد الحضور
             </button>
             <button
               onClick={() => setActiveTab('students')}

@@ -35,6 +35,7 @@ const STORAGE_KEYS = {
 export const NOTIFICATION_EVENT = 'attendance_notification_event';
 export const TEACHER_REMINDER_EVENT = 'attendance_teacher_reminder_event';
 export const SESSION_TIMEOUT_EVENT = 'attendance_session_timeout_event';
+export const AUTO_SYNC_NOTE = 'auto-synced-from-period-2';
 
 export const WEEKDAYS_LIST: { key: WeekDayKey; label: string; index: number }[] = [
   { key: 'sunday', label: 'الأحد', index: 0 },
@@ -924,7 +925,52 @@ export class AttendanceService {
     return subs.find(s => s.classId === classId);
   }
 
-  static saveAttendanceSubmission(submission: ClassAttendanceSubmission, user: User): void {
+  static isAutoSyncedSubmission(submission: ClassAttendanceSubmission): boolean {
+    return submission.notes === AUTO_SYNC_NOTE;
+  }
+
+  static propagatePeriod2ToOtherPeriods(classId: string, date: string = getTodayDateString()): number {
+    const period2Submission = this.getTodaySubmissionForClass(classId, date, 2);
+    if (!period2Submission || this.isAutoSyncedSubmission(period2Submission)) {
+      return 0;
+    }
+
+    const teacher = this.getUsers().find(u => u.id === period2Submission.teacherId);
+    if (!teacher) return 0;
+
+    let created = 0;
+    for (const periodNumber of [1, 3, 4, 5, 6, 7]) {
+      if (this.getTodaySubmissionForClass(classId, date, periodNumber)) continue;
+
+      const syncedSubmission: ClassAttendanceSubmission = {
+        ...period2Submission,
+        id: `sub-${date}-${classId}-p${periodNumber}-auto`,
+        periodNumber,
+        submittedAt: new Date().toISOString(),
+        notes: AUTO_SYNC_NOTE,
+        updatedAt: undefined
+      };
+
+      this.saveAttendanceSubmission(syncedSubmission, teacher, { silent: true });
+      created++;
+    }
+
+    return created;
+  }
+
+  static propagateAllClassesFromPeriod2(date: string = getTodayDateString()): void {
+    this.getClasses().forEach(cls => {
+      if (this.getTodaySubmissionForClass(cls.id, date, 2)) {
+        this.propagatePeriod2ToOtherPeriods(cls.id, date);
+      }
+    });
+  }
+
+  static saveAttendanceSubmission(
+    submission: ClassAttendanceSubmission,
+    user: User,
+    options?: { silent?: boolean }
+  ): void {
     const subs = [...this.getSubmissions()];
     const existingIdx = subs.findIndex(s => 
       s.classId === submission.classId && 
@@ -994,7 +1040,13 @@ export class AttendanceService {
       read: false
     };
 
-    this.saveNotification(notification);
+    if (!options?.silent) {
+      this.saveNotification(notification);
+    }
+
+    if ((submission.periodNumber || 2) === 2 && submission.notes !== AUTO_SYNC_NOTE) {
+      this.propagatePeriod2ToOtherPeriods(submission.classId, submission.date);
+    }
   }
 
   // --- Notifications Management ---
@@ -1500,7 +1552,7 @@ export class AttendanceService {
   static validatePeriodAttendance(
     periodNumber: number,
     simulatedTime?: string,
-    _settings?: SchoolSettings,
+    settings?: SchoolSettings,
     user?: User,
     classId?: string
   ): {
@@ -1517,6 +1569,20 @@ export class AttendanceService {
   } {
     const periods = INITIAL_PERIODS;
     const targetPeriod = periods.find(p => p.periodNumber === periodNumber) || periods[0];
+    const activeSettings = settings ?? this.getSettings();
+
+    if (user?.role === 'teacher' && periodNumber !== 2) {
+      return {
+        isAllowed: false,
+        status: 'period_2_forbidden',
+        message: 'المعلمون مسموح لهم برصد الحصة الثانية فقط. تُنسخ الحصص الأخرى تلقائياً من رصد الحصة الثانية بعد الاعتماد.',
+        periodNumber,
+        periodName: targetPeriod.name,
+        startTime: targetPeriod.startTime,
+        endTime: targetPeriod.endTime,
+        currentTimeStr: '00:00'
+      };
+    }
 
     let now = new Date();
     if (simulatedTime) {
@@ -1536,8 +1602,9 @@ export class AttendanceService {
     const endTotalMins = endH * 60 + endM;
 
     const isWithinSchedule = currentTotalMins >= startTotalMins && currentTotalMins <= endTotalMins;
+    const shouldEnforceSchedule = user?.role === 'teacher' || activeSettings.lockAttendanceOutsidePeriod;
 
-    if (!isWithinSchedule) {
+    if (shouldEnforceSchedule && !isWithinSchedule) {
       return {
         isAllowed: false,
         status: 'outside_schedule',
@@ -1739,7 +1806,9 @@ export class AttendanceService {
     let excusedCount = 0;
 
     const classStatuses = classes.map(cls => {
-      const sub = submissions.find(s => s.classId === cls.id);
+      const sub = submissions.find(s =>
+        s.classId === cls.id && (s.periodNumber === 2 || !s.periodNumber)
+      );
       if (sub) {
         submittedCount++;
         presentCount += sub.presentCount;

@@ -10,7 +10,35 @@ const getApiKey = (): string => {
 };
 
 const apiKey = getApiKey();
-const ai = new GoogleGenAI({ apiKey });
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+
+async function generateViaWorkersAI(prompt: string): Promise<string | null> {
+  try {
+    const response = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, maxTokens: 700 })
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as { text?: string };
+    return data.text?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function generateText(prompt: string, model: string = 'gemini-2.5-flash'): Promise<string> {
+  if (ai && apiKey) {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    });
+    return response.text || '';
+  }
+
+  const workersText = await generateViaWorkersAI(prompt);
+  return workersText || 'تعذر إنشاء النص، يرجى المحاولة لاحقاً.';
+}
 
 /**
  * Generate official absence warning letter (خطاب إنذار غياب رسمي)
@@ -42,12 +70,7 @@ export const generateAbsenceWarningLetter = async (
 5. خاتمة رسمية وتوقيع مدير المدرسة وختم إدارة المدرسة.
 صياغة واضحة ومهذبة ورسمية تماماً.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    });
-
-    return response.text || 'تعذر إنشاء الخطاب، يرجى المحاولة لاحقاً.';
+    return await generateText(prompt);
   } catch (error) {
     console.error('Error generating warning letter:', error);
     return `بسم الله الرحمن الرحيم
@@ -92,24 +115,41 @@ export const analyzeSchoolAttendance = async (
 
 أرجع النتيجة بصيغة JSON حصراً.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            risks: { type: Type.ARRAY, items: { type: Type.STRING } },
-            recommendations: { type: Type.ARRAY, items: { type: Type.STRING } }
-          },
-          required: ['summary', 'risks', 'recommendations']
+    if (ai && apiKey) {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              summary: { type: Type.STRING },
+              risks: { type: Type.ARRAY, items: { type: Type.STRING } },
+              recommendations: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ['summary', 'risks', 'recommendations']
+          }
         }
-      }
-    });
+      });
 
-    return JSON.parse(response.text || '{}');
+      return JSON.parse(response.text || '{}');
+    }
+
+    const workersText = await generateViaWorkersAI(prompt);
+    if (workersText) {
+      try {
+        return JSON.parse(workersText);
+      } catch {
+        return {
+          summary: workersText,
+          risks: [],
+          recommendations: []
+        };
+      }
+    }
+
+    throw new Error('AI unavailable');
   } catch (error) {
     console.error('Error analyzing attendance:', error);
     return {
@@ -138,12 +178,7 @@ export const generateParentCircular = async (
     const prompt = `صغ تعميماً مدرسياً موجهاً لأولياء الأمور من إدارة ${schoolName} حول موضوع: "${topic}".
 الصيغة تربوية، حازمة ومحفزة، تؤكد على الشراكة بين الأسرة والمدرسة وأثر الحضور في الحصة الثانية واليوم الدراسي كاملاً على تفوق الطالب.`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    });
-
-    return response.text || 'تعذر إنشاء التعميم.';
+    return await generateText(prompt);
   } catch (error) {
     return `المكرمون أولياء الأمور الكرام،
 السلام عليكم ورحمة الله وبركاته،
