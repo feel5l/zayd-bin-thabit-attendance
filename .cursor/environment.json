@@ -1,0 +1,17 @@
+{
+  "name": "Zayd Bin Thabit Attendance System",
+  "install": "export BUN_INSTALL=\"$HOME/.bun\" && export PATH=\"$BUN_INSTALL/bin:$PATH\" && (command -v bun >/dev/null 2>&1 || curl -fsSL https://bun.sh/install | bash) && bun install --frozen-lockfile",
+  "terminals": [
+    {
+      "name": "vite-dev",
+      "command": "export PATH=\"$HOME/.bun/bin:$PATH\" && bun run dev",
+      "description": "Vite dev server for the React attendance app on http://localhost:3000"
+    }
+  ],
+  "ports": [
+    {
+      "name": "vite-dev-server",
+      "port": 3000
+    }
+  ]
+}
