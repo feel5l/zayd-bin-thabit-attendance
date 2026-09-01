@@ -64,6 +64,19 @@ export const TimeSimulatorBar: React.FC<TimeSimulatorBarProps> = ({
           <span className="text-slate-400 hidden sm:inline">اختبار سريع:</span>
           
           <button
+            onClick={() => onSetSimulatedTime('08:00')}
+            className={`px-2.5 py-1 rounded-md transition text-xs font-semibold flex items-center gap-1 ${
+              simulatedTime === '08:00' 
+                ? 'bg-emerald-600 text-white ring-2 ring-emerald-400' 
+                : 'bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700'
+            }`}
+            title="وقت افتراضي داخل الحصة الثانية (08:00 ص)"
+          >
+            <Play className="w-3 h-3" />
+            08:00 ص (داخل الحصة 2)
+          </button>
+
+          <button
             onClick={() => onSetSimulatedTime('08:15')}
             className={`px-2.5 py-1 rounded-md transition text-xs font-semibold flex items-center gap-1 ${
               simulatedTime === '08:15' 

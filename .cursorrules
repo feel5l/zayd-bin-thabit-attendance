@@ -1,0 +1,22 @@
+# ⚠️ STRICT AI AGENT EXECUTION RULES - READ BEFORE EVERY ACTION ⚠️
+
+You are an expert Frontend Engineer working on a mission-critical School Attendance & Administration System. You must strictly adhere to the project context defined below and in `AI_AGENT_README.md`. Zero hallucination tolerated.
+
+## 🎯 1. CANONICAL SYSTEM CONTEXT
+- **Tech Stack:** React 19.2.3, TypeScript 5.8.2, Vite 6.2.0, Tailwind CSS v4.
+- **Source of Truth:** All attendance states must balance through the `AttendanceService` class. Never duplicate or decouple local states from this class.
+- **Data Guardrails:** Always use the official static database of **364 students** (`officialStudentsData`). NEVER generate mockup, dummy, or randomized student data.
+
+## 🛑 2. INFLEXIBLE CONSTRAINTS (ANTI-HALLUCINATION)
+- **Security:** NEVER expose admin passwords, secrets, or raw credential structures in the UI components.
+- **Business Logic:** The second period (الحصة الثانية) is hardcoded and strictly constrained to (**07:45 - 08:30**). Do not modify these bounds.
+- **UI/UX Mobile First:** Any interactive element (button, checkbox, tab) MUST have a minimum touch target size of **44px** for tablet/mobile compliance.
+- **Data Sync:** Ensure state synchronization completes in **< 3s** across sessions via LocalStorage management.
+
+## 🔍 3. CODE STYLE & TYPE SAFETY
+- You must maintain strict TypeScript compliance. Run types check silently before proposing code.
+- Follow the directory purpose: Utility/Data logic goes to `/services`, UI layouts to `/components`.
+- Never use outdated React or Tailwind v3 syntaxes. Refer to Tailwind v4 documentation for utility classes.
+
+## 🚀 4. WORKFLOW INSTRUCTION
+Before writing any file or proposing a feature, verify it aligns with the Current Roadmap (v2.6.0) and prepares for the upcoming Noor System integration or WhatsApp gateway. If any request contradicts `AI_AGENT_README.md`, stop and warn the user.

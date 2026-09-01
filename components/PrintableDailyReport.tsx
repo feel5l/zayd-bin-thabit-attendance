@@ -17,7 +17,9 @@ import {
   Layers, 
   Search,
   Filter,
-  UserCheck
+  UserCheck,
+  Sparkles,
+  Award
 } from 'lucide-react';
 
 interface PrintableDailyReportProps {
@@ -37,11 +39,13 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [includeSignatures, setIncludeSignatures] = useState<boolean>(true);
   const [includeClassSummary, setIncludeClassSummary] = useState<boolean>(true);
+  const [includeBehavioralNotes, setIncludeBehavioralNotes] = useState<boolean>(true);
 
   const stats = AttendanceService.getTodaySchoolStats(selectedDate);
   const classes = AttendanceService.getClasses();
   const submissions = AttendanceService.getSubmissions(selectedDate);
   const allStudents = AttendanceService.getStudents();
+  const todayBehavioralNotes = AttendanceService.getTodayBehavioralNotes(selectedDate);
 
   // All absent and late students for the selected date
   const absentStudentsList: {
@@ -57,6 +61,7 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
     statusLabel: string;
     reason: string;
     notes: string;
+    behavioralNote?: string;
     parentPhone: string;
     minutesLate?: number;
   }[] = [];
@@ -86,6 +91,7 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
           statusLabel,
           reason: st.reason || 'لم يسجل سبب',
           notes: st.notes || '-',
+          behavioralNote: st.behavioralNote,
           parentPhone: studentInfo?.parentPhone || '050xxxxxxx',
           minutesLate: st.minutesLate
         });
@@ -101,6 +107,13 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
     if (searchQuery.trim() && !st.studentName.includes(searchQuery.trim()) && !st.className.includes(searchQuery.trim())) {
       return false;
     }
+    return true;
+  });
+
+  // Filtered behavioral notes
+  const filteredBehavioralNotes = todayBehavioralNotes.filter(n => {
+    if (selectedClassFilter !== 'all' && n.classId !== selectedClassFilter) return false;
+    if (searchQuery.trim() && !n.studentName.includes(searchQuery.trim()) && !n.className.includes(searchQuery.trim())) return false;
     return true;
   });
 
@@ -223,6 +236,19 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
             </div>
 
             {/* Toggles */}
+            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-600">
+              <input
+                type="checkbox"
+                checked={includeBehavioralNotes}
+                onChange={(e) => setIncludeBehavioralNotes(e.target.checked)}
+                className="w-3.5 h-3.5 text-amber-600 rounded"
+              />
+              <span className="flex items-center gap-1 text-amber-900 font-bold">
+                <Sparkles className="w-3 h-3 text-amber-600" />
+                الملاحظات السلوكية ({filteredBehavioralNotes.length})
+              </span>
+            </label>
+
             <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-slate-600">
               <input
                 type="checkbox"
@@ -365,14 +391,14 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
                     <thead>
                       <tr className="bg-slate-900 text-white font-black text-[11px] print:bg-slate-200 print:text-slate-950 border-b border-slate-400">
                         <th className="p-2.5 border-l border-slate-700 print:border-slate-400 text-center w-10">م</th>
-                        <th className="p-2.5 border-l border-slate-700 print:border-slate-400 text-right min-w-[180px]">
+                        <th className="p-2.5 border-l border-slate-700 print:border-slate-400 text-right min-w-[170px]">
                           اسم الطالب الرباعي (صريح وواضح)
                         </th>
                         <th className="p-2.5 border-l border-slate-700 print:border-slate-400 text-center w-28">الصف والشعبة</th>
                         <th className="p-2.5 border-l border-slate-700 print:border-slate-400 text-center w-28">نوع الحالة</th>
-                        <th className="p-2.5 border-l border-slate-700 print:border-slate-400 text-right min-w-[140px]">سبب الغياب المرصود</th>
+                        <th className="p-2.5 border-l border-slate-700 print:border-slate-400 text-right min-w-[130px]">سبب الغياب المرصود</th>
                         <th className="p-2.5 border-l border-slate-700 print:border-slate-400 text-center w-28">هاتف ولي الأمر</th>
-                        <th className="p-2.5 text-right min-w-[130px]">الإجراء والملاحظات</th>
+                        <th className="p-2.5 text-right min-w-[140px]">الملاحظات السلوكية والإجراء</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-300 font-medium">
@@ -437,9 +463,17 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
                               {st.parentPhone}
                             </td>
 
-                            {/* Notes */}
-                            <td className="p-2.5 text-slate-600 text-[11px]">
-                              {st.notes || 'تم إشعار ولي الأمر عبر الرسائل'}
+                            {/* Notes & Behavioral Note */}
+                            <td className="p-2.5 text-slate-800 text-[11px] space-y-1">
+                              {st.behavioralNote && st.behavioralNote.trim() !== '' && (
+                                <div className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 px-2 py-0.5 rounded border border-amber-300 print:border-slate-400 font-bold text-[10px]">
+                                  <Sparkles className="w-3 h-3 text-amber-600 print:hidden shrink-0" />
+                                  <span>{st.behavioralNote}</span>
+                                </div>
+                              )}
+                              <div className="text-slate-600 text-[10px]">
+                                {st.notes && st.notes !== '-' ? st.notes : 'تم إشعار ولي الأمر عبر الرسائل'}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -451,14 +485,82 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
             </div>
 
             {/* ========================================================
-                Section 2: Class-by-Class Breakdown (Optional Summary)
+                Section 2: Behavioral & Discipline Notes Summary (Linked to Daily Report)
+               ======================================================== */}
+            {includeBehavioralNotes && filteredBehavioralNotes.length > 0 && (
+              <div className="space-y-2.5 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 print:hidden" />
+                    <h3 className="text-xs sm:text-sm font-black text-slate-950 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-600 print:hidden" />
+                      <span>ثانياً: سجل الملاحظات السلوكية والانضباط الطلابي المرصود بالحصة الثانية:</span>
+                    </h3>
+                  </div>
+                  <span className="text-xs font-bold text-amber-900 bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200 print:border-none print:bg-transparent">
+                    {filteredBehavioralNotes.length} ملاحظة مرصودة
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-amber-300 print:rounded-none print:border-slate-800">
+                  <table className="w-full text-right text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-amber-100/80 text-amber-950 font-black text-[11px] border-b border-amber-300 print:bg-slate-200 print:text-slate-950">
+                        <th className="p-2 border-l border-amber-300 print:border-slate-400 text-center w-10">م</th>
+                        <th className="p-2 border-l border-amber-300 print:border-slate-400 min-w-[170px]">اسم الطالب</th>
+                        <th className="p-2 border-l border-amber-300 print:border-slate-400 text-center w-28">الصف والشعبة</th>
+                        <th className="p-2 border-l border-amber-300 print:border-slate-400 text-center w-24">حالة الحضور</th>
+                        <th className="p-2 border-l border-amber-300 print:border-slate-400 min-w-[220px]">الملاحظة السلوكية والتوجيه</th>
+                        <th className="p-2 text-slate-800 min-w-[140px]">المعلم الراصد</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-200 print:divide-slate-200 font-medium">
+                      {filteredBehavioralNotes.map((note, idx) => (
+                        <tr key={`${note.studentId}-${idx}`} className="hover:bg-amber-50/40 print:hover:bg-transparent">
+                          <td className="p-2 border-l border-amber-200 print:border-slate-300 text-center font-bold text-slate-700">
+                            {idx + 1}
+                          </td>
+                          <td className="p-2 border-l border-amber-200 print:border-slate-300 font-black text-slate-950">
+                            {note.studentName}
+                          </td>
+                          <td className="p-2 border-l border-amber-200 print:border-slate-300 text-center font-bold text-slate-800">
+                            {note.className}
+                          </td>
+                          <td className="p-2 border-l border-amber-200 print:border-slate-300 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                              note.status === 'present' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
+                              note.status === 'absent' ? 'bg-rose-50 text-rose-800 border border-rose-200' :
+                              note.status === 'late' ? 'bg-amber-50 text-amber-900 border border-amber-200' :
+                              'bg-blue-50 text-blue-800 border border-blue-200'
+                            }`}>
+                              {note.status === 'present' ? 'حاضر' :
+                               note.status === 'absent' ? 'غائب' :
+                               note.status === 'late' ? 'متأخر' : 'بعذر'}
+                            </span>
+                          </td>
+                          <td className="p-2 border-l border-amber-200 print:border-slate-300 font-bold text-amber-950">
+                            {note.behavioralNote}
+                          </td>
+                          <td className="p-2 text-slate-700 text-[11px]">
+                            {note.teacherName}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================
+                Section 3: Class-by-Class Breakdown (Optional Summary)
                ======================================================== */}
             {includeClassSummary && (
               <div className="space-y-2.5 pt-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 print:hidden" />
                   <h3 className="text-xs sm:text-sm font-black text-slate-950">
-                    ثانياً: ملخص رصد الحصة الثانية لجميع الفصول والشعب:
+                    {includeBehavioralNotes && filteredBehavioralNotes.length > 0 ? 'ثالثاً:' : 'ثانياً:'} ملخص رصد الحصة الثانية لجميع الفصول والشعب:
                   </h3>
                 </div>
 

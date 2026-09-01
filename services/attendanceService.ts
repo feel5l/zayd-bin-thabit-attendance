@@ -4,29 +4,32 @@ import {
   StudentAttendanceItem, PeriodSchedule, AttendanceNotification, AbsentStudentDetail,
   MonthlyReportData, MonthlyClassReportItem, MonthlyStudentAbsenceSummary,
   AttendanceArchiveBatch, ArchiveAnalytics, TeacherSessionValidation,
-  DayPeriodAssignment, WeekDayKey, DayOfWeekOption
+  DayPeriodAssignment, WeekDayKey, DayOfWeekOption, TeacherTimetableRecord, TimetableEntry,
+  StudentReferralForm
 } from '../types';
 import { 
   INITIAL_USERS, INITIAL_CLASSES, INITIAL_STUDENTS, 
   INITIAL_SUBMISSIONS, INITIAL_SETTINGS, INITIAL_AUDIT_LOGS, 
-  INITIAL_EXCUSES, INITIAL_PERIODS, getTodayDateString, getPastDateString 
+  INITIAL_EXCUSES, INITIAL_PERIODS, INITIAL_REFERRAL_FORMS, getTodayDateString, getPastDateString 
 } from './initialData';
+import { OFFICIAL_TIMETABLE_RECORDS, extractPeriod2AssignmentsFromTimetable } from './timetableData';
 
 const STORAGE_KEYS = {
-  USERS: 'zbt_users_prod_v2',
-  CLASSES: 'zbt_classes_prod_v2',
-  STUDENTS: 'zbt_students_prod_v2',
-  SUBMISSIONS: 'zbt_submissions_prod_v2',
-  SETTINGS: 'zbt_settings_prod_v2',
-  AUDIT_LOGS: 'zbt_logs_prod_v2',
-  EXCUSES: 'zbt_excuses_prod_v2',
-  SIMULATED_TIME: 'zbt_simulated_time_prod_v2',
-  CURRENT_USER: 'zbt_current_user_prod_v2',
-  NOTIFICATIONS: 'zbt_notifications_prod_v2',
-  ARCHIVES: 'zbt_attendance_archives_prod_v2',
-  TEACHER_REMINDERS: 'zbt_teacher_reminders_prod_v2',
-  PERIOD_ASSIGNMENTS: 'zbt_period_assignments_prod_v2',
-  LAST_ACTIVITY: 'zbt_last_activity_prod_v2'
+  USERS: 'zbt_users_prod_v3',
+  CLASSES: 'zbt_classes_prod_v3',
+  STUDENTS: 'zbt_students_prod_v3',
+  SUBMISSIONS: 'zbt_submissions_prod_v3',
+  SETTINGS: 'zbt_settings_prod_v3',
+  AUDIT_LOGS: 'zbt_logs_prod_v3',
+  EXCUSES: 'zbt_excuses_prod_v3',
+  SIMULATED_TIME: 'zbt_simulated_time_prod_v3',
+  CURRENT_USER: 'zbt_current_user_prod_v3',
+  NOTIFICATIONS: 'zbt_notifications_prod_v3',
+  ARCHIVES: 'zbt_attendance_archives_prod_v3',
+  TEACHER_REMINDERS: 'zbt_teacher_reminders_prod_v3',
+  PERIOD_ASSIGNMENTS: 'zbt_period_assignments_prod_v3',
+  REFERRALS: 'zbt_student_referrals_prod_v1',
+  LAST_ACTIVITY: 'zbt_last_activity_prod_v3'
 };
 
 export const NOTIFICATION_EVENT = 'attendance_notification_event';
@@ -53,6 +56,7 @@ export class AttendanceService {
   private static _cacheSettings: SchoolSettings | null = null;
   private static _cacheAuditLogs: AuditLog[] | null = null;
   private static _cacheExcuses: AbsenceExcuseRequest[] | null = null;
+  private static _cacheReferrals: StudentReferralForm[] | null = null;
   private static _cachePeriodAssignments: DayPeriodAssignment[] | null = null;
   private static _cacheNotifications: AttendanceNotification[] | null = null;
   private static _cacheTeacherReminders: Record<string, any> | null = null;
@@ -76,7 +80,16 @@ export class AttendanceService {
           'zbt_logs_prod_v1',
           'zbt_excuses_prod_v1',
           'zbt_current_user_prod_v1',
-          'zbt_contacts_prod_v1'
+          'zbt_contacts_prod_v1',
+          'zbt_users_prod_v2',
+          'zbt_classes_prod_v2',
+          'zbt_students_prod_v2',
+          'zbt_submissions_prod_v2',
+          'zbt_settings_prod_v2',
+          'zbt_logs_prod_v2',
+          'zbt_excuses_prod_v2',
+          'zbt_current_user_prod_v2',
+          'zbt_contacts_prod_v2'
         ];
         legacyKeys.forEach(k => {
           if (localStorage.getItem(k)) {
@@ -94,7 +107,26 @@ export class AttendanceService {
     } else {
       try {
         const parsed: User[] = JSON.parse(storedUsers);
-        this._cacheUsers = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_USERS;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Merge latest official phone numbers, national IDs and emails
+          const merged = INITIAL_USERS.map(officialUser => {
+            const existing = parsed.find(p => p.id === officialUser.id || p.username === officialUser.username);
+            if (!existing) return officialUser;
+            return {
+              ...existing,
+              name: officialUser.name || existing.name,
+              nationalId: officialUser.nationalId || existing.nationalId,
+              phone: officialUser.phone || existing.phone,
+              email: officialUser.email || existing.email,
+              subject: officialUser.subject || existing.subject,
+              sequenceNumber: officialUser.sequenceNumber || existing.sequenceNumber
+            };
+          });
+          this._cacheUsers = merged;
+          try { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(merged)); } catch (e) {}
+        } else {
+          this._cacheUsers = INITIAL_USERS;
+        }
       } catch (e) {
         this._cacheUsers = INITIAL_USERS;
         try { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS)); } catch (err) {}
@@ -172,6 +204,11 @@ export class AttendanceService {
       this._cacheExcuses = INITIAL_EXCUSES;
       try { localStorage.setItem(STORAGE_KEYS.EXCUSES, JSON.stringify(INITIAL_EXCUSES)); } catch (e) {}
     }
+    // Student Referrals to Counselor (استمارات التحويل للمرشد الطلابي)
+    if (!localStorage.getItem(STORAGE_KEYS.REFERRALS)) {
+      this._cacheReferrals = INITIAL_REFERRAL_FORMS;
+      try { localStorage.setItem(STORAGE_KEYS.REFERRALS, JSON.stringify(INITIAL_REFERRAL_FORMS)); } catch (e) {}
+    }
     // Period Assignments
     if (!localStorage.getItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS)) {
       this.initDefaultPeriodAssignments();
@@ -184,9 +221,10 @@ export class AttendanceService {
     const teachers = this.getUsers().filter(u => u.role === 'teacher');
     if (classes.length === 0 || teachers.length === 0) return;
 
-    const assignments: DayPeriodAssignment[] = [];
-
-    // Helper day map
+    // Extract exact assignments from the official school timetable
+    const extractedAssignments = extractPeriod2AssignmentsFromTimetable();
+    
+    // Ensure every class has an assignment for all 5 days (fill any missing with class teacher)
     const days: { key: WeekDayKey; label: string }[] = [
       { key: 'sunday', label: 'الأحد' },
       { key: 'monday', label: 'الإثنين' },
@@ -195,29 +233,60 @@ export class AttendanceService {
       { key: 'thursday', label: 'الخميس' }
     ];
 
-    // Build standard weekly assignments for each class across all 5 school days
-    classes.forEach((cls, classIndex) => {
-      days.forEach((day, dayIndex) => {
-        const teacherOffset = (classIndex + dayIndex) % teachers.length;
-        const assignedTeacher = teachers[teacherOffset];
+    const finalizedAssignments: DayPeriodAssignment[] = [];
 
-        assignments.push({
-          id: `assign_${cls.id}_${day.key}`,
-          classId: cls.id,
-          className: cls.name,
-          day: day.key,
-          dayArabic: day.label,
-          teacherId: assignedTeacher.id,
-          teacherName: assignedTeacher.name,
-          periodNumber: 2,
-          subject: assignedTeacher.subject || 'الحصة الثانية',
-          notes: `جدول الحصة الثانية ليوم ${day.label}`
-        });
+    classes.forEach(cls => {
+      days.forEach(day => {
+        const found = extractedAssignments.find(a => a.classId === cls.id && a.day === day.key);
+        if (found) {
+          finalizedAssignments.push(found);
+        } else {
+          // Fallback to default class teacher
+          const defaultTeacher = teachers.find(t => t.id === cls.teacherId) || teachers[0];
+          finalizedAssignments.push({
+            id: `assign_${cls.id}_${day.key}`,
+            classId: cls.id,
+            className: cls.name,
+            day: day.key,
+            dayArabic: day.label,
+            teacherId: defaultTeacher.id,
+            teacherName: defaultTeacher.name,
+            periodNumber: 2,
+            subject: defaultTeacher.subject || 'الحصة الثانية',
+            notes: `جدول الحصة الثانية ليوم ${day.label}`
+          });
+        }
       });
     });
 
-    this._cachePeriodAssignments = assignments;
-    try { localStorage.setItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS, JSON.stringify(assignments)); } catch (e) {}
+    this._cachePeriodAssignments = finalizedAssignments;
+    try { localStorage.setItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS, JSON.stringify(finalizedAssignments)); } catch (e) {}
+  }
+
+  // --- Official Master Timetable Records Access ---
+  static getOfficialTimetableRecords(): TeacherTimetableRecord[] {
+    return OFFICIAL_TIMETABLE_RECORDS;
+  }
+
+  static getTimetableForTeacher(teacherId: string): TeacherTimetableRecord | undefined {
+    return OFFICIAL_TIMETABLE_RECORDS.find(r => r.teacherId === teacherId);
+  }
+
+  static getTimetableForClass(classId: string): TimetableEntry[] {
+    const entries: TimetableEntry[] = [];
+    OFFICIAL_TIMETABLE_RECORDS.forEach(record => {
+      record.entries.forEach(entry => {
+        if (entry.classId === classId) {
+          entries.push({
+            ...entry,
+            id: `${entry.day}_${entry.periodNumber}_${classId}`,
+            teacherId: record.teacherId,
+            teacherName: record.teacherName
+          });
+        }
+      });
+    });
+    return entries;
   }
 
   static getPeriodAssignments(): DayPeriodAssignment[] {
@@ -847,14 +916,21 @@ export class AttendanceService {
     return list;
   }
 
-  static getTodaySubmissionForClass(classId: string, date: string = getTodayDateString()): ClassAttendanceSubmission | undefined {
+  static getTodaySubmissionForClass(classId: string, date: string = getTodayDateString(), periodNumber?: number): ClassAttendanceSubmission | undefined {
     const subs = this.getSubmissions(date);
+    if (periodNumber !== undefined) {
+      return subs.find(s => s.classId === classId && (s.periodNumber === periodNumber || (!s.periodNumber && periodNumber === 2)));
+    }
     return subs.find(s => s.classId === classId);
   }
 
   static saveAttendanceSubmission(submission: ClassAttendanceSubmission, user: User): void {
     const subs = [...this.getSubmissions()];
-    const existingIdx = subs.findIndex(s => s.classId === submission.classId && s.date === submission.date);
+    const existingIdx = subs.findIndex(s => 
+      s.classId === submission.classId && 
+      s.date === submission.date &&
+      (submission.periodNumber ? (s.periodNumber === submission.periodNumber || (!s.periodNumber && submission.periodNumber === 2)) : true)
+    );
     
     if (existingIdx > -1) {
       subs[existingIdx] = {
@@ -1296,9 +1372,223 @@ export class AttendanceService {
     try { localStorage.setItem(STORAGE_KEYS.EXCUSES, JSON.stringify(excuses)); } catch (e) {}
   }
 
+  // --- Student Referrals to Counselor (استمارات تحويل طالب للمرشد الطلابي) ---
+  static getReferralForms(): StudentReferralForm[] {
+    this.initStorage();
+    if (this._cacheReferrals) return this._cacheReferrals;
+    const data = localStorage.getItem(STORAGE_KEYS.REFERRALS);
+    if (!data) return INITIAL_REFERRAL_FORMS;
+    try {
+      const parsed = JSON.parse(data);
+      this._cacheReferrals = Array.isArray(parsed) ? parsed : INITIAL_REFERRAL_FORMS;
+      return this._cacheReferrals;
+    } catch {
+      return INITIAL_REFERRAL_FORMS;
+    }
+  }
+
+  static getReferralFormById(id: string): StudentReferralForm | undefined {
+    return this.getReferralForms().find(r => r.id === id);
+  }
+
+  static getReferralsForStudent(studentId: string): StudentReferralForm[] {
+    return this.getReferralForms().filter(r => r.studentId === studentId);
+  }
+
+  static generateNextReferralNumber(): string {
+    const all = this.getReferralForms();
+    const count = all.length + 1;
+    const padded = count.toString().padStart(3, '0');
+    return `تح-1447-${padded}`;
+  }
+
+  static saveReferralForm(form: StudentReferralForm, performedBy?: User): void {
+    const forms = [...this.getReferralForms()];
+    const idx = forms.findIndex(r => r.id === form.id);
+    const isNew = idx === -1;
+
+    const updatedForm: StudentReferralForm = {
+      ...form,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (isNew) {
+      forms.unshift(updatedForm);
+    } else {
+      forms[idx] = updatedForm;
+    }
+
+    this._cacheReferrals = forms;
+    try { localStorage.setItem(STORAGE_KEYS.REFERRALS, JSON.stringify(forms)); } catch (e) {}
+
+    if (performedBy) {
+      this.logAudit({
+        userId: performedBy.id,
+        userName: performedBy.name,
+        role: performedBy.role,
+        action: isNew ? 'تحويل طالب للمرشد الطلابي' : 'تحديث استمارة إحالة طالب',
+        details: isNew 
+          ? `تم رفع استمارة تحويل للطالب: ${form.studentName} (${form.className}) برقم [${form.referralNumber}] إلى التوجيه الطلابي`
+          : `تم تحديث استمارة تحويل الطالب: ${form.studentName} برقم [${form.referralNumber}] - الحالة: ${form.status === 'resolved' ? 'تمت المعالجة' : 'قيد المتابعة'}`,
+        type: 'settings_change'
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(NOTIFICATION_EVENT, {
+        detail: { type: 'referral_saved', referralId: form.id }
+      }));
+    }
+  }
+
+  static deleteReferralForm(id: string, performedBy?: User): void {
+    const forms = this.getReferralForms();
+    const target = forms.find(r => r.id === id);
+    const filtered = forms.filter(r => r.id !== id);
+    this._cacheReferrals = filtered;
+    try { localStorage.setItem(STORAGE_KEYS.REFERRALS, JSON.stringify(filtered)); } catch (e) {}
+
+    if (performedBy && target) {
+      this.logAudit({
+        userId: performedBy.id,
+        userName: performedBy.name,
+        role: performedBy.role,
+        action: 'حذف استمارة تحويل طالب',
+        details: `تم حذف استمارة التحويل رقم [${target.referralNumber}] الخاصة بالطالب: ${target.studentName}`,
+        type: 'settings_change'
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(NOTIFICATION_EVENT, {
+        detail: { type: 'referral_deleted', referralId: id }
+      }));
+    }
+  }
+
   // --- Periods & Time Check Logic ---
   static getPeriods(): PeriodSchedule[] {
     return INITIAL_PERIODS;
+  }
+
+  /**
+   * Get the currently active period according to current time or simulated time
+   */
+  static getCurrentlyActivePeriod(simulatedTime?: string): PeriodSchedule | undefined {
+    let now = new Date();
+    if (simulatedTime) {
+      const [hours, minutes] = simulatedTime.split(':').map(Number);
+      now.setHours(hours, minutes, 0, 0);
+    }
+    const currentTotalMins = now.getHours() * 60 + now.getMinutes();
+
+    return INITIAL_PERIODS.find(p => {
+      const [pH1, pM1] = p.startTime.split(':').map(Number);
+      const [pH2, pM2] = p.endTime.split(':').map(Number);
+      const pStart = pH1 * 60 + pM1;
+      const pEnd = pH2 * 60 + pM2;
+      return currentTotalMins >= pStart && currentTotalMins <= pEnd;
+    });
+  }
+
+  /**
+   * Validate attendance recording permission based on period number, timetable schedule, and teacher assignment:
+   * - Rule 1 (Period 2 Time): Recording in Period 2 is strictly between 07:45 AM and 08:30 AM (من 7:45 إلى 8:30 فقط وفق الجدول).
+   * - Rule 2 (Period 2 Teacher Assignment): Recording in Period 2 is allowed ONLY for the teacher who is assigned to this class for the day according to the official timetable (لمن تسند له الحصة فقط وفق الجدول).
+   * - Rule 3 (Other Periods): Allowed when current time matches that period's schedule slot.
+   */
+  static validatePeriodAttendance(
+    periodNumber: number,
+    simulatedTime?: string,
+    _settings?: SchoolSettings,
+    user?: User,
+    classId?: string
+  ): {
+    isAllowed: boolean;
+    status: 'allowed' | 'outside_schedule' | 'unassigned_teacher' | 'period_2_forbidden';
+    message: string;
+    periodNumber: number;
+    periodName: string;
+    startTime: string;
+    endTime: string;
+    currentTimeStr: string;
+    minutesRemaining?: number;
+    assignedTeacherName?: string;
+  } {
+    const periods = INITIAL_PERIODS;
+    const targetPeriod = periods.find(p => p.periodNumber === periodNumber) || periods[0];
+
+    let now = new Date();
+    if (simulatedTime) {
+      const [hours, minutes] = simulatedTime.split(':').map(Number);
+      now.setHours(hours, minutes, 0, 0);
+    }
+
+    const currentHours = now.getHours().toString().padStart(2, '0');
+    const currentMins = now.getMinutes().toString().padStart(2, '0');
+    const currentTimeStr = `${currentHours}:${currentMins}`;
+    const currentTotalMins = now.getHours() * 60 + now.getMinutes();
+
+    // 1. Time Check against period schedule
+    const [startH, startM] = targetPeriod.startTime.split(':').map(Number);
+    const [endH, endM] = targetPeriod.endTime.split(':').map(Number);
+    const startTotalMins = startH * 60 + startM;
+    const endTotalMins = endH * 60 + endM;
+
+    const isWithinSchedule = currentTotalMins >= startTotalMins && currentTotalMins <= endTotalMins;
+
+    if (!isWithinSchedule) {
+      return {
+        isAllowed: false,
+        status: 'outside_schedule',
+        message: `الرصد في ${targetPeriod.name} متاح فقط في وقتها المحدد وفق الجدول المدرسي (من ${targetPeriod.startTime} إلى ${targetPeriod.endTime}). الوقت الحالي: (${currentTimeStr}).`,
+        periodNumber,
+        periodName: targetPeriod.name,
+        startTime: targetPeriod.startTime,
+        endTime: targetPeriod.endTime,
+        currentTimeStr
+      };
+    }
+
+    const minutesRemaining = endTotalMins - currentTotalMins;
+
+    // 2. Teacher Assignment Check for Period 2 (لمن تسند له الحصة فقط وفق الجدول)
+    if (periodNumber === 2 && user && user.role === 'teacher' && classId) {
+      const currentDayKey = this.getCurrentDayKey().key;
+      const assignedTeacher = this.getClassAssignedTeacherForDay(classId, currentDayKey);
+      const teacherAssignedClass = this.getTeacherAssignedClassForDay(user.id, currentDayKey);
+
+      const isTeacherAssignedToThisClass = (assignedTeacher && assignedTeacher.id === user.id) ||
+        (teacherAssignedClass && teacherAssignedClass.id === classId) ||
+        (user.assignedClassId === classId);
+
+      if (!isTeacherAssignedToThisClass) {
+        return {
+          isAllowed: false,
+          status: 'unassigned_teacher',
+          message: `الرصد في الحصة الثانية متاح فقط لمعلم الحصة المسند له الفصل وفق الجدول المدرسي (${assignedTeacher?.name ? `المسند له: ${assignedTeacher.name}` : 'غير مسند إليك اليوم'}).`,
+          periodNumber,
+          periodName: targetPeriod.name,
+          startTime: targetPeriod.startTime,
+          endTime: targetPeriod.endTime,
+          currentTimeStr,
+          minutesRemaining,
+          assignedTeacherName: assignedTeacher?.name || 'مربي فصل آخر'
+        };
+      }
+    }
+
+    return {
+      isAllowed: true,
+      status: 'allowed',
+      message: `الرصد متاح ومطابق للجدول المدرسي (${targetPeriod.name}: ${targetPeriod.startTime} - ${targetPeriod.endTime}).`,
+      periodNumber,
+      periodName: targetPeriod.name,
+      startTime: targetPeriod.startTime,
+      endTime: targetPeriod.endTime,
+      currentTimeStr,
+      minutesRemaining
+    };
   }
 
   // Check if current time is within Period 2 (الحصة الثانية)
@@ -1498,6 +1788,7 @@ export class AttendanceService {
     status: 'absent' | 'excused' | 'late';
     reason?: string;
     notes?: string;
+    behavioralNote?: string;
     contactedParent?: boolean;
     minutesLate?: number;
   }[] {
@@ -1510,6 +1801,7 @@ export class AttendanceService {
       status: 'absent' | 'excused' | 'late';
       reason?: string;
       notes?: string;
+      behavioralNote?: string;
       contactedParent?: boolean;
       minutesLate?: number;
     }[] = [];
@@ -1525,8 +1817,56 @@ export class AttendanceService {
             status: st.status as 'absent' | 'excused' | 'late',
             reason: st.reason,
             notes: st.notes,
+            behavioralNote: st.behavioralNote,
             contactedParent: st.contactedParent,
             minutesLate: st.minutesLate
+          });
+        }
+      });
+    });
+
+    return results;
+  }
+
+  // Get all behavioral notes recorded across all students (present or absent) on a specific date
+  static getTodayBehavioralNotes(date: string = getTodayDateString()): {
+    studentId: string;
+    studentName: string;
+    classId: string;
+    className: string;
+    gradeLevel?: string;
+    teacherName: string;
+    status: 'present' | 'absent' | 'late' | 'excused';
+    behavioralNote: string;
+    timestamp: string;
+  }[] {
+    const subs = this.getSubmissions(date);
+    const results: {
+      studentId: string;
+      studentName: string;
+      classId: string;
+      className: string;
+      gradeLevel?: string;
+      teacherName: string;
+      status: 'present' | 'absent' | 'late' | 'excused';
+      behavioralNote: string;
+      timestamp: string;
+    }[] = [];
+
+    subs.forEach(sub => {
+      sub.students.forEach(st => {
+        const note = (st.behavioralNote && st.behavioralNote.trim() !== '') ? st.behavioralNote.trim() : (st.notes && st.notes.trim() !== '' ? st.notes.trim() : '');
+        if (note) {
+          results.push({
+            studentId: st.studentId,
+            studentName: st.studentName,
+            classId: sub.classId,
+            className: sub.className,
+            gradeLevel: sub.gradeLevel,
+            teacherName: sub.teacherName,
+            status: st.status,
+            behavioralNote: note,
+            timestamp: sub.submittedAt
           });
         }
       });
@@ -1543,6 +1883,7 @@ export class AttendanceService {
       status: 'present' | 'absent' | 'late' | 'excused';
       reason?: string;
       notes?: string;
+      behavioralNote?: string;
       teacherName: string;
       className: string;
     }[] = [];
@@ -1555,6 +1896,7 @@ export class AttendanceService {
           status: rec.status,
           reason: rec.reason,
           notes: rec.notes,
+          behavioralNote: rec.behavioralNote,
           teacherName: sub.teacherName,
           className: sub.className
         });

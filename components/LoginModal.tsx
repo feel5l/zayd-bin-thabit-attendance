@@ -6,24 +6,18 @@ import {
   Lock, 
   User as UserIcon, 
   Shield, 
-  CheckCircle2, 
   ArrowRight,
   ArrowLeft, 
   KeyRound, 
   AlertTriangle, 
   AlertCircle, 
-  Users, 
   Check, 
   Phone, 
-  BookOpen, 
-  DoorOpen, 
-  Search,
-  Sparkles,
   ChevronLeft,
-  Crown,
   School,
   X,
-  Layers
+  Copy,
+  Link2
 } from 'lucide-react';
 
 interface LoginModalProps {
@@ -44,11 +38,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   // Navigation step: 'select_role' (Step 1) or 'enter_credentials' (Step 2)
   const [selectedRole, setSelectedRole] = useState<'teacher' | 'admin' | null>(initialRole);
-  const [teacherSearch, setTeacherSearch] = useState('');
   
-  // Teacher credentials state
+  // Teacher credentials state (Phone number only)
   const [teacherIdentifier, setTeacherIdentifier] = useState('');
-  const [teacherPassword, setTeacherPassword] = useState('');
   
   // Admin credentials state
   const [adminUsername, setAdminUsername] = useState('admin');
@@ -56,19 +48,33 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [copiedPortal, setCopiedPortal] = useState(false);
   const [sessionWarning, setSessionWarning] = useState<{
     user: User;
     validation: TeacherSessionValidation;
   } | null>(null);
+
+  // Copy current portal direct link
+  const handleCopyCurrentPortalLink = () => {
+    if (!selectedRole) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const path = typeof window !== 'undefined' ? window.location.pathname : '';
+    const url = `${origin}${path}?portal=${selectedRole}`;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopiedPortal(true);
+        setTimeout(() => setCopiedPortal(false), 2500);
+      });
+    }
+  };
 
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       setSelectedRole(initialRole);
       setError('');
-      setTeacherSearch('');
       setTeacherIdentifier('');
-      setTeacherPassword('');
       setAdminPassword('');
       setSessionWarning(null);
     }
@@ -77,7 +83,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   if (!isOpen) return null;
 
   const users = AttendanceService.getUsers();
-  const classes = AttendanceService.getClasses();
   const teachersList = users.filter(u => u.role === 'teacher');
 
   const completeLogin = (user: User) => {
@@ -87,64 +92,49 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     onClose();
   };
 
-  // Direct 1-Click Teacher Login via Selection Card
-  const handleTeacherCardSelect = (teacher: User) => {
-    setError('');
-    const validation = AttendanceService.validateTeacherSessionData(teacher);
-    if (!validation.isValid) {
-      setSessionWarning({ user: teacher, validation });
-      return;
-    }
-    completeLogin(teacher);
-  };
-
-  // Form submit for Teacher Login
+  // Form submit for Teacher Login (Phone number only)
   const handleTeacherSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     setTimeout(() => {
-      const trimmed = teacherIdentifier.trim().toLowerCase();
-      const user = teachersList.find(u => 
-        u.username.toLowerCase() === trimmed || 
-        (u.phone && u.phone.trim() === teacherIdentifier.trim()) ||
-        (u.nationalId && u.nationalId.trim() === teacherIdentifier.trim()) ||
-        (u.email && u.email.toLowerCase() === trimmed) ||
-        u.name.toLowerCase().includes(trimmed)
-      );
+      const rawInput = teacherIdentifier.trim();
+      const cleanDigits = rawInput.replace(/[^0-9]/g, '');
 
-      const enteredPass = teacherPassword.trim();
-
-      if (!user) {
-        setError('لم يتم العثور على معلم بهذا السجل المدني أو رقم الجوال أو الاسم. يرجى اختيار المعلم من القائمة أو التواصل مع الإدارة.');
+      if (!rawInput) {
+        setError('يرجى إدخال رقم الجوال.');
         setLoading(false);
         return;
       }
 
-      // Teacher password verification
-      let isValid = true;
-      if (enteredPass) {
-        isValid = (
-          (user.phone && enteredPass === user.phone) ||
-          (user.nationalId && enteredPass === user.nationalId) ||
-          (user.password && enteredPass === user.password) ||
-          enteredPass === '123456' ||
-          enteredPass === `${user.username}123`
-        );
+      // Match teacher by phone number (or nationalId/username as fallback)
+      const user = teachersList.find(u => {
+        const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
+        if (cleanDigits && uPhoneDigits) {
+          if (uPhoneDigits === cleanDigits) return true;
+          if (uPhoneDigits.endsWith(cleanDigits) || cleanDigits.endsWith(uPhoneDigits)) return true;
+          if (cleanDigits.startsWith('05') && uPhoneDigits.endsWith(cleanDigits.slice(1))) return true;
+          if (cleanDigits.startsWith('9665') && uPhoneDigits.endsWith(cleanDigits.slice(4))) return true;
+        }
+        if (u.nationalId && u.nationalId.trim() === rawInput) return true;
+        if (u.username.toLowerCase() === rawInput.toLowerCase()) return true;
+        return false;
+      });
+
+      if (!user) {
+        setError('رقم الجوال غير مسجل في النظام. يرجى التأكد من كتابة الرقم بشكل صحيح (مثال: 05xxxxxxxx) أو مراجعة إدارة المدرسة.');
+        setLoading(false);
+        return;
       }
 
-      if (isValid) {
-        const validation = AttendanceService.validateTeacherSessionData(user);
-        if (!validation.isValid) {
-          setSessionWarning({ user, validation });
-          setLoading(false);
-          return;
-        }
-        completeLogin(user);
-      } else {
-        setError('كلمة المرور غير صحيحة. (كلمة مرور المعلم المعتمدة هي رقم جواله المسجل).');
+      const validation = AttendanceService.validateTeacherSessionData(user);
+      if (!validation.isValid) {
+        setSessionWarning({ user, validation });
+        setLoading(false);
+        return;
       }
+      completeLogin(user);
       setLoading(false);
     }, 250);
   };
@@ -173,7 +163,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       if (user && isValid) {
         completeLogin(user);
       } else {
-        setError('بيانات دخول الإدارة غير صحيحة. كلمة المرور المعتمدة لإدارة مدرسة زيد بن ثابت هي: Aa12345');
+        setError('بيانات دخول الإدارة غير صحيحة. يرجى التأكد من اسم المستخدم وكلمة المرور الخاصة بالإدارة.');
       }
       setLoading(false);
     }, 250);
@@ -186,18 +176,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       completeLogin(adminUser);
     }
   };
-
-  // Filtered teachers list for teacher tab
-  const filteredTeachers = teachersList.filter(t => {
-    if (!teacherSearch) return true;
-    const q = teacherSearch.toLowerCase().trim();
-    return t.name.toLowerCase().includes(q) || 
-           (t.assignedClassName && t.assignedClassName.toLowerCase().includes(q)) ||
-           (t.nationalId && t.nationalId.includes(q)) ||
-           (t.email && t.email.toLowerCase().includes(q)) ||
-           (t.subject && t.subject.toLowerCase().includes(q)) ||
-           (t.phone && t.phone.includes(q));
-  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200">
@@ -448,6 +426,31 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   </button>
                 </div>
 
+                {/* Direct Shareable Link Banner for this Portal */}
+                <div className="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-slate-600">
+                  <span className="flex items-center gap-1.5 font-bold text-[11px]">
+                    <Link2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                    <span>رابط الدخول المباشر لهذه البوابة:</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyCurrentPortalLink}
+                    className="text-teal-700 hover:text-teal-900 font-bold bg-white border border-teal-200 hover:bg-teal-50 px-2.5 py-1 rounded-lg text-[11px] transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                  >
+                    {copiedPortal ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700 font-black">تم نسخ الرابط!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-teal-600" />
+                        <span>نسخ الرابط</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
                 {error && (
                   <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2 animate-in fade-in">
                     <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -457,116 +460,57 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
                 {/* --- ROLE A: TEACHER LOGIN PATH & INPUTS --- */}
                 {selectedRole === 'teacher' && (
-                  <div className="space-y-4 animate-in fade-in">
-                    <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs text-emerald-900 font-bold">
-                        <BookOpen className="w-4 h-4 text-emerald-700" />
-                        <span>اختر اسمك وشعبتك للدخول الفوري لكشف الرصد:</span>
+                  <div className="space-y-5 animate-in fade-in py-2">
+                    <div className="p-4 bg-emerald-50/90 border border-emerald-200/80 rounded-2xl flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+                        <Phone className="w-5 h-5" />
                       </div>
-                      <span className="text-[10px] text-emerald-700 bg-emerald-200/60 px-2 py-0.5 rounded-full font-bold">
-                        {filteredTeachers.length} معلمين
-                      </span>
-                    </div>
-
-                    {/* Search box for teachers */}
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={teacherSearch}
-                        onChange={(e) => setTeacherSearch(e.target.value)}
-                        placeholder="بحث سريع باسم المعلم أو الصف..."
-                        className="w-full pl-3 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition"
-                      />
-                      <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
-                    </div>
-
-                    {/* Teacher Direct Selection Cards */}
-                    {filteredTeachers.length === 0 ? (
-                      <div className="p-6 text-center bg-slate-50 border border-dashed border-slate-300 rounded-2xl space-y-2">
-                        <Users className="w-8 h-8 text-slate-400 mx-auto" />
-                        <p className="text-xs font-bold text-slate-700">لم يتم تسجيل معلمين في النظام بعد</p>
-                        <p className="text-[11px] text-slate-500">يمكن لإدارة المدرسة إضافة المعلمين وتوزيعهم على الفصول من لوحة الإدارة أو استيرادهم</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-52 overflow-y-auto pr-1">
-                        {filteredTeachers.map(teacher => {
-                          const currentDayInfo = AttendanceService.getCurrentDayKey();
-                          const todayAssignedClass = AttendanceService.getTeacherAssignedClassForDay(teacher.id, currentDayInfo.key);
-                          const displayClass = todayAssignedClass 
-                            ? `${todayAssignedClass.name} (اليوم)` 
-                            : (teacher.assignedClassName || teacher.subject || 'معلم');
-
-                          return (
-                            <button
-                              key={teacher.id}
-                              type="button"
-                              onClick={() => handleTeacherCardSelect(teacher)}
-                              className="p-3 rounded-2xl border border-slate-200 bg-white hover:bg-emerald-50/70 hover:border-emerald-400 transition-all text-right group shadow-sm flex items-center justify-between"
-                            >
-                              <div className="flex items-center gap-2.5 overflow-hidden">
-                                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition">
-                                  <UserIcon className="w-4 h-4" />
-                                </div>
-                                <div className="overflow-hidden">
-                                  <div className="text-xs font-black text-slate-900 truncate">{teacher.name}</div>
-                                  <div className="text-[11px] text-emerald-800 font-bold truncate flex items-center gap-1">
-                                    <span>{displayClass}</span>
-                                    {teacher.phone && (
-                                      <span className="text-[10px] text-slate-400 font-mono">({teacher.phone})</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <span className="text-emerald-700 text-xs font-bold shrink-0 opacity-0 group-hover:opacity-100 transition flex items-center gap-0.5">
-                                <span>دخول</span>
-                                <ChevronLeft className="w-3.5 h-3.5" />
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-
-                    <div className="relative my-3 text-center">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-slate-200"></div>
-                      </div>
-                      <span className="relative bg-white px-3 text-[11px] font-bold text-slate-400">
-                        أو إدخال رقم الجوال المسجل
-                      </span>
-                    </div>
-
-                    {/* Teacher Manual Phone Input Form */}
-                    <form onSubmit={handleTeacherSubmit} className="space-y-3">
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          رقم جوال المعلم أو اسم المستخدم
+                        <h4 className="text-xs font-black text-emerald-950">
+                          الدخول برقم الجوال المعتمد
+                        </h4>
+                        <p className="text-[11px] text-emerald-800/90 font-medium">
+                          أدخل رقم الجوال المسجل في المدرسة للانتقال المباشر لكشف رصد الطلاب
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Teacher Phone Input Form */}
+                    <form onSubmit={handleTeacherSubmit} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                          رقم الجوال
                         </label>
                         <div className="relative">
                           <input
-                            type="text"
+                            type="tel"
+                            inputMode="numeric"
                             value={teacherIdentifier}
                             onChange={(e) => setTeacherIdentifier(e.target.value)}
-                            placeholder="مثال: 0550000001 أو teacher1"
+                            placeholder="مثال: 0550000001"
                             required
-                            className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition"
+                            autoFocus
+                            dir="ltr"
+                            className="w-full pl-3 pr-10 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:outline-none transition shadow-2xs placeholder:text-slate-400 placeholder:font-normal placeholder:text-right text-right"
                           />
-                          <Phone className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
+                          <Phone className="w-4 h-4 text-emerald-600 absolute right-3.5 top-3.5" />
                         </div>
+                        <p className="text-[11px] text-slate-500 mt-1.5 font-medium">
+                          يرجى إدخال رقم الجوال المعتمد لدى إدارة المدرسة (10 أرقام تبدأ بـ 05).
+                        </p>
                       </div>
 
                       <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-700/20 transition flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black rounded-xl shadow-md shadow-emerald-700/20 transition flex items-center justify-center gap-2 cursor-pointer"
                       >
                         {loading ? (
-                          <span>جاري التحقق...</span>
+                          <span>جاري التحقق والدخول...</span>
                         ) : (
                           <>
                             <KeyRound className="w-4 h-4" />
-                            <span>دخول لكشف رصد الحصة الثانية</span>
+                            <span>تسجيل الدخول</span>
                           </>
                         )}
                       </button>
@@ -625,14 +569,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                          كلمة المرور المعتمدة للإدارة (Aa12345)
+                          كلمة مرور الإدارة
                         </label>
                         <div className="relative">
                           <input
                             type="password"
                             value={adminPassword}
                             onChange={(e) => setAdminPassword(e.target.value)}
-                            placeholder="أدخل كلمة المرور (Aa12345)"
+                            placeholder="أدخل كلمة المرور الخاصة بالإدارة"
                             required
                             className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition"
                           />

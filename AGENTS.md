@@ -2,21 +2,21 @@
 **Project:** Zayd Bin Thabit Elementary Attendance System (نظام متابعة ورصد الغياب المبتكر)  
 **Target Environment:** React 18+ / TypeScript / Vite / Tailwind CSS / Firebase Firestore Ready / Cloud Run Ready  
 **Application ID:** `e18b3982-4516-4e7a-aa23-07b607fd09c1`  
-**Current Production Version:** `v2.5.0`
+**Current Production Version:** `v2.6.0`
 
 ---
 
 ## 1. Project Overview & Architecture
 
-This application is a specialized, production-ready school attendance and student discipline tracking platform, tailored for primary education institutions (specifically modeled on Saudi Arabian elementary school workflows focusing on **Period 2 / الحصة الثانية** official absence recording and compliance with Ministry of Education regulations).
+This application is a specialized, production-ready school attendance and student discipline tracking platform, tailored for primary education institutions (specifically modeled on Saudi Arabian elementary school workflows focusing on **Period 2 / الحصة الثانية (07:45 - 08:30)** official absence recording and compliance with Ministry of Education regulations).
 
 ### Key Architectural Pillars
 - **Frontend Stack**: React 18 with TypeScript, Vite, Tailwind CSS v4, Lucide React icons, and Motion (`motion/react`).
 - **Data Layer**: Standardized client-side LocalStorage caching with dual-mode Firestore synchronization capability via `attendanceService.ts`.
 - **Roster Baseline**: 364 real enrolled students structured across 11 official class sections (Grade 3 to Grade 6) and 20+ official faculty profiles.
 - **Role-Based Access Control (RBAC)**:
-  - **Administrator (`admin`)**: Full control over class allocations, period schedules, student directories, PDF/Excel reports, WhatsApp blast triggers, audit trails, and system settings.
-  - **Teacher (`teacher`)**: Focused single-purpose view for Period 2 attendance recording, quick status toggling, offline draft caching, and parental communication.
+  - **Administrator (`admin`)**: Full control over class allocations, period schedules, student directories, PDF/Excel reports, WhatsApp blast triggers, audit trails, and system settings. Credential privacy is strictly enforced on login views.
+  - **Teacher (`teacher`)**: Focused single-purpose view for attendance recording, timetable-based period validation (Period 2 restricted to 07:45-08:30 and assigned teachers), quick status toggling, offline draft caching, and parental communication.
 
 ---
 
@@ -61,9 +61,11 @@ This application is a specialized, production-ready school attendance and studen
 
 ## 3. Core Workflows & Logic
 
-### 3.1 Attendance Recording (Period 2 / الحصة الثانية)
-- Default state for all students is `present` (حاضر).
-- Teachers toggle exceptions: `absent` (غائب), `late` (متأخر), `excused` (بعذر).
+### 3.1 Attendance Recording & Timetable Validation (`validatePeriodAttendance`)
+- **Period 2 Schedule**: Recording is restricted to the official window (**07:45 AM - 08:30 AM**).
+- **Teacher Assignment Guard**: For Period 2, only the teacher assigned to the class for that day in the school timetable can record/submit attendance.
+- **Other Periods**: Available for attendance tracking whenever the current time matches that period's schedule slot.
+- **Default State**: Students default to `present` (حاضر). Teachers toggle exceptions: `absent` (غائب), `late` (متأخر), `excused` (بعذر).
 - **Mobile Optimization**: Single-touch 44px targets with quick preset buttons for reasons (`غياب بدون عذر`, `مرض / عذر طبي`, `ظرف أسري طارئ`, `سفر`).
 - Instant summary bar at screen bottom: counts present, absent, and late tallies dynamically.
 
@@ -80,14 +82,15 @@ This application is a specialized, production-ready school attendance and studen
 
 When modifying or extending this codebase, adhere strictly to these engineering standards:
 
-1. **Type Safety**: Keep `types.ts` synchronized with all changes. Never use `any` for core data entities (`Student`, `SchoolClass`, `ClassAttendanceSubmission`, `User`).
-2. **Component Separation**: Avoid bloating `App.tsx`. Extract modals and viewers into `/components/`.
-3. **Responsive Design**:
+1. **Security & Privacy**: Never hardcode or display administrator credentials in UI placeholders, labels, or client errors.
+2. **Type Safety**: Keep `types.ts` synchronized with all changes. Never use `any` for core data entities (`Student`, `SchoolClass`, `ClassAttendanceSubmission`, `User`).
+3. **Component Separation**: Avoid bloating `App.tsx`. Extract modals and viewers into `/components/`.
+4. **Responsive Design**:
    - Ensure all touch targets on mobile viewports are at least `44px` with `touch-manipulation`.
    - Test layouts against standard Tailwind breakpoints (`sm:`, `md:`, `lg:`, `xl:`).
-4. **Icons**: Use `lucide-react` exclusively. Do not write custom inline SVGs.
-5. **No Mock Placeholder Data**: Always utilize the official data structures exported from `/services/` containing real class and student names.
-6. **Linter & Compilation Verification**: Always run `npm run lint` (`tsc --noEmit`) and `npm run build` after changes to ensure zero compiler warnings or broken imports.
+5. **Icons**: Use `lucide-react` exclusively. Do not write custom inline SVGs.
+6. **No Mock Placeholder Data**: Always utilize the official data structures exported from `/services/` containing real class and student names.
+7. **Linter & Compilation Verification**: Always run `npm run lint` (`tsc --noEmit`) and `npm run build` after changes to ensure zero compiler warnings or broken imports.
 
 ---
 
@@ -96,6 +99,9 @@ When modifying or extending this codebase, adhere strictly to these engineering 
 - [x] Complete 364-student database distributed across 11 classes (Grades 3, 4, 5, 6).
 - [x] 20+ Official teacher accounts with national IDs and phone credentials.
 - [x] One-touch mobile-optimized attendance sheet (`TeacherAttendanceSheet.tsx`) with Responsive Grid (1-col mobile, 2-col tablet, 3-col desktop) and 44px touch targets.
+- [x] Official Period 2 window lock (07:45 - 08:30) and timetable-based assigned teacher verification.
+- [x] Multi-period recording capability aligned with the school timetable.
+- [x] Secured login view with hidden administrative credentials.
 - [x] Real-time Admin Dashboard with instantaneous KPI gauges and < 3s synchronization.
 - [x] In-memory high-speed caching layer with resilient LocalStorage persistence.
 - [x] WhatsApp direct parental notifications generator.

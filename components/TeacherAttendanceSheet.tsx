@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, SchoolClass, Student, StudentAttendanceItem, SchoolSettings, ClassAttendanceSubmission } from '../types';
 import { AttendanceService, TEACHER_REMINDER_EVENT } from '../services/attendanceService';
-import { ABSENCE_REASONS, getTodayDateString } from '../services/initialData';
+import { ABSENCE_REASONS, BEHAVIORAL_NOTE_PRESETS, getTodayDateString } from '../services/initialData';
 import confetti from 'canvas-confetti';
 import { 
   CheckCircle2, 
@@ -25,7 +25,16 @@ import {
   Loader2,
   Bell,
   LayoutGrid,
-  List
+  List,
+  PenLine,
+  Award,
+  Trash2,
+  X,
+  Smile,
+  ChevronDown,
+  Ban,
+  Calendar,
+  UserX
 } from 'lucide-react';
 
 interface TeacherAttendanceSheetProps {
@@ -34,6 +43,7 @@ interface TeacherAttendanceSheetProps {
   simulatedTime: string | null;
   onAttendanceSubmitted: () => void;
   onViewStudentProfile?: (studentId: string) => void;
+  onOpenReferralModal?: (studentId: string) => void;
 }
 
 export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
@@ -41,10 +51,13 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
   settings,
   simulatedTime,
   onAttendanceSubmitted,
-  onViewStudentProfile
+  onViewStudentProfile,
+  onOpenReferralModal
 }) => {
   const currentDayInfo = AttendanceService.getCurrentDayKey();
   const classes = AttendanceService.getClasses();
+  const periods = AttendanceService.getPeriods();
+  const activePeriod = AttendanceService.getCurrentlyActivePeriod(simulatedTime || undefined);
 
   // Determine initial assigned class for this teacher today from day-by-day database assignments table
   const initialClassId = () => {
@@ -56,8 +69,21 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
   };
 
   const [selectedClassId, setSelectedClassId] = useState<string>(initialClassId);
+  const [selectedPeriodNumber, setSelectedPeriodNumber] = useState<number>(2);
+
+  // Validate period attendance based on system rules:
+  // - Period 2 is strictly between 07:45 and 08:30 and restricted to the assigned teacher according to the schedule
+  // - Other periods matched with schedule times
+  const periodValidation = AttendanceService.validatePeriodAttendance(
+    selectedPeriodNumber,
+    simulatedTime || undefined,
+    settings,
+    currentUser,
+    selectedClassId
+  );
   const [students, setStudents] = useState<Student[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, StudentAttendanceItem>>({});
+  const [activeNoteStudentId, setActiveNoteStudentId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'absent' | 'late' | 'excused' | 'present'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -72,11 +98,9 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
   }));
 
   const currentClass = classes.find(c => c.id === selectedClassId) || classes[0];
-  const periodInfo = AttendanceService.isPeriod2Active(settings, simulatedTime || undefined);
   const teacherDayAssignedClass = currentUser.role === 'teacher' 
     ? AttendanceService.getTeacherAssignedClassForDay(currentUser.id, currentDayInfo.key)
     : null;
-
 
   // Listen to live admin reminder events
   useEffect(() => {
@@ -89,7 +113,7 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
       if (detail && (detail.broadcast || detail.classId === selectedClassId)) {
         setAdminReminderAlert({ 
           active: true, 
-          message: '📢 تنبيه عاجل من إدارة المدرسة: نرجو سرعة اعتماد كشف غياب الحصة الثانية لهذا اليوم!' 
+          message: '📢 تنبيه عاجل من إدارة المدرسة: نرجو سرعة اعتماد كشف غياب الحصة المحددة لهذا اليوم!' 
         });
       }
     };
@@ -97,14 +121,14 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
     return () => window.removeEventListener(TEACHER_REMINDER_EVENT, handleReminderEvent);
   }, [selectedClassId]);
 
-  // Load students and existing submission on class change
+  // Load students and existing submission on class or period change
   useEffect(() => {
     if (!currentClass) return;
     const classStudents = AttendanceService.getStudents(currentClass.id);
     setStudents(classStudents);
 
-    // Check if there is an existing submission today
-    const todaySub = AttendanceService.getTodaySubmissionForClass(currentClass.id);
+    // Check if there is an existing submission today for this specific period
+    const todaySub = AttendanceService.getTodaySubmissionForClass(currentClass.id, getTodayDateString(), selectedPeriodNumber);
     if (todaySub) {
       setIsSubmittedToday(true);
       setSubmissionTime(new Date(todaySub.submittedAt).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }));
@@ -138,10 +162,13 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
       });
       setAttendanceRecords(initialMap);
     }
-  }, [selectedClassId]);
+  }, [selectedClassId, selectedPeriodNumber]);
 
   // Update a single student status
   const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late' | 'excused') => {
+    if (!periodValidation.isAllowed) {
+      return;
+    }
     const student = students.find(s => s.id === studentId);
     if (!student) return;
 
@@ -158,8 +185,11 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
     }));
   };
 
-  // Update absence reason or notes
-  const handleDetailChange = (studentId: string, field: 'reason' | 'notes' | 'minutesLate', value: any) => {
+  // Update absence reason, notes, behavioral notes or tardiness minutes
+  const handleDetailChange = (studentId: string, field: 'reason' | 'notes' | 'behavioralNote' | 'minutesLate', value: any) => {
+    if (!periodValidation.isAllowed) {
+      return;
+    }
     setAttendanceRecords(prev => ({
       ...prev,
       [studentId]: {
@@ -171,6 +201,9 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
 
   // Mark all present with feedback
   const handleMarkAllPresent = (targetStudents?: Student[]) => {
+    if (!periodValidation.isAllowed) {
+      return;
+    }
     const listToUpdate = targetStudents || students;
     const updated: Record<string, StudentAttendanceItem> = { ...attendanceRecords };
     
@@ -191,6 +224,9 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
 
   // Mark all as saved in submission
   const handleSubmitAttendance = () => {
+    if (!periodValidation.isAllowed) {
+      return;
+    }
     setIsSubmitting(true);
 
     const items: StudentAttendanceItem[] = students.map(st => attendanceRecords[st.id] || {
@@ -205,14 +241,14 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
     const excusedCount = items.filter(i => i.status === 'excused').length;
 
     const submission: ClassAttendanceSubmission = {
-      id: `sub-${getTodayDateString()}-${currentClass.id}`,
+      id: `sub-${getTodayDateString()}-${currentClass.id}-p${selectedPeriodNumber}`,
       date: getTodayDateString(),
       classId: currentClass.id,
       className: currentClass.name,
       gradeLevel: currentClass.gradeLevel,
       teacherId: currentUser.id,
       teacherName: currentUser.name,
-      periodNumber: 2,
+      periodNumber: selectedPeriodNumber,
       submittedAt: new Date().toISOString(),
       totalStudents: students.length,
       presentCount,
@@ -231,7 +267,7 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
       setShowConfirmModal(false);
       setIsSubmittedToday(true);
       setSubmissionTime(new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }));
-      setSuccessMessage(`تم حفظ واعتماد كشف الحصة الثانية لفصل ${currentClass.name} (${currentClass.shortName}) بنجاح! تم تحديث سجلات الإدارة فورياً.`);
+      setSuccessMessage(`تم حفظ واعتماد كشف ${periodValidation.periodName} لفصل ${currentClass.name} بنجاح! تم تحديث سجلات الإدارة فورياً.`);
       
       // Trigger festive celebration
       try {
@@ -254,6 +290,7 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
   const absentTotal = itemsList.filter(i => i.status === 'absent').length;
   const lateTotal = itemsList.filter(i => i.status === 'late').length;
   const excusedTotal = itemsList.filter(i => i.status === 'excused').length;
+  const behavioralNotesTotal = itemsList.filter(i => i.behavioralNote && i.behavioralNote.trim() !== '').length;
 
   // Filter students list
   const filteredStudents = students.filter(st => {
@@ -264,8 +301,6 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
     if (statusFilter === 'all') return true;
     return status === statusFilter;
   });
-
-  const isLockStrictAndClosed = settings.lockAttendanceOutsidePeriod && !periodInfo.isActive && currentUser.role !== 'admin';
 
   // WhatsApp generator helper
   const openWhatsAppForParent = (student: Student) => {
@@ -331,54 +366,27 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
         </div>
       )}
 
-      {/* Second Period Timing Warning & Status Banner */}
-      <div className={`p-5 rounded-3xl border shadow-sm transition ${
-        periodInfo.isActive 
-          ? 'bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 text-white border-emerald-700' 
-          : isLockStrictAndClosed 
-            ? 'bg-rose-50 border-rose-200 text-rose-900' 
-            : 'bg-amber-50 border-amber-200 text-amber-900'
-      }`}>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-md ${
-              periodInfo.isActive ? 'bg-emerald-500/20 text-emerald-300 ring-2 ring-emerald-400/40' : 'bg-amber-100 text-amber-700'
-            }`}>
-              <Clock className="w-6 h-6" />
+      {/* Period Selection & Status Header */}
+      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/90 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black shrink-0">
+              <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider opacity-80">فترة التحضير الرسمية</span>
-                {isSubmittedToday && (
-                  <span className="bg-emerald-500 text-white text-[11px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                    <CheckCircle2 className="w-3 h-3" />
-                    تم رفع الكشف ({submissionTime})
-                  </span>
-                )}
-              </div>
-              <h3 className="text-base sm:text-lg font-black font-brand">
-                {periodInfo.isActive 
-                  ? `نافذة رصد الحصة الثانية نشطة الآن (${settings.period2StartTime} ص - ${settings.period2EndTime} ص)` 
-                  : `تنبيه: أنت الآن خارج وقت الحصة الثانية المحدد (${settings.period2StartTime} ص - ${settings.period2EndTime} ص)`}
-              </h3>
-              <p className="text-xs opacity-90 mt-0.5">
-                {periodInfo.isActive 
-                  ? `يرجى من مربي الفصل التأكد من مطابقة الغياب الفعلي واعتماد الكشف قبل انتهاء الحصة (متبقي ${periodInfo.minutesRemaining} دقيقة).`
-                  : settings.lockAttendanceOutsidePeriod 
-                    ? 'النظام في وضع الإغلاق الصارم. يمكنك استخدام محاكي الوقت بالأعلى أو طلب فتح الكشف من الإدارة.'
-                    : 'يسمح النظام حالياً بالرصد والتجربة في الوضع المرن.'}
-              </p>
+              <h3 className="text-sm font-black text-slate-900">اختيار الحصة الدراسية للرصد</h3>
+              <p className="text-[11px] text-slate-500 font-medium">الرصد متاح في أي حصة مطابقة للجدول الدراسي عدا الحصة الثانية</p>
             </div>
           </div>
 
           {/* Class Indicator & Selector */}
           {currentUser.role === 'admin' ? (
-            <div className="flex items-center gap-2 bg-white/10 p-1.5 rounded-2xl backdrop-blur-md">
-              <span className="text-xs font-bold px-2">معاينة الفصل:</span>
+            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl">
+              <span className="text-xs font-bold px-2 text-slate-600">الفصل:</span>
               <select
                 value={selectedClassId}
                 onChange={(e) => setSelectedClassId(e.target.value)}
-                className="bg-white text-slate-800 text-xs font-black py-2 px-4 rounded-xl shadow-sm border-0 focus:ring-2 focus:ring-emerald-400 outline-none"
+                className="bg-white text-slate-800 text-xs font-black py-1.5 px-3 rounded-xl shadow-sm border border-slate-200 focus:ring-2 focus:ring-emerald-400 outline-none"
               >
                 {classes.map(cls => (
                   <option key={cls.id} value={cls.id}>
@@ -388,14 +396,147 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
               </select>
             </div>
           ) : (
-            <div className="flex items-center gap-2 bg-white/15 px-3.5 py-2 rounded-2xl backdrop-blur-md border border-white/20">
-              <span className="text-emerald-200 text-xs font-bold">فصلك المسند لليوم ({currentDayInfo.label}):</span>
-              <span className="bg-emerald-600 text-white text-xs font-black px-2.5 py-1 rounded-xl shadow-sm">
+            <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+              <span className="text-emerald-800 text-xs font-bold">فصلك ({currentDayInfo.label}):</span>
+              <span className="bg-emerald-700 text-white text-xs font-black px-2.5 py-0.5 rounded-lg shadow-xs">
                 {currentClass?.name || 'فصل المعلم'}
               </span>
             </div>
           )}
         </div>
+
+        {/* 7 Periods Navigation Tabs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+          {periods.map(period => {
+            const isSelected = selectedPeriodNumber === period.periodNumber;
+            const isP2 = period.periodNumber === 2;
+            const isLive = activePeriod?.periodNumber === period.periodNumber;
+
+            return (
+              <button
+                key={period.periodNumber}
+                type="button"
+                onClick={() => setSelectedPeriodNumber(period.periodNumber)}
+                className={`p-2.5 rounded-2xl border text-right transition flex flex-col justify-between relative select-none cursor-pointer ${
+                  isSelected
+                    ? isP2
+                      ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-500/40 text-emerald-950 shadow-sm'
+                      : 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/30 text-emerald-950 shadow-sm'
+                    : isP2
+                      ? 'bg-emerald-50/40 border-emerald-300 text-emerald-900 hover:bg-emerald-50'
+                      : isLive
+                        ? 'bg-teal-50/70 border-teal-300 text-teal-900 hover:bg-teal-50'
+                        : 'bg-slate-50 border-slate-200/80 text-slate-700 hover:bg-slate-100/80'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full mb-1">
+                  <span className="text-xs font-black">{period.name}</span>
+                  {isP2 ? (
+                    <span className="text-[10px] bg-emerald-700 text-white font-black px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                      <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                      الرصد المعتمد
+                    </span>
+                  ) : isLive ? (
+                    <span className="text-[10px] bg-emerald-600 text-white font-black px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-ping"></span>
+                      الحالية
+                    </span>
+                  ) : null}
+                </div>
+                <div className="text-[10px] font-mono text-slate-500 font-semibold dir-ltr text-right">
+                  {period.startTime} - {period.endTime}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Dynamic Period Status Banner (Clear High-Visibility Alert) */}
+        {periodValidation.status === 'unassigned_teacher' ? (
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow-md shrink-0">
+                <UserX className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-amber-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                    ضوابط الإسناد والجدول المدرسي 🔒
+                  </span>
+                  <span className="text-xs font-bold text-amber-900">{periodValidation.periodName}</span>
+                </div>
+                <h3 className="text-sm sm:text-base font-black text-amber-950 mt-0.5">
+                  الرصد في الحصة الثانية متاح فقط لمعلم الحصة المسند له الفصل وفق الجدول
+                </h3>
+                <p className="text-xs text-amber-900/90 font-medium mt-0.5">
+                  رصد الحصة الثانية لهذا الفصل (<strong className="font-bold">{currentClass.name}</strong>) مسند في الجدول المدرسي للأستاذ: <strong className="text-amber-950 underline">{periodValidation.assignedTeacherName}</strong>. لا يمكن لغير المعلم المسند له الحصة رصد الغياب.
+                </p>
+              </div>
+            </div>
+
+            {teacherDayAssignedClass && teacherDayAssignedClass.id !== selectedClassId && (
+              <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSelectedClassId(teacherDayAssignedClass.id)}
+                  className="w-full sm:w-auto px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black rounded-xl transition shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <CheckCheck className="w-3.5 h-3.5 text-emerald-200" />
+                  <span>التبديل إلى فصلي المسند ({teacherDayAssignedClass.name})</span>
+                </button>
+              </div>
+            )}
+          </div>
+        ) : periodValidation.status === 'outside_schedule' ? (
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow-md shrink-0">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-amber-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                    خارج موعد الحصة المعتمد ⏳
+                  </span>
+                  <span className="text-xs font-bold text-amber-900">{periodValidation.periodName} ({periodValidation.startTime} - {periodValidation.endTime})</span>
+                </div>
+                <h3 className="text-sm sm:text-base font-black text-amber-950 mt-0.5">
+                  الرصد في {periodValidation.periodName} متاح فقط في وقتها (من {periodValidation.startTime} إلى {periodValidation.endTime})
+                </h3>
+                <p className="text-xs text-amber-900/90 font-medium mt-0.5">
+                  موعد رصد {periodValidation.periodName} في الجدول المدرسي هو من (<strong className="font-bold">{periodValidation.startTime}</strong>) إلى (<strong className="font-bold">{periodValidation.endTime}</strong>)، والوقت الحالي هو ({periodValidation.currentTimeStr}). يفتح الرصد تلقائياً أثناء وقت الحصة.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 text-white border border-emerald-700 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-300 ring-2 ring-emerald-400/40 flex items-center justify-center font-black shadow-md shrink-0">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                    <Sparkles className="w-3 h-3 text-amber-300" />
+                    نافذة الرصد مفتوحة ({periodValidation.startTime} - {periodValidation.endTime})
+                  </span>
+                  {isSubmittedToday && (
+                    <span className="bg-white/20 text-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-full">
+                      تم الاعتماد ({submissionTime})
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-sm sm:text-base font-black font-brand mt-0.5">
+                  الرصد متاح ومطابق للجدول المدرسي ({periodValidation.periodName})
+                </h3>
+                <p className="text-xs text-emerald-100/90 font-medium mt-0.5">
+                  أنت الآن في وقت {periodValidation.periodName} لفصل <strong className="text-emerald-200">{currentClass.name}</strong> ({periodValidation.startTime} - {periodValidation.endTime}). متبقي {periodValidation.minutesRemaining || 0} دقيقة لانتهاء فترة الرصد.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
 
@@ -481,7 +622,12 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
           <button
             type="button"
             onClick={() => handleMarkAllPresent()}
-            className="flex-1 sm:flex-none px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 active:scale-95 text-white text-xs font-black rounded-xl transition shadow-md shadow-emerald-700/20 flex items-center justify-center gap-2 group"
+            disabled={!periodValidation.isAllowed}
+            className={`flex-1 sm:flex-none px-5 py-2.5 text-white text-xs font-black rounded-xl transition shadow-md flex items-center justify-center gap-2 group select-none ${
+              !periodValidation.isAllowed 
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' 
+                : 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 active:scale-95 shadow-emerald-700/20 cursor-pointer'
+            }`}
           >
             <CheckCheck className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition" />
             <span>تحديد الكل "حاضر" الآن ({students.length})</span>
@@ -491,7 +637,12 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
             <button
               type="button"
               onClick={() => handleMarkAllPresent(filteredStudents)}
-              className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm"
+              disabled={!periodValidation.isAllowed}
+              className={`px-3.5 py-2.5 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm select-none ${
+                !periodValidation.isAllowed
+                  ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                  : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 cursor-pointer'
+              }`}
               title="تحديد نتائج البحث الحالية فقط كـ حاضر"
             >
               <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
@@ -717,7 +868,12 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                     <button
                       type="button"
                       onClick={() => handleStatusChange(student.id, 'present')}
-                      className={`min-h-[44px] px-1.5 sm:px-2 py-2 rounded-xl text-xs font-black transition-all duration-150 flex flex-col sm:flex-row items-center justify-center gap-1 active:scale-95 select-none ${
+                      disabled={!periodValidation.isAllowed}
+                      className={`min-h-[44px] px-1.5 sm:px-2 py-2 rounded-xl text-xs font-black transition-all duration-150 flex flex-col sm:flex-row items-center justify-center gap-1 select-none ${
+                        !periodValidation.isAllowed
+                          ? 'opacity-60 cursor-not-allowed text-slate-400'
+                          : 'active:scale-95'
+                      } ${
                         currentRecord.status === 'present'
                           ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/50'
                           : 'text-slate-600 hover:bg-white hover:text-slate-900 active:bg-emerald-100'
@@ -730,7 +886,12 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                     <button
                       type="button"
                       onClick={() => handleStatusChange(student.id, 'absent')}
-                      className={`min-h-[44px] px-1.5 sm:px-2 py-2 rounded-xl text-xs font-black transition-all duration-150 flex flex-col sm:flex-row items-center justify-center gap-1 active:scale-95 select-none ${
+                      disabled={!periodValidation.isAllowed}
+                      className={`min-h-[44px] px-1.5 sm:px-2 py-2 rounded-xl text-xs font-black transition-all duration-150 flex flex-col sm:flex-row items-center justify-center gap-1 select-none ${
+                        !periodValidation.isAllowed
+                          ? 'opacity-60 cursor-not-allowed text-slate-400'
+                          : 'active:scale-95'
+                      } ${
                         currentRecord.status === 'absent'
                           ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30 ring-2 ring-rose-400/50'
                           : 'text-slate-600 hover:bg-rose-50 hover:text-rose-700 active:bg-rose-100'
@@ -743,7 +904,12 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                     <button
                       type="button"
                       onClick={() => handleStatusChange(student.id, 'late')}
-                      className={`min-h-[44px] px-1.5 sm:px-2 py-2 rounded-xl text-xs font-black transition-all duration-150 flex flex-col sm:flex-row items-center justify-center gap-1 active:scale-95 select-none ${
+                      disabled={!periodValidation.isAllowed}
+                      className={`min-h-[44px] px-1.5 sm:px-2 py-2 rounded-xl text-xs font-black transition-all duration-150 flex flex-col sm:flex-row items-center justify-center gap-1 select-none ${
+                        !periodValidation.isAllowed
+                          ? 'opacity-60 cursor-not-allowed text-slate-400'
+                          : 'active:scale-95'
+                      } ${
                         currentRecord.status === 'late'
                           ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30 ring-2 ring-amber-400/50'
                           : 'text-slate-600 hover:bg-amber-50 hover:text-amber-700 active:bg-amber-100'
@@ -756,7 +922,12 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                     <button
                       type="button"
                       onClick={() => handleStatusChange(student.id, 'excused')}
-                      className={`min-h-[44px] px-1.5 sm:px-2 py-2 rounded-xl text-xs font-black transition-all duration-150 flex flex-col sm:flex-row items-center justify-center gap-1 active:scale-95 select-none ${
+                      disabled={!periodValidation.isAllowed}
+                      className={`min-h-[44px] px-1.5 sm:px-2 py-2 rounded-xl text-xs font-black transition-all duration-150 flex flex-col sm:flex-row items-center justify-center gap-1 select-none ${
+                        !periodValidation.isAllowed
+                          ? 'opacity-60 cursor-not-allowed text-slate-400'
+                          : 'active:scale-95'
+                      } ${
                         currentRecord.status === 'excused'
                           ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/50'
                           : 'text-slate-600 hover:bg-blue-50 hover:text-blue-700 active:bg-blue-100'
@@ -766,6 +937,120 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                       <span className="text-[11px] sm:text-xs">بعذر</span>
                     </button>
                   </div>
+
+                  {/* Behavioral Note Summary / Toggle Button */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                    {currentRecord.behavioralNote ? (
+                      <div 
+                        onClick={() => setActiveNoteStudentId(activeNoteStudentId === student.id ? null : student.id)}
+                        className="flex-1 bg-amber-50 hover:bg-amber-100/80 border border-amber-200/90 rounded-xl px-2.5 py-1.5 cursor-pointer transition flex items-center justify-between gap-2 text-xs"
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span className="font-black text-amber-900 text-[11px] truncate">
+                            {currentRecord.behavioralNote}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-200/60 px-1.5 py-0.5 rounded-md shrink-0">تعديل</span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActiveNoteStudentId(activeNoteStudentId === student.id ? null : student.id)}
+                        className="text-[11px] font-bold text-slate-500 hover:text-amber-800 hover:bg-amber-50/70 px-2 py-1.5 rounded-xl border border-dashed border-slate-200 transition flex items-center gap-1 w-full justify-center active:scale-95"
+                      >
+                        <PenLine className="w-3 h-3 text-slate-400" />
+                        <span>+ ملاحظة سلوكية وانضباط للطالب</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Inline Behavioral Note Editor Panel */}
+                  {activeNoteStudentId === student.id && (
+                    <div className="mt-2 p-3 bg-gradient-to-br from-amber-50/90 to-orange-50/70 border border-amber-200/80 rounded-2xl space-y-2 animate-in fade-in zoom-in-95 duration-150 shadow-sm">
+                      <div className="flex items-center justify-between pb-1 border-b border-amber-200/60">
+                        <div className="flex items-center gap-1.5 text-xs font-black text-amber-950">
+                          <Award className="w-4 h-4 text-amber-600" />
+                          <span>ملاحظة سلوكية وانضباط صفي:</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveNoteStudentId(null)}
+                          className="text-slate-400 hover:text-slate-700 p-0.5 rounded-lg hover:bg-amber-100"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Presets Chips */}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {BEHAVIORAL_NOTE_PRESETS.map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => handleDetailChange(student.id, 'behavioralNote', p.label)}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-bold transition active:scale-95 flex items-center gap-1 ${
+                              currentRecord.behavioralNote === p.label
+                                ? 'bg-amber-800 text-white shadow-sm ring-1 ring-amber-900'
+                                : p.type === 'positive'
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                                  : p.type === 'attention'
+                                    ? 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
+                                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span>{p.icon}</span>
+                            <span>{p.label}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Custom Input */}
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <input
+                          type="text"
+                          value={currentRecord.behavioralNote || ''}
+                          onChange={(e) => handleDetailChange(student.id, 'behavioralNote', e.target.value)}
+                          placeholder="أو اكتب ملاحظة سلوكية مخصصة..."
+                          className="flex-1 bg-white border border-amber-300 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                        />
+                        {currentRecord.behavioralNote && (
+                          <button
+                            type="button"
+                            onClick={() => handleDetailChange(student.id, 'behavioralNote', '')}
+                            className="p-1.5 bg-rose-100 text-rose-700 hover:bg-rose-200 rounded-xl transition text-xs font-bold shrink-0"
+                            title="مسح الملاحظة"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setActiveNoteStudentId(null)}
+                          className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-black rounded-xl shadow-sm shrink-0"
+                        >
+                          تم
+                        </button>
+                      </div>
+
+                      {/* 1-Click Referral to Counselor Trigger */}
+                      {onOpenReferralModal && (
+                        <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between">
+                          <span className="text-[10px] text-amber-900 font-bold">هل الحالة تستدعي تدخلاً إرشادياً؟</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveNoteStudentId(null);
+                              onOpenReferralModal(student.id);
+                            }}
+                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[11px] rounded-lg transition flex items-center gap-1 shadow-2xs border border-amber-400"
+                          >
+                            <span>تحويل للمرشد الطلابي 📝</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Expanded Details when Absent, Excused or Late */}
@@ -828,7 +1113,7 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                           type="text"
                           value={currentRecord.notes || ''}
                           onChange={(e) => handleDetailChange(student.id, 'notes', e.target.value)}
-                          placeholder="ملاحظات المعلم (اختياري)..."
+                          placeholder="ملاحظات إدارية / توضيح الغياب..."
                           className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
                         />
                       </div>
@@ -858,11 +1143,12 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-black">
                 <tr>
                   <th className="py-3 px-4 w-12 text-center">#</th>
-                  <th className="py-3 px-4 min-w-[180px]">اسم الطالب</th>
-                  <th className="py-3 px-4 min-w-[120px]">الرقم الأكاديمي</th>
-                  <th className="py-3 px-4 min-w-[280px] text-center">حالة الحضور</th>
-                  <th className="py-3 px-4 min-w-[200px]">تفاصيل الغياب / التأخر</th>
-                  <th className="py-3 px-4 w-28 text-center">تواصل</th>
+                  <th className="py-3 px-4 min-w-[170px]">اسم الطالب</th>
+                  <th className="py-3 px-4 min-w-[110px]">الرقم الأكاديمي</th>
+                  <th className="py-3 px-4 min-w-[270px] text-center">حالة الحضور</th>
+                  <th className="py-3 px-4 min-w-[160px]">تفاصيل الغياب / التأخر</th>
+                  <th className="py-3 px-4 min-w-[220px]">الملاحظات السلوكية والانضباط</th>
+                  <th className="py-3 px-4 w-24 text-center">تواصل</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -906,7 +1192,10 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                           <button
                             type="button"
                             onClick={() => handleStatusChange(student.id, 'present')}
+                            disabled={!periodValidation.isAllowed}
                             className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                              !periodValidation.isAllowed ? 'opacity-60 cursor-not-allowed' : ''
+                            } ${
                               currentRecord.status === 'present' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
                             }`}
                           >
@@ -915,7 +1204,10 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                           <button
                             type="button"
                             onClick={() => handleStatusChange(student.id, 'absent')}
+                            disabled={!periodValidation.isAllowed}
                             className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                              !periodValidation.isAllowed ? 'opacity-60 cursor-not-allowed' : ''
+                            } ${
                               currentRecord.status === 'absent' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
                             }`}
                           >
@@ -924,7 +1216,10 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                           <button
                             type="button"
                             onClick={() => handleStatusChange(student.id, 'late')}
+                            disabled={!periodValidation.isAllowed}
                             className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                              !periodValidation.isAllowed ? 'opacity-60 cursor-not-allowed' : ''
+                            } ${
                               currentRecord.status === 'late' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
                             }`}
                           >
@@ -933,7 +1228,10 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                           <button
                             type="button"
                             onClick={() => handleStatusChange(student.id, 'excused')}
+                            disabled={!periodValidation.isAllowed}
                             className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                              !periodValidation.isAllowed ? 'opacity-60 cursor-not-allowed' : ''
+                            } ${
                               currentRecord.status === 'excused' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
                             }`}
                           >
@@ -949,6 +1247,32 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                         ) : (
                           <span className="text-emerald-700 font-bold">منتظم في الحصة</span>
                         )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={currentRecord.behavioralNote || ''}
+                            onChange={(e) => handleDetailChange(student.id, 'behavioralNote', e.target.value)}
+                            placeholder="ملاحظة سلوكية..."
+                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 focus:bg-white focus:ring-1 focus:ring-amber-500 outline-none"
+                          />
+                          <select
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleDetailChange(student.id, 'behavioralNote', e.target.value);
+                              }
+                            }}
+                            defaultValue=""
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] font-bold outline-none cursor-pointer"
+                            title="اختيار من القوالب السريعة"
+                          >
+                            <option value="" disabled>قوالب</option>
+                            {BEHAVIORAL_NOTE_PRESETS.map(p => (
+                              <option key={p.id} value={p.label}>{p.icon} {p.label}</option>
+                            ))}
+                          </select>
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-center">
                         <button
@@ -981,6 +1305,12 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
               <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">{presentTotal} حاضر</span>
               <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200">{absentTotal} غائب</span>
               {lateTotal > 0 && <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">{lateTotal} متأخر</span>}
+              {behavioralNotesTotal > 0 && (
+                <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 font-bold flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-600" />
+                  {behavioralNotesTotal} ملاحظة سلوكية
+                </span>
+              )}
             </div>
             <div className="text-[11px] text-slate-500 font-medium mt-0.5">
               {isSubmittedToday ? `تم اعتماد الكشف مسبقاً الساعة ${submissionTime || ''} — يمكنك تحديثه في أي وقت` : 'جاهز للإرسال والاعتماد النهائي'}
@@ -992,7 +1322,12 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
           <button
             type="button"
             onClick={() => handleMarkAllPresent()}
-            className="flex-1 sm:flex-none min-h-[44px] px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 touch-manipulation"
+            disabled={!periodValidation.isAllowed}
+            className={`flex-1 sm:flex-none min-h-[44px] px-3.5 py-2.5 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 touch-manipulation select-none ${
+              !periodValidation.isAllowed
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                : 'bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 cursor-pointer'
+            }`}
           >
             <CheckCheck className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>الكل حاضر ({students.length})</span>
@@ -1001,15 +1336,15 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
           <button
             type="button"
             onClick={() => setShowConfirmModal(true)}
-            disabled={isLockStrictAndClosed || isSubmitting}
-            className={`flex-1 sm:flex-none min-h-[44px] px-6 py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 shadow-lg touch-manipulation ${
-              isLockStrictAndClosed
-                ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+            disabled={!periodValidation.isAllowed || isSubmitting}
+            className={`flex-1 sm:flex-none min-h-[44px] px-6 py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-2 shadow-lg touch-manipulation select-none ${
+              !periodValidation.isAllowed
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
                 : isSubmitting
                   ? 'bg-emerald-800 text-white cursor-wait opacity-90'
                   : isSubmittedToday
-                    ? 'bg-teal-700 hover:bg-teal-800 text-white shadow-teal-700/20 active:scale-95'
-                    : 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-emerald-600/30 active:scale-95'
+                    ? 'bg-teal-700 hover:bg-teal-800 text-white shadow-teal-700/20 active:scale-95 cursor-pointer'
+                    : 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-emerald-600/30 active:scale-95 cursor-pointer'
             }`}
           >
             {isSubmitting ? (
@@ -1017,10 +1352,15 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                 <Loader2 className="w-4 h-4 animate-spin text-emerald-200 shrink-0" />
                 <span>جاري الحفظ...</span>
               </>
+            ) : !periodValidation.isAllowed ? (
+              <>
+                <Ban className="w-4 h-4 text-slate-500 shrink-0" />
+                <span>الرصد غير متاح</span>
+              </>
             ) : (
               <>
                 <Send className="w-4 h-4 text-emerald-100 shrink-0" />
-                <span>{isSubmittedToday ? 'تحديث واعتماد الكشف' : 'حفظ واعتماد كشف الحصة الثانية'}</span>
+                <span>{isSubmittedToday ? `تحديث كشف ${periodValidation.periodName}` : `اعتماد كشف ${periodValidation.periodName}`}</span>
               </>
             )}
           </button>
@@ -1032,7 +1372,7 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
             <div className="bg-gradient-to-r from-emerald-800 to-teal-800 p-5 text-white">
-              <h3 className="text-base font-black font-brand">تأكيد اعتماد كشف غياب الحصة الثانية</h3>
+              <h3 className="text-base font-black font-brand">تأكيد اعتماد كشف {periodValidation.periodName}</h3>
               <p className="text-xs text-emerald-200">{currentClass.name} — تاريخ اليوم: {new Date().toLocaleDateString('ar-SA')}</p>
             </div>
 
@@ -1069,10 +1409,26 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                 </div>
               )}
 
+              {behavioralNotesTotal > 0 && (
+                <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3">
+                  <div className="text-xs font-black text-amber-900 mb-1.5 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>الملاحظات السلوكية المرصودة ({behavioralNotesTotal}):</span>
+                  </div>
+                  <ul className="text-xs text-amber-800 space-y-1 pr-3 list-disc">
+                    {students.filter(s => attendanceRecords[s.id]?.behavioralNote).map(s => (
+                      <li key={s.id}>
+                        <strong className="text-slate-900">{s.name}:</strong> {attendanceRecords[s.id]?.behavioralNote}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex items-start gap-2">
                 <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>
-                  سيتم إرسال هذا الكشف فوراً إلى لوحة تحكم إدارة مدرسة زيد بن ثابت مع توثيق اسم المعلم ووقت الإرسال.
+                  سيتم إرسال هذا الكشف فوراً إلى لوحة تحكم إدارة مدرسة زيد بن ثابت مع توثيق اسم المعلم ووقت الإرسال والملاحظات السلوكية لربطها بالتقارير اليومية.
                 </span>
               </div>
 
@@ -1088,7 +1444,7 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
                   type="button"
                   onClick={handleSubmitAttendance}
                   disabled={isSubmitting}
-                  className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:bg-emerald-800/80 text-white text-xs font-black shadow-lg shadow-emerald-700/20 transition flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 disabled:opacity-80 text-white text-xs font-black transition shadow-lg shadow-emerald-700/20 flex items-center gap-2"
                 >
                   {isSubmitting ? (
                     <>

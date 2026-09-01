@@ -53,7 +53,8 @@ import {
   CheckCheck,
   AlertCircle,
   Phone,
-  ExternalLink
+  ExternalLink,
+  Link2
 } from 'lucide-react';
 
 
@@ -72,6 +73,7 @@ interface AdminDashboardProps {
   onOpenGoogleSheetsModal?: () => void;
   onOpenStudentImportModal?: () => void;
   onOpenContactsModal?: () => void;
+  onOpenPortalLinksModal?: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -88,7 +90,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSwitchToTeacher,
   onOpenGoogleSheetsModal,
   onOpenStudentImportModal,
-  onOpenContactsModal
+  onOpenContactsModal,
+  onOpenPortalLinksModal
 }) => {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>('all');
@@ -298,6 +301,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <Users className="w-4 h-4 text-indigo-300" />
             <span>التقرير الشهري PDF 📊</span>
           </button>
+
+          {onOpenPortalLinksModal && (
+            <button
+              onClick={onOpenPortalLinksModal}
+              className="px-4 py-2 bg-gradient-to-r from-teal-800 to-emerald-950 hover:from-teal-900 hover:to-slate-900 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-teal-950/20 border border-teal-500/40"
+              title="نسخ ومشاركة روابط الدخول المنفصلة للمعلمين (برقم الجوال) والإدارة المدرسية"
+            >
+              <Link2 className="w-4 h-4 text-teal-300" />
+              <span>روابط الدخول والمعلمين 🔗</span>
+            </button>
+          )}
 
           {onOpenStudentImportModal && (
             <button

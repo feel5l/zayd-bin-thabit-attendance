@@ -20,7 +20,8 @@ import {
   AlertCircle,
   Archive,
   FileSpreadsheet,
-  Phone
+  Phone,
+  Link2
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -41,6 +42,7 @@ interface NavbarProps {
   onOpenGoogleSheetsModal?: () => void;
   onOpenStudentImportModal?: () => void;
   onOpenContactsModal?: () => void;
+  onOpenPortalLinksModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -60,7 +62,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenTeacherReminderModal,
   onOpenGoogleSheetsModal,
   onOpenStudentImportModal,
-  onOpenContactsModal
+  onOpenContactsModal,
+  onOpenPortalLinksModal
 }) => {
   const [currentDateStr, setCurrentDateStr] = useState('');
   const [currentTimeStr, setCurrentTimeStr] = useState('');
@@ -138,6 +141,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {currentUser.role === 'admin' ? '👑 الإدارة المدرسية (المدير)' : `👨‍🏫 ${currentUser.name} (${currentUser.assignedClassName || 'معلم'})`}
                 </span>
               </div>
+
+              {currentUser.role === 'admin' && onOpenPortalLinksModal && (
+                <button
+                  type="button"
+                  onClick={onOpenPortalLinksModal}
+                  className="px-2.5 py-1 bg-teal-600 hover:bg-teal-500 text-white font-black text-[11px] rounded-lg transition flex items-center gap-1 shadow-sm border border-teal-400/40"
+                  title="نسخ ومشاركة روابط الدخول المنفصلة للمعلمين والإدارة"
+                >
+                  <Link2 className="w-3.5 h-3.5 text-teal-200" />
+                  <span>روابط الدخول 🔗</span>
+                </button>
+              )}
 
               {currentUser.role === 'admin' && onOpenGoogleSheetsModal && (
                 <button
@@ -274,6 +289,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
 
               <button
+                onClick={() => setActiveTab('referrals')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  activeTab === 'referrals'
+                    ? 'bg-white shadow-md text-emerald-800 ring-1 ring-slate-900/5'
+                    : 'text-slate-600 hover:bg-white/60 hover:text-slate-900'
+                }`}
+              >
+                <FileText className="w-4 h-4 text-amber-600" />
+                <span>استمارات التحويل 📋</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('ai-advisor')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                   activeTab === 'ai-advisor'
@@ -297,6 +324,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <ClipboardList className="w-4 h-4 text-emerald-600" />
                 <span>رصد غياب الحصة الثانية</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('referrals')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  activeTab === 'referrals'
+                    ? 'bg-white shadow-md text-emerald-800 ring-1 ring-slate-900/5'
+                    : 'text-slate-600 hover:bg-white/60 hover:text-slate-900'
+                }`}
+              >
+                <FileText className="w-4 h-4 text-amber-600" />
+                <span>استمارات التحويل 📋</span>
               </button>
 
               <button
@@ -467,6 +506,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </>
                   )}
 
+                  {onOpenPortalLinksModal && (
+                    <button
+                      onClick={() => {
+                        onOpenPortalLinksModal();
+                        setIsUserDropdownOpen(false);
+                      }}
+                      className="w-full text-right px-3 py-2 text-xs font-bold text-teal-700 hover:bg-teal-50 rounded-xl transition flex items-center gap-2"
+                    >
+                      <Link2 className="w-4 h-4 text-teal-600" />
+                      <span>روابط الدخول ومشاركة المعلمين 🔗</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       setIsNotifModalOpen(true);
@@ -567,6 +619,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               جهات الاتصال 📱
             </button>
             <button
+              onClick={() => setActiveTab('referrals')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${
+                activeTab === 'referrals' ? 'bg-emerald-700 text-white' : 'text-slate-600'
+              }`}
+            >
+              استمارات التحويل 📋
+            </button>
+            <button
               onClick={() => setActiveTab('ai-advisor')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${
                 activeTab === 'ai-advisor' ? 'bg-purple-700 text-white' : 'text-slate-600'
@@ -584,6 +644,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               رصد الحصة الثانية
+            </button>
+            <button
+              onClick={() => setActiveTab('referrals')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${
+                activeTab === 'referrals' ? 'bg-emerald-700 text-white' : 'text-slate-600'
+              }`}
+            >
+              استمارات التحويل 📋
             </button>
             <button
               onClick={() => setActiveTab('class-history')}

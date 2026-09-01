@@ -50,6 +50,7 @@ export interface StudentAttendanceItem {
   status: AttendanceStatus;
   reason?: string;
   notes?: string;
+  behavioralNote?: string;
   minutesLate?: number;
   contactedParent?: boolean;
 }
@@ -105,6 +106,7 @@ export interface SchoolSettings {
   term: string;
   principalName: string;
   vicePrincipalName: string;
+  counselorName?: string;
   period2StartTime: string; // "08:30"
   period2EndTime: string; // "09:15"
   lockAttendanceOutsidePeriod: boolean;
@@ -337,6 +339,68 @@ export interface ContactsSyncStats {
   googleSyncedCount: number;
   favoritesCount: number;
 }
+
+export interface TimetableEntry {
+  id?: string;
+  day: WeekDayKey;
+  dayArabic: string;
+  periodNumber: number;
+  classId: string;
+  className: string; // e.g. "رابع 3" / "رابع ج"
+  subject: string; // e.g. "الرياضيات", "العلوم", "العربية", "الإسلامية"
+  teacherId?: string;
+  teacherName?: string;
+}
+
+export interface TeacherTimetableRecord {
+  teacherId: string;
+  teacherSequence: number;
+  teacherName: string;
+  mainSubject: string;
+  quota: number; // نصاب الحصص الأسبوعي
+  entries: TimetableEntry[];
+}
+
+export type ReferralReasonType =
+  | 'neglect_homework'      // إهمال في أداء الواجب
+  | 'no_book'               // عدم إحضار الكتاب
+  | 'disruptive'            // مشاغبة
+  | 'late_for_class'        // تأخر عن الحصة
+  | 'academic_weakness'     // ضعف دراسي
+  | 'other';                // أخرى (تذكر)
+
+export type ReferralSourceType = 'principal' | 'vice_principal' | 'teacher';
+export type ReferralStatus = 'pending' | 'in_progress' | 'resolved';
+export type ReferredNextToType = 'principal' | 'vice_principal' | 'subject_teacher' | 'none';
+
+export interface StudentReferralForm {
+  id: string;
+  referralNumber: string; // e.g. "تح-1447-001"
+  date: string; // YYYY-MM-DD
+  hijriDate?: string; // e.g. "1447/03/12 هـ"
+  attachmentsCount?: string; // المشفوعات (e.g. "لا يوجد" أو "تقرير طبي / كشف درجات")
+  studentId: string;
+  studentName: string; // اسم الطالب
+  gradeLevel: string; // الصف (e.g. "الصف الخامس الابتدائي")
+  className: string; // الفصل (e.g. "خامس 1" أو "أ")
+  section?: string; // الشعبة
+  reasons: string[]; // أسباب التحويل المحددة
+  otherReasonText?: string; // تفاصيل سبب "أخرى"
+  referralSource: ReferralSourceType; // مصدر الإحالة: المدير / الوكيل / معلم الصف
+  referrerName: string; // اسم المحيل (المعلم أو الوكيل أو المدير)
+  problemDescription: string; // إيضاح المشكلة
+  teacherSignature?: string; // التوقيع
+  actionTakenByCounselor?: string; // ما تم حيال الطالب (إجراءات المرشد الطلابي)
+  referredNextTo?: ReferredNextToType; // تم إحالته إلى: المدير / الوكيل / معلم المادة
+  referredNextDate?: string; // بتاريخ
+  counselorName?: string; // اسم المرشد الطلابي
+  counselorSignature?: string; // توقيع المرشد
+  counselorDate?: string; // تاريخ اتخاذ الإجراء
+  status: ReferralStatus; // قيد المتابعة / تمت المعالجة
+  createdAt: string; // ISO Timestamp
+  updatedAt?: string; // ISO Timestamp
+}
+
 
 
 

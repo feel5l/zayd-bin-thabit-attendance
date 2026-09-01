@@ -37,13 +37,15 @@ interface StudentDirectoryProps {
   settings: SchoolSettings;
   onOpenStudentModal?: string | null;
   onCloseStudentModal?: () => void;
+  onOpenReferralModal?: (studentId: string) => void;
 }
 
 export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
   currentUser,
   settings,
   onOpenStudentModal,
-  onCloseStudentModal
+  onCloseStudentModal,
+  onOpenReferralModal
 }) => {
   const [students, setStudents] = useState<Student[]>(() => AttendanceService.getStudents());
   const [classes, setClasses] = useState<SchoolClass[]>(() => AttendanceService.getClasses());
@@ -516,6 +518,17 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                             <FileText className="w-3.5 h-3.5 text-emerald-600" />
                             <span>الملف</span>
                           </button>
+
+                          {/* Student Referral to Counselor Button */}
+                          {onOpenReferralModal && (
+                            <button
+                              onClick={() => onOpenReferralModal(student.id)}
+                              className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl transition shadow-sm"
+                              title="استمارة تحويل الطالب للمرشد الطلابي"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-amber-700" />
+                            </button>
+                          )}
 
                           {/* Quick Section Transfer */}
                           <button
@@ -1091,20 +1104,31 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleGenerateWarningLetter(selectedStudent, history)}
-                        disabled={isGeneratingLetter}
-                        className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl shadow-sm transition flex items-center gap-1.5"
-                      >
-                        {isGeneratingLetter ? (
-                          <span>جاري الصياغة...</span>
-                        ) : (
-                          <>
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>توليد الخطاب</span>
-                          </>
+                      <div className="flex items-center gap-2">
+                        {onOpenReferralModal && (
+                          <button
+                            onClick={() => onOpenReferralModal(selectedStudent.id)}
+                            className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl shadow-sm transition flex items-center gap-1.5"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>استمارة تحويل للمرشد</span>
+                          </button>
                         )}
-                      </button>
+                        <button
+                          onClick={() => handleGenerateWarningLetter(selectedStudent, history)}
+                          disabled={isGeneratingLetter}
+                          className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl shadow-sm transition flex items-center gap-1.5"
+                        >
+                          {isGeneratingLetter ? (
+                            <span>جاري الصياغة...</span>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>توليد الخطاب</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     {/* Display Generated Letter if present */}
