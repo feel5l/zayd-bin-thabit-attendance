@@ -676,18 +676,25 @@ export const LEGACY_TIMETABLE_TEACHER_ID_MAP: Record<string, string> = {
   'teacher-9': 'teacher-18',
   'teacher-10': 'teacher-13',
   'teacher-11': 'teacher-10',
+  'teacher-12': 'unmapped-محمد-القحطاني',
   'teacher-13': 'teacher-15',
   'teacher-14': 'teacher-25',
   'teacher-15': 'teacher-12',
   'teacher-16': 'teacher-6',
   'teacher-17': 'teacher-19',
   'teacher-18': 'teacher-16',
+  'teacher-19': 'unmapped-مكمل-لغة',
   'teacher-20': 'teacher-23',
+  'teacher-21': 'unmapped-عبدالمحسن-الدوسري',
   'teacher-22': 'teacher-22'
 };
 
 export function mapLegacyTimetableTeacherId(legacyId: string): string {
   return LEGACY_TIMETABLE_TEACHER_ID_MAP[legacyId] ?? legacyId;
+}
+
+export function isUnmappedTimetableTeacherId(teacherId: string): boolean {
+  return teacherId.startsWith('unmapped-');
 }
 
 /**
@@ -713,6 +720,12 @@ export const extractPeriod2AssignmentsFromTimetable = (): DayPeriodAssignment[] 
         if (slotMap.has(slotKey)) return;
 
         const resolvedTeacherId = mapLegacyTimetableTeacherId(record.teacherId);
+        if (isUnmappedTimetableTeacherId(resolvedTeacherId)) {
+          console.warn(
+            `[timetable] تخطي إسناد الحصة 2 — معلم غير مرتبط: ${record.teacherName} (${resolvedTeacherId})`
+          );
+          return;
+        }
         slotMap.set(slotKey, {
           id: `assign_${p2Entry.classId}_${day.key}`,
           classId: p2Entry.classId,
