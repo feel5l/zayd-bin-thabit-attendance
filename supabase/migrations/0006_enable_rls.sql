@@ -1,0 +1,16 @@
+-- Enable Row Level Security on all tables.
+-- Policies were defined in 0002_rls_policies.sql but RLS was never activated.
+
+ALTER TABLE schools ENABLE ROW LEVEL SECURITY;
+ALTER TABLE teachers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE classes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE period_schedules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE timetable_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_period_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE timetable_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_student_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE import_batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sync_cursors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE school_settings ENABLE ROW LEVEL SECURITY;

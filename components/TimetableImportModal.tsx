@@ -75,13 +75,34 @@ export const TimetableImportModal: React.FC<TimetableImportModalProps> = ({
     }
   };
 
-  const handleApply = () => {
+  const handleApply = async () => {
     if (!preview || preview.period2Assignments.length === 0) {
       setError('لا توجد إسنادات للحصة الثانية جاهزة للتطبيق.');
       return;
     }
 
+    setIsProcessing(true);
+
+    // Always apply locally first
     AttendanceService.applyImportedPeriod2Assignments(preview.period2Assignments, currentUser);
+
+    // Publish to server if configured (all devices receive via Realtime)
+    try {
+      const { publishTimetable } = await import('../services/syncAdapter');
+      const result = await publishTimetable({
+        period2Assignments: preview.period2Assignments,
+        label: fileName ? `import-${fileName}` : undefined,
+        source: 'excel_import',
+        importedBy: currentUser.id,
+      });
+      if (!result.ok) {
+        console.warn('[timetable-import] Server publish failed; local-only');
+      }
+    } catch {
+      // Sync not configured or failed; local apply is sufficient
+    }
+
+    setIsProcessing(false);
     setApplySuccess(true);
     onSuccess();
     setTimeout(() => handleClose(), 1500);
