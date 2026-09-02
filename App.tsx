@@ -68,7 +68,7 @@ export const App: React.FC = () => {
 
   // Portal deep links: role hint only — no silent auto-login
   useEffect(() => {
-    AttendanceService.registerScheduleStorageSyncListener();
+    AttendanceService.registerStorageSyncListener();
 
     const params = new URLSearchParams(window.location.search);
     const portal = params.get('portal') || params.get('role');
