@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, SchoolSettings, AttendanceNotification } from '../types';
 import { AttendanceService, NOTIFICATION_EVENT } from '../services/attendanceService';
 import { NotificationCenterModal } from './NotificationCenterModal';
+import { getSyncStatus, SYNC_STATUS_EVENT, type SyncStatus } from '../services/syncAdapter';
 import { 
   GraduationCap, 
   UserCheck, 
@@ -69,6 +70,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [currentTimeStr, setCurrentTimeStr] = useState('');
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus);
+
+  useEffect(() => {
+    const onSyncStatus = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.status) setSyncStatus(detail.status as SyncStatus);
+    };
+    window.addEventListener(SYNC_STATUS_EVENT, onSyncStatus);
+    return () => window.removeEventListener(SYNC_STATUS_EVENT, onSyncStatus);
+  }, []);
   const [unreadNotifCount, setUnreadNotifCount] = useState<number>(() => {
     return AttendanceService.getNotifications().filter(n => !n.read).length;
   });
@@ -215,9 +226,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                 الابتدائية
               </span>
             </div>
-            <p className="text-xs font-bold text-slate-400">
-              نظام متابعة غياب الطلاب ورصد الحصة الثانية
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-bold text-slate-400">
+                نظام متابعة غياب الطلاب ورصد الحصة الثانية
+              </p>
+              {syncStatus === 'synced' && (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="متصل ومزامن" />
+              )}
+              {syncStatus === 'syncing' && (
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-spin" title="جارٍ المزامنة..." />
+              )}
+              {syncStatus === 'offline' && (
+                <span className="w-2 h-2 rounded-full bg-amber-500" title="غير متصل — سيتم الرفع تلقائياً" />
+              )}
+            </div>
           </div>
         </div>
 

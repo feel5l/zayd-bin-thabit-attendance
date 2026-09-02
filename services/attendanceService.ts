@@ -1302,6 +1302,11 @@ export class AttendanceService {
     };
 
     this.saveNotification(notification);
+
+    // Push to server asynchronously (fire-and-forget; offline queue handles failures)
+    import('./syncAdapter').then(({ pushSubmission }) => {
+      pushSubmission(submission, submission.students || []).catch(() => {});
+    }).catch(() => {});
   }
 
   // --- Notifications Management ---
