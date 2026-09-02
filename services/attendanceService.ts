@@ -63,6 +63,7 @@ function migrateV3toV4(): void {
 }
 
 export const NOTIFICATION_EVENT = 'attendance_notification_event';
+export const ATTENDANCE_UPDATE_EVENT = 'attendance_update_event';
 export const TEACHER_REMINDER_EVENT = 'attendance_teacher_reminder_event';
 export const SESSION_TIMEOUT_EVENT = 'attendance_session_timeout_event';
 export const SCHEDULE_CHANGE_EVENT = 'attendance_schedule_change_event';
@@ -73,6 +74,13 @@ const SCHEDULE_STORAGE_KEYS = [
   STORAGE_KEYS.USERS,
   STORAGE_KEYS.CLASSES
 ];
+
+const ATTENDANCE_STORAGE_KEYS = [
+  STORAGE_KEYS.SUBMISSIONS,
+  STORAGE_KEYS.NOTIFICATIONS,
+];
+
+const CROSS_TAB_STORAGE_KEYS = [...SCHEDULE_STORAGE_KEYS, ...ATTENDANCE_STORAGE_KEYS];
 
 export const WEEKDAYS_LIST: { key: WeekDayKey; label: string; index: number }[] = [
   { key: 'sunday', label: 'الأحد', index: 0 },
@@ -294,6 +302,19 @@ export class AttendanceService {
     if (touched.includes(STORAGE_KEYS.CLASSES)) this._cacheClasses = null;
   }
 
+  /** Reload attendance-related caches from localStorage (cross-tab sync) */
+  static reloadAttendanceCaches(keys?: string[]): void {
+    const touched = keys ?? ATTENDANCE_STORAGE_KEYS;
+    if (touched.includes(STORAGE_KEYS.SUBMISSIONS)) this._cacheSubmissions = null;
+    if (touched.includes(STORAGE_KEYS.NOTIFICATIONS)) this._cacheNotifications = null;
+  }
+
+  /** Broadcast attendance/submission changes to open tabs and React views */
+  private static dispatchAttendanceUpdate(source: 'submissions' | 'notifications'): void {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent(ATTENDANCE_UPDATE_EVENT, { detail: { source } }));
+  }
+
   /**
    * Apply a schedule bundle pulled from the server (see services/scheduleSync.ts).
    *
@@ -338,18 +359,47 @@ export class AttendanceService {
     return changed;
   }
 
-  static registerScheduleStorageSyncListener(): void {
-    if (typeof window === 'undefined') return;
+  private static _crossTabStorageListenerRegistered = false;
+
+  /** Cross-tab sync for schedule + attendance localStorage keys (< 3s per .cursorrules) */
+  static registerStorageSyncListener(): void {
+    if (typeof window === 'undefined' || this._crossTabStorageListenerRegistered) return;
+    this._crossTabStorageListenerRegistered = true;
+
     window.addEventListener('storage', (event) => {
-      if (!event.key || !SCHEDULE_STORAGE_KEYS.includes(event.key)) return;
-      this.reloadScheduleCaches([event.key]);
-      const source =
-        event.key === STORAGE_KEYS.SETTINGS ? 'settings'
-        : event.key === STORAGE_KEYS.PERIOD_ASSIGNMENTS ? 'assignments'
-        : event.key === STORAGE_KEYS.USERS ? 'users'
-        : 'classes';
-      this.dispatchScheduleChange(source);
+      if (!event.key || !CROSS_TAB_STORAGE_KEYS.includes(event.key)) return;
+
+      if (SCHEDULE_STORAGE_KEYS.includes(event.key)) {
+        this.reloadScheduleCaches([event.key]);
+        const source =
+          event.key === STORAGE_KEYS.SETTINGS ? 'settings'
+          : event.key === STORAGE_KEYS.PERIOD_ASSIGNMENTS ? 'assignments'
+          : event.key === STORAGE_KEYS.USERS ? 'users'
+          : 'classes';
+        this.dispatchScheduleChange(source);
+        return;
+      }
+
+      this.reloadAttendanceCaches([event.key]);
+      const source = event.key === STORAGE_KEYS.SUBMISSIONS ? 'submissions' : 'notifications';
+      this.dispatchAttendanceUpdate(source);
+
+      if (event.key === STORAGE_KEYS.NOTIFICATIONS && event.newValue) {
+        try {
+          const parsed = JSON.parse(event.newValue) as AttendanceNotification[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            window.dispatchEvent(new CustomEvent(NOTIFICATION_EVENT, { detail: parsed[0] }));
+          }
+        } catch {
+          // Ignore malformed cross-tab notification payloads
+        }
+      }
     });
+  }
+
+  /** @deprecated Use registerStorageSyncListener — kept for backward compatibility */
+  static registerScheduleStorageSyncListener(): void {
+    this.registerStorageSyncListener();
   }
 
   /** Map legacy timetable teacher ids to official login ids */

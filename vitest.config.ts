@@ -5,6 +5,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
+    environmentMatchGlobs: [
+      ['tests/crossTabSync.test.ts', 'happy-dom'],
+    ],
   },
   resolve: {
     alias: {
