@@ -472,7 +472,7 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
                 className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 w-full md:w-72"
               >
                 {teachers.map(t => {
-                  const rec = timetableRecords.find(r => r.teacherId === t.id);
+                  const rec = AttendanceService.getTimetableForTeacher(t.id);
                   return (
                     <option key={t.id} value={t.id}>
                       {t.name} — {t.subject} ({rec?.quota || 0} حصة)
