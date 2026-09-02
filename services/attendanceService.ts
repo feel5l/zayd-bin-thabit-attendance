@@ -12,7 +12,7 @@ import {
   INITIAL_SUBMISSIONS, INITIAL_SETTINGS, INITIAL_AUDIT_LOGS, 
   INITIAL_EXCUSES, INITIAL_PERIODS, INITIAL_REFERRAL_FORMS, getTodayDateString, getPastDateString 
 } from './initialData';
-import { OFFICIAL_TIMETABLE_RECORDS, extractPeriod2AssignmentsFromTimetable, mapLegacyTimetableTeacherId } from './timetableData';
+import { OFFICIAL_TIMETABLE_RECORDS, extractPeriod2AssignmentsFromTimetable, mapLegacyTimetableTeacherId, isUnmappedTimetableTeacherId } from './timetableData';
 
 const STORAGE_KEYS = {
   USERS: 'zbt_users_prod_v3',
@@ -257,6 +257,7 @@ export class AttendanceService {
   /** Map legacy timetable teacher ids to official login ids */
   static resolveTeacherLoginId(teacherId: string, teacherName?: string): string {
     const mapped = mapLegacyTimetableTeacherId(teacherId);
+    if (isUnmappedTimetableTeacherId(mapped)) return mapped;
     const users = this.getUsers();
     if (users.some(u => u.id === mapped)) return mapped;
     if (users.some(u => u.id === teacherId)) return teacherId;
@@ -354,7 +355,7 @@ export class AttendanceService {
           return;
         }
 
-        const defaultTeacher = teachers.find(t => t.id === cls.teacherId) || teachers[0];
+        const defaultTeacher = teachers.find(t => t.id === cls.teacherId);
         finalizedAssignments.push({
           id: `assign_${cls.id}_${day.key}`,
           classId: cls.id,
@@ -417,18 +418,17 @@ export class AttendanceService {
             teacherName: teacher?.name || found.teacherName
           });
         } else {
-          // Fallback to default class teacher
-          const defaultTeacher = teachers.find(t => t.id === cls.teacherId) || teachers[0];
+          const defaultTeacher = teachers.find(t => t.id === cls.teacherId);
           finalizedAssignments.push({
             id: `assign_${cls.id}_${day.key}`,
             classId: cls.id,
             className: cls.name,
             day: day.key,
             dayArabic: day.label,
-            teacherId: defaultTeacher.id,
-            teacherName: defaultTeacher.name,
+            teacherId: defaultTeacher?.id || '',
+            teacherName: defaultTeacher?.name || 'لم يُحدد',
             periodNumber: 2,
-            subject: defaultTeacher.subject || 'الحصة الثانية',
+            subject: defaultTeacher?.subject || 'الحصة الثانية',
             notes: `جدول الحصة الثانية ليوم ${day.label}`
           });
         }
