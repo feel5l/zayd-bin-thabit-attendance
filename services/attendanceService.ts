@@ -309,6 +309,82 @@ export class AttendanceService {
     this.dispatchScheduleChange('assignments');
   }
 
+  static applyImportedPeriod2Assignments(
+    importedAssignments: DayPeriodAssignment[],
+    performedBy?: User
+  ): { appliedCount: number; totalCount: number } {
+    const classes = this.getClasses();
+    const teachers = this.getUsers().filter(u => u.role === 'teacher');
+    const days: { key: WeekDayKey; label: string }[] = [
+      { key: 'sunday', label: 'الأحد' },
+      { key: 'monday', label: 'الإثنين' },
+      { key: 'tuesday', label: 'الثلاثاء' },
+      { key: 'wednesday', label: 'الأربعاء' },
+      { key: 'thursday', label: 'الخميس' }
+    ];
+
+    const importedMap = new Map<string, DayPeriodAssignment>();
+    importedAssignments.forEach(assignment => {
+      const resolvedId = this.resolveTeacherLoginId(assignment.teacherId, assignment.teacherName);
+      const teacher = teachers.find(t => t.id === resolvedId);
+      importedMap.set(`${assignment.classId}_${assignment.day}`, {
+        ...assignment,
+        teacherId: resolvedId,
+        teacherName: teacher?.name || assignment.teacherName
+      });
+    });
+
+    const finalizedAssignments: DayPeriodAssignment[] = [];
+    let appliedCount = 0;
+
+    classes.forEach(cls => {
+      days.forEach(day => {
+        const imported = importedMap.get(`${cls.id}_${day.key}`);
+        if (imported) {
+          appliedCount += 1;
+          finalizedAssignments.push(imported);
+          return;
+        }
+
+        const existing = this.getPeriodAssignments().find(
+          a => a.classId === cls.id && a.day === day.key && a.periodNumber === 2
+        );
+        if (existing) {
+          finalizedAssignments.push(existing);
+          return;
+        }
+
+        const defaultTeacher = teachers.find(t => t.id === cls.teacherId) || teachers[0];
+        finalizedAssignments.push({
+          id: `assign_${cls.id}_${day.key}`,
+          classId: cls.id,
+          className: cls.name,
+          day: day.key,
+          dayArabic: day.label,
+          teacherId: defaultTeacher?.id || '',
+          teacherName: defaultTeacher?.name || 'لم يُحدد',
+          periodNumber: 2,
+          subject: defaultTeacher?.subject || 'الحصة الثانية',
+          notes: `جدول الحصة الثانية ليوم ${day.label}`
+        });
+      });
+    });
+
+    this.saveAllPeriodAssignments(finalizedAssignments, performedBy);
+    if (performedBy) {
+      this.logAudit({
+        userId: performedBy.id,
+        userName: performedBy.name,
+        role: performedBy.role,
+        action: 'استيراد جدول Excel',
+        details: `تم استيراد ${appliedCount} إسناداً للحصة الثانية من ملف Excel`,
+        type: 'settings_change'
+      });
+    }
+
+    return { appliedCount, totalCount: finalizedAssignments.length };
+  }
+
   // --- Day-by-Day Period 2 Teacher Assignments Engine ---
   static initDefaultPeriodAssignments(): void {
     const classes = this.getClasses();
