@@ -152,7 +152,9 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
       assignedClassId: teacherFormData.assignedClassId || undefined,
       assignedClassName: assignedCls ? `${assignedCls.gradeLevel} (${assignedCls.section})` : undefined,
       phone: teacherFormData.phone.trim(),
-      password: teacherFormData.role === 'admin' ? 'Aa12345' : (teacherFormData.nationalId?.trim() || teacherFormData.phone.trim() || '123456'),
+      password: teacherFormData.role === 'admin'
+        ? (import.meta.env.VITE_ADMIN_PASSWORD || '')
+        : (teacherFormData.nationalId?.trim() || teacherFormData.phone.trim() || '123456'),
       subject: teacherFormData.subject.trim()
     };
 
@@ -720,7 +722,7 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
                   <span>معلومات كلمة المرور المعتمدة:</span>
                 </div>
                 <p className="text-[11px] text-emerald-700 leading-relaxed">
-                  كلمة مرور المعلم المضاف تُعيّن تلقائياً كـ <strong>رقم جواله المسجل</strong>، بينما كلمة مرور المشرف المسؤول/الإدارة هي <span className="font-mono font-bold bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-900">Aa12345</span>.
+                  كلمة مرور المعلم المضاف تُعيّن تلقائياً كـ <strong>رقم جواله المسجل</strong>. كلمة مرور حسابات الإدارة تُدار عبر إعدادات النظام الآمنة (<code className="font-mono text-[10px] bg-emerald-100 px-1 rounded">VITE_ADMIN_PASSWORD</code>) ولا تُعرض هنا.
                 </p>
               </div>
 
