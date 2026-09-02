@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, TeacherSessionValidation } from '../types';
 import { AttendanceService } from '../services/attendanceService';
+import { lookupTeacher } from '../services/teacherAuth';
 import { 
   GraduationCap, 
   Lock, 
@@ -92,35 +93,46 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   };
 
   // Form submit for Teacher Login (Phone number only)
-  const handleTeacherSubmit = (e: React.FormEvent) => {
+  const handleTeacherSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      const rawInput = teacherIdentifier.trim();
-      const cleanDigits = rawInput.replace(/[^0-9]/g, '');
+    const rawInput = teacherIdentifier.trim();
+    if (!rawInput) {
+      setError('يرجى إدخال رقم الجوال.');
+      setLoading(false);
+      return;
+    }
 
-      if (!rawInput) {
-        setError('يرجى إدخال رقم الجوال.');
+    try {
+      // Identity is checked on the server so phone numbers and national IDs no
+      // longer have to ship inside the app. A teacher this device has already
+      // seen still gets in without a connection.
+      const outcome = await lookupTeacher(rawInput);
+
+      if (outcome.status === 'ambiguous') {
+        setError('هذا الرقم مسجّل لأكثر من معلم. يرجى مراجعة إدارة المدرسة.');
         setLoading(false);
         return;
       }
 
-      // Match teacher by exact phone number (or nationalId/username as fallback)
-      const user = teachersList.find(u => {
-        const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
-        if (cleanDigits && uPhoneDigits && uPhoneDigits === cleanDigits) return true;
-        if (u.nationalId && u.nationalId.trim() === rawInput) return true;
-        if (u.username.toLowerCase() === rawInput.toLowerCase()) return true;
-        return false;
-      });
+      if (outcome.status === 'unavailable') {
+        setError('تعذّر الاتصال بالخادم للتحقق من الرقم. تأكد من الاتصال بالإنترنت وحاول مرة أخرى.');
+        setLoading(false);
+        return;
+      }
 
-      if (!user) {
+      if (outcome.status === 'not_found') {
         setError('رقم الجوال غير مسجل في النظام. يرجى التأكد من كتابة الرقم بشكل صحيح (مثال: 05xxxxxxxx) أو مراجعة إدارة المدرسة.');
         setLoading(false);
         return;
       }
+
+      // Prefer the locally stored record when we have one: it carries the
+      // homeroom/class fields the rest of the app already relies on.
+      const localMatch = teachersList.find(u => u.id === outcome.user.id);
+      const user = localMatch ? { ...localMatch, ...outcome.user, password: '' } : outcome.user;
 
       const validation = AttendanceService.validateTeacherSessionData(user);
       if (!validation.isValid) {
@@ -129,8 +141,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         return;
       }
       completeLogin(user);
+    } catch {
+      setError('حدث خطأ غير متوقع أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.');
+    } finally {
       setLoading(false);
-    }, 250);
+    }
   };
 
   // Form submit for Admin Login

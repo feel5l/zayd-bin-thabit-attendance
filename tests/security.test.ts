@@ -27,9 +27,35 @@ describe('security hardening', () => {
     expect(content).not.toContain('دخول فوري مباشر للإدارة');
   });
 
-  it('uses exact phone matching without endsWith in LoginModal', () => {
+  it('never matches a phone number fuzzily in LoginModal', () => {
     const content = readFileSync(join(ROOT, 'components/LoginModal.tsx'), 'utf8');
+    // The original bug was endsWith() matching, where a short input could log
+    // someone in as a different teacher. Matching now happens server side on a
+    // SHA-256 hash, which cannot be partial — but keep the guard so no local
+    // fuzzy comparison creeps back in.
     expect(content).not.toContain('.endsWith(');
-    expect(content).toContain('uPhoneDigits === cleanDigits');
+    expect(content).not.toContain('.includes(cleanDigits');
+    expect(content).toContain('lookupTeacher(');
+  });
+
+  it('does not ship teacher phone numbers or national IDs in app code', () => {
+    // services/teachersData.ts still holds the real details for build-time
+    // scripts, but no file the bundler follows from the app may import it:
+    // doing so publishes 20 teachers' personal data to every visitor.
+    const appFiles = [
+      'services/initialData.ts',
+      'services/teachersPublic.ts',
+      'components/LoginModal.tsx'
+    ];
+    for (const file of appFiles) {
+      const content = readFileSync(join(ROOT, file), 'utf8');
+      expect(content, `${file} must not import the PII roster`).not.toContain("from './teachersData'");
+      expect(content, `${file} must not import the PII roster`).not.toContain("from '../services/teachersData'");
+    }
+
+    const publicRoster = readFileSync(join(ROOT, 'services/teachersPublic.ts'), 'utf8');
+    expect(publicRoster).not.toMatch(/\b05\d{8}\b/);
+    expect(publicRoster).not.toMatch(/\b\d{10}\b/);
+    expect(publicRoster).not.toContain('@');
   });
 });

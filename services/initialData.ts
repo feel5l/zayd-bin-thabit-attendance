@@ -1,5 +1,8 @@
 import { User, SchoolClass, Student, ClassAttendanceSubmission, SchoolSettings, AuditLog, AbsenceExcuseRequest, PeriodSchedule, StudentReferralForm } from '../types';
-import { OFFICIAL_TEACHERS_LIST } from './teachersData';
+// Deliberately the PII-free roster: importing teachersData here would ship
+// every teacher's phone number and national ID inside the public bundle.
+// Identity checking lives on the server — see services/teacherAuth.ts.
+import { PUBLIC_TEACHERS_LIST } from './teachersPublic';
 import { OFFICIAL_CLASSES_LIST } from './officialClassesData';
 import { OFFICIAL_STUDENTS_LIST } from './officialStudentsData';
 
@@ -39,7 +42,7 @@ export const INITIAL_USERS: User[] = [
     subject: 'وكيل المدرسة',
     avatar: '👨‍💼'
   },
-  ...OFFICIAL_TEACHERS_LIST
+  ...PUBLIC_TEACHERS_LIST
 ];
 
 // Clean classes list
