@@ -7,7 +7,6 @@ import {
   User as UserIcon, 
   Shield, 
   ArrowRight,
-  ArrowLeft, 
   KeyRound, 
   AlertTriangle, 
   AlertCircle, 
@@ -100,7 +99,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
     setTimeout(() => {
       const rawInput = teacherIdentifier.trim();
-      const cleanDigits = rawInput.replace(/[^0-9]/g, '');
 
       if (!rawInput) {
         setError('يرجى إدخال رقم الجوال.');
@@ -108,19 +106,34 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         return;
       }
 
-      // Match teacher by phone number (or nationalId/username as fallback)
-      const user = teachersList.find(u => {
-        const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
-        if (cleanDigits && uPhoneDigits) {
-          if (uPhoneDigits === cleanDigits) return true;
-          if (uPhoneDigits.endsWith(cleanDigits) || cleanDigits.endsWith(uPhoneDigits)) return true;
-          if (cleanDigits.startsWith('05') && uPhoneDigits.endsWith(cleanDigits.slice(1))) return true;
-          if (cleanDigits.startsWith('9665') && uPhoneDigits.endsWith(cleanDigits.slice(4))) return true;
+      // Normalize any Saudi mobile number to a single canonical form: 9 digits starting with 5.
+      const normalizeSaudiMobile = (raw: string): string => {
+        const d = (raw || '').replace(/[^0-9]/g, '');
+        if (d.length === 9 && d.startsWith('5')) return d;
+        if (d.length === 10 && d.startsWith('05')) return d.slice(1);
+        if (d.length === 12 && d.startsWith('9665')) return d.slice(3);
+        if (d.length === 13 && d.startsWith('009665')) return d.slice(4);
+        return '';
+      };
+
+      const inputMobile = normalizeSaudiMobile(rawInput);
+
+      // Exact match only. No partial phone matching — it can open the wrong teacher's sheet.
+      const matches = teachersList.filter(u => {
+        if (inputMobile) {
+          return normalizeSaudiMobile(u.phone || '') === inputMobile;
         }
         if (u.nationalId && u.nationalId.trim() === rawInput) return true;
-        if (u.username.toLowerCase() === rawInput.toLowerCase()) return true;
         return false;
       });
+
+      if (matches.length > 1) {
+        setError('هذا الرقم مسجّل لأكثر من معلم. يرجى مراجعة إدارة المدرسة.');
+        setLoading(false);
+        return;
+      }
+
+      const user = matches[0];
 
       if (!user) {
         setError('رقم الجوال غير مسجل في النظام. يرجى التأكد من كتابة الرقم بشكل صحيح (مثال: 05xxxxxxxx) أو مراجعة إدارة المدرسة.');
@@ -151,12 +164,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
       const user = users.find(u => u.role === 'admin' && (u.username.toLowerCase() === trimmedUser || trimmedUser === 'admin'));
 
+      const configuredPassword = (import.meta.env.VITE_ADMIN_PASSWORD || '').trim();
+
       let isValid = false;
-      if (user) {
+      if (user && enteredPass.length > 0) {
         isValid = (
-          enteredPass === 'Aa12345' || 
-          (user.password && enteredPass === user.password) ||
-          enteredPass === 'admin123'
+          (!!configuredPassword && enteredPass === configuredPassword) ||
+          (!!user.password && enteredPass === user.password)
         );
       }
 
@@ -167,14 +181,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       }
       setLoading(false);
     }, 250);
-  };
-
-  // Quick 1-click admin login
-  const handleQuickAdminLogin = () => {
-    const adminUser = users.find(u => u.username === 'admin') || users.find(u => u.role === 'admin');
-    if (adminUser) {
-      completeLogin(adminUser);
-    }
   };
 
   return (
@@ -521,35 +527,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 {/* --- ROLE B: ADMIN LOGIN PATH & INPUTS --- */}
                 {selectedRole === 'admin' && (
                   <div className="space-y-4 animate-in fade-in">
-                    {/* Quick 1-Click Fast Admin Login */}
-                    <button
-                      type="button"
-                      onClick={handleQuickAdminLogin}
-                      className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 hover:bg-amber-100 transition text-right group shadow-sm"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-sm shadow-sm">
-                          <Shield className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-black text-slate-900">دخول فوري مباشر للإدارة (المشرف / المدير)</div>
-                          <div className="text-[11px] text-amber-900 font-bold">لوحة التحكم المركزية والمتابعة الميدانية الكاملة</div>
-                        </div>
-                      </div>
-                      <span className="text-xs bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl font-black group-hover:scale-105 transition flex items-center gap-1 shadow-sm">
-                        دخول سريع <ArrowLeft className="w-3.5 h-3.5" />
-                      </span>
-                    </button>
-
-                    <div className="relative my-3 text-center">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-slate-200"></div>
-                      </div>
-                      <span className="relative bg-white px-3 text-[11px] font-bold text-slate-400">
-                        أو إدخال بيانات الدخول المعتمدة
-                      </span>
-                    </div>
-
                     {/* Manual Admin Form */}
                     <form onSubmit={handleAdminSubmit} className="space-y-3.5">
                       <div>

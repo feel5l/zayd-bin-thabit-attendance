@@ -61,7 +61,8 @@ export const App: React.FC = () => {
   const [isPortalLinksModalOpen, setIsPortalLinksModalOpen] = useState(false);
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
 
-  // Portal deep links: role hint only — no silent auto-login
+  // Parse direct portal URL query params (?portal=teacher / ?portal=admin)
+  // The portal link only preselects which login form to show. It NEVER signs anyone in.
   useEffect(() => {
     AttendanceService.registerScheduleStorageSyncListener();
 
@@ -69,20 +70,15 @@ export const App: React.FC = () => {
     const portal = params.get('portal') || params.get('role');
     const hash = window.location.hash.toLowerCase();
 
-    if (portal === 'teacher' || hash.includes('teacher')) {
-      setLoginInitialRole('teacher');
-      setActiveTab('attendance');
-      const session = AttendanceService.getCurrentUser();
-      if (!session || session.role !== 'teacher') {
-        setIsLoginModalOpen(true);
-      }
-    } else if (portal === 'admin' || hash.includes('admin')) {
-      setLoginInitialRole('admin');
-      setActiveTab('dashboard');
-      const session = AttendanceService.getCurrentUser();
-      if (!session || session.role !== 'admin') {
-        setIsLoginModalOpen(true);
-      }
+    const wantsTeacher = portal === 'teacher' || hash.includes('teacher');
+    const wantsAdmin = portal === 'admin' || hash.includes('admin');
+    if (!wantsTeacher && !wantsAdmin) return;
+
+    setLoginInitialRole(wantsTeacher ? 'teacher' : 'admin');
+    setActiveTab(wantsTeacher ? 'attendance' : 'dashboard');
+
+    if (!AttendanceService.getCurrentUser()) {
+      setIsLoginModalOpen(true);
     }
   }, []);
 
@@ -189,6 +185,12 @@ export const App: React.FC = () => {
   };
 
   const stats = AttendanceService.getTodaySchoolStats();
+
+  useEffect(() => {
+    if (!currentUser) {
+      setIsLoginModalOpen(true);
+    }
+  }, [currentUser]);
 
   return (
     <div className="min-h-screen bg-slate-50/70 text-slate-900 flex flex-col font-sans selection:bg-emerald-200 selection:text-emerald-900">
