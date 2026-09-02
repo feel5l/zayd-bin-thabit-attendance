@@ -127,7 +127,11 @@ export class AttendanceService {
               phone: officialUser.phone || existing.phone,
               email: officialUser.email || existing.email,
               subject: officialUser.subject || existing.subject,
-              sequenceNumber: officialUser.sequenceNumber || existing.sequenceNumber
+              sequenceNumber: officialUser.sequenceNumber || existing.sequenceNumber,
+              // Backfill homeroom only when missing locally — an admin may have
+              // reassigned it since via the UI, and that choice must not be reverted.
+              assignedClassId: existing.assignedClassId || officialUser.assignedClassId,
+              assignedClassName: existing.assignedClassName || officialUser.assignedClassName
             };
           });
           this._cacheUsers = merged;
@@ -149,7 +153,24 @@ export class AttendanceService {
     } else {
       try {
         const parsed: SchoolClass[] = JSON.parse(storedClasses);
-        this._cacheClasses = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_CLASSES;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Backfill homeroom teacherId only when the stored value is missing —
+          // never override a homeroom an admin has since reassigned manually.
+          let classesChanged = false;
+          const backfilled = parsed.map(cls => {
+            if (cls.teacherId) return cls;
+            const official = INITIAL_CLASSES.find(c => c.id === cls.id);
+            if (!official || !official.teacherId) return cls;
+            classesChanged = true;
+            return { ...cls, teacherId: official.teacherId };
+          });
+          this._cacheClasses = backfilled;
+          if (classesChanged) {
+            try { localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(backfilled)); } catch (e) {}
+          }
+        } else {
+          this._cacheClasses = INITIAL_CLASSES;
+        }
       } catch (e) {
         this._cacheClasses = INITIAL_CLASSES;
         try { localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(INITIAL_CLASSES)); } catch (err) {}
