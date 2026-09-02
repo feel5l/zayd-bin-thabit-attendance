@@ -47,7 +47,7 @@ export const SchoolSettingsModal: React.FC<SchoolSettingsModalProps> = ({
   };
 
   const handleResetSystem = () => {
-    if (confirm("هل أنت متأكد من رغبتك في إعادة تعيين كافة البيانات إلى الحالة الافتراضية التجريبية؟")) {
+    if (confirm("هل أنت متأكد من رغبتك في إعادة تعيين كافة البيانات إلى الحالة الافتراضية للنظام؟")) {
       AttendanceService.resetToDefault();
       window.location.reload();
     }

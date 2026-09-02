@@ -380,7 +380,9 @@ export class AttendanceService {
   }
 
   static getTimetableForTeacher(teacherId: string): TeacherTimetableRecord | undefined {
-    return OFFICIAL_TIMETABLE_RECORDS.find(r => r.teacherId === teacherId);
+    return OFFICIAL_TIMETABLE_RECORDS.find(r =>
+      mapLegacyTimetableTeacherId(r.teacherId) === teacherId || r.teacherId === teacherId
+    );
   }
 
   static getTimetableForClass(classId: string): TimetableEntry[] {

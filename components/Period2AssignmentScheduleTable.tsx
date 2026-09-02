@@ -158,7 +158,8 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
   };
 
   // Get teacher's full weekly timetable record
-  const currentTeacherRecord = timetableRecords.find(r => r.teacherId === selectedTeacherId) || timetableRecords[0];
+  const currentTeacherRecord =
+    AttendanceService.getTimetableForTeacher(selectedTeacherId) || timetableRecords[0];
 
   // Get class full weekly timetable entries
   const currentClassEntries = AttendanceService.getTimetableForClass(selectedClassId);
