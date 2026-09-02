@@ -70,9 +70,21 @@ VITE_ADMIN_PASSWORD=اكتب-كلمة-مرور-قوية-هنا
 من صفحة المستودع على GitHub → Settings → في الأسفل → Change visibility → Private.
 السبب: بيانات المعلمين الشخصية في تاريخ المستودع.
 
-### (ج) راجع PR #11 وادمجه
+### (ج) أسرار النشر على GitHub Actions — إلزامي للمزامنة
 
-كل العمل في هذا الطلب. لم أدمجه لأن الدمج قرارك.
+من صفحة المستودع → **Settings → Secrets and variables → Actions → New repository secret**:
+
+| الاسم | القيمة |
+|-------|--------|
+| `VITE_ADMIN_PASSWORD` | كلمة مرور قوية للمدير |
+| `VITE_SUPABASE_URL` | `https://dhpvladkiqajorowrlhj.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | من Supabase → Settings → API → anon public |
+
+**للتطوير المحلي:** انسخ `.env.example` إلى `.env.local` واملأ نفس القيم.
+
+### (د) ~~راجع PR #11 وادمجه~~ — **تم الدمج**
+
+PR #11 وPR #10 دُمجا في `main` (سبتمبر ٢٠٢٦). المزامنة السحابية تعمل عند ضبط أسرار Supabase أعلاه.
 
 ---
 
