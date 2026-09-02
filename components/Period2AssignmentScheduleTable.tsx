@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, SchoolClass, DayPeriodAssignment, WeekDayKey, TeacherTimetableRecord, TimetableEntry } from '../types';
 import { AttendanceService, WEEKDAYS_LIST } from '../services/attendanceService';
+import { TimetableImportModal } from './TimetableImportModal';
 import { 
   Calendar, 
   Clock, 
@@ -51,6 +52,7 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
   const [teacherSearchQuery, setTeacherSearchQuery] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isTimetableImportOpen, setIsTimetableImportOpen] = useState(false);
 
   // Helper to get or create assignment record for class & day
   const getAssignment = (classId: string, dayKey: WeekDayKey): DayPeriodAssignment => {
@@ -268,8 +270,18 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
             <div className="flex items-center gap-2 shrink-0 flex-wrap">
               <button
                 type="button"
+                onClick={() => setIsTimetableImportOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-emerald-700 border border-emerald-200 text-xs font-black transition flex items-center gap-1.5 shadow-sm active:scale-95 min-h-11"
+                title="استيراد الجدول المدرسي من ملف Excel"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                <span>استيراد Excel</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleLoadOfficialTimetable}
-                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition flex items-center gap-1.5 shadow-sm active:scale-95"
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition flex items-center gap-1.5 shadow-sm active:scale-95 min-h-11"
                 title="تثبيت المعلمين للحصة الثانية تلقائياً من الجدول المدرسي المعتمد"
               >
                 <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
@@ -849,6 +861,24 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
           </div>
         </div>
       )}
+
+      <TimetableImportModal
+        isOpen={isTimetableImportOpen}
+        onClose={() => setIsTimetableImportOpen(false)}
+        currentUser={currentUser}
+        onSuccess={() => {
+          setAssignments(AttendanceService.getPeriodAssignments());
+          setHasChanges(false);
+          setSaveSuccess(true);
+          if (onShowNotification) {
+            onShowNotification('تم استيراد وتطبيق جدول الحصة الثانية من ملف Excel بنجاح', 'success');
+          }
+          if (onAssignmentsUpdated) {
+            onAssignmentsUpdated();
+          }
+          setTimeout(() => setSaveSuccess(false), 3000);
+        }}
+      />
     </div>
   );
 };
