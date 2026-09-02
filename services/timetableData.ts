@@ -663,12 +663,39 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
   }
 ];
 
+/** Maps legacy timetable sequence ids to official login ids in teachersData.ts */
+export const LEGACY_TIMETABLE_TEACHER_ID_MAP: Record<string, string> = {
+  'teacher-1': 'teacher-14',
+  'teacher-2': 'teacher-17',
+  'teacher-3': 'teacher-8',
+  'teacher-4': 'teacher-11',
+  'teacher-5': 'teacher-24',
+  'teacher-6': 'teacher-5',
+  'teacher-7': 'teacher-20',
+  'teacher-8': 'teacher-9',
+  'teacher-9': 'teacher-18',
+  'teacher-10': 'teacher-13',
+  'teacher-11': 'teacher-10',
+  'teacher-13': 'teacher-15',
+  'teacher-14': 'teacher-25',
+  'teacher-15': 'teacher-12',
+  'teacher-16': 'teacher-6',
+  'teacher-17': 'teacher-19',
+  'teacher-18': 'teacher-16',
+  'teacher-20': 'teacher-23',
+  'teacher-22': 'teacher-22'
+};
+
+export function mapLegacyTimetableTeacherId(legacyId: string): string {
+  return LEGACY_TIMETABLE_TEACHER_ID_MAP[legacyId] ?? legacyId;
+}
+
 /**
  * Automatically extracts Period 2 assignments across all 5 school days
  * from the official timetable data to perfectly power Period 2 Attendance Recording!
  */
 export const extractPeriod2AssignmentsFromTimetable = (): DayPeriodAssignment[] => {
-  const assignments: DayPeriodAssignment[] = [];
+  const slotMap = new Map<string, DayPeriodAssignment>();
 
   const days: { key: WeekDayKey; label: string }[] = [
     { key: 'sunday', label: 'الأحد' },
@@ -682,13 +709,17 @@ export const extractPeriod2AssignmentsFromTimetable = (): DayPeriodAssignment[] 
     OFFICIAL_TIMETABLE_RECORDS.forEach(record => {
       const p2Entry = record.entries.find(e => e.day === day.key && e.periodNumber === 2);
       if (p2Entry) {
-        assignments.push({
+        const slotKey = `${p2Entry.classId}_${day.key}`;
+        if (slotMap.has(slotKey)) return;
+
+        const resolvedTeacherId = mapLegacyTimetableTeacherId(record.teacherId);
+        slotMap.set(slotKey, {
           id: `assign_${p2Entry.classId}_${day.key}`,
           classId: p2Entry.classId,
           className: p2Entry.className,
           day: day.key,
           dayArabic: day.label,
-          teacherId: record.teacherId,
+          teacherId: resolvedTeacherId,
           teacherName: record.teacherName,
           periodNumber: 2,
           subject: p2Entry.subject,
@@ -698,5 +729,5 @@ export const extractPeriod2AssignmentsFromTimetable = (): DayPeriodAssignment[] 
     });
   });
 
-  return assignments;
+  return Array.from(slotMap.values());
 };

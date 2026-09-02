@@ -127,7 +127,7 @@ export const TimeSimulatorBar: React.FC<TimeSimulatorBarProps> = ({
             title="تفعيل/تعطيل الإغلاق الصارم لكشف الحضور خارج الحصة الثانية"
           >
             <ShieldAlert className="w-3 h-3 text-amber-400" />
-            <span>قفل الإرسال خارج الحصة: {settings.lockAttendanceOutsidePeriod ? 'مفعّل (صارم)' : 'مرن (مسموح للتجربة)'}</span>
+            <span>قفل الإرسال خارج الحصة: {settings.lockAttendanceOutsidePeriod ? 'مفعّل (صارم)' : 'مرن (للمدير فقط)'}</span>
           </button>
         </div>
       </div>

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { User, SchoolClass, DayPeriodAssignment, WeekDayKey, TeacherTimetableRecord, TimetableEntry } from '../types';
 import { AttendanceService, WEEKDAYS_LIST } from '../services/attendanceService';
-import { extractPeriod2AssignmentsFromTimetable } from '../services/timetableData';
 import { 
   Calendar, 
   Clock, 
@@ -127,9 +126,9 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
 
   const handleLoadOfficialTimetable = () => {
     if (confirm('هل تريد تثبيت وتطبيق جدول الحصة الثانية المعتمد رسمياً من الجدول المدرسي العام للمدرسة؟')) {
-      const extracted = extractPeriod2AssignmentsFromTimetable();
-      setAssignments(extracted);
-      AttendanceService.saveAllPeriodAssignments(extracted, currentUser);
+      AttendanceService.reseedPeriodAssignmentsFromOfficialTimetable(currentUser);
+      const fresh = AttendanceService.getPeriodAssignments();
+      setAssignments(fresh);
       setHasChanges(false);
       setSaveSuccess(true);
       if (onShowNotification) {
@@ -159,7 +158,8 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
   };
 
   // Get teacher's full weekly timetable record
-  const currentTeacherRecord = timetableRecords.find(r => r.teacherId === selectedTeacherId) || timetableRecords[0];
+  const currentTeacherRecord =
+    AttendanceService.getTimetableForTeacher(selectedTeacherId) || timetableRecords[0];
 
   // Get class full weekly timetable entries
   const currentClassEntries = AttendanceService.getTimetableForClass(selectedClassId);
@@ -472,7 +472,7 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
                 className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 w-full md:w-72"
               >
                 {teachers.map(t => {
-                  const rec = timetableRecords.find(r => r.teacherId === t.id);
+                  const rec = AttendanceService.getTimetableForTeacher(t.id);
                   return (
                     <option key={t.id} value={t.id}>
                       {t.name} — {t.subject} ({rec?.quota || 0} حصة)
