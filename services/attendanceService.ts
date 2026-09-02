@@ -12,7 +12,7 @@ import {
   INITIAL_SUBMISSIONS, INITIAL_SETTINGS, INITIAL_AUDIT_LOGS, 
   INITIAL_EXCUSES, INITIAL_PERIODS, INITIAL_REFERRAL_FORMS, getTodayDateString, getPastDateString 
 } from './initialData';
-import { OFFICIAL_TIMETABLE_RECORDS, extractPeriod2AssignmentsFromTimetable } from './timetableData';
+import { OFFICIAL_TIMETABLE_RECORDS, extractPeriod2AssignmentsFromTimetable, mapLegacyTimetableTeacherId } from './timetableData';
 
 const STORAGE_KEYS = {
   USERS: 'zbt_users_prod_v3',
@@ -35,6 +35,14 @@ const STORAGE_KEYS = {
 export const NOTIFICATION_EVENT = 'attendance_notification_event';
 export const TEACHER_REMINDER_EVENT = 'attendance_teacher_reminder_event';
 export const SESSION_TIMEOUT_EVENT = 'attendance_session_timeout_event';
+export const SCHEDULE_CHANGE_EVENT = 'attendance_schedule_change_event';
+
+const SCHEDULE_STORAGE_KEYS = [
+  STORAGE_KEYS.SETTINGS,
+  STORAGE_KEYS.PERIOD_ASSIGNMENTS,
+  STORAGE_KEYS.USERS,
+  STORAGE_KEYS.CLASSES
+];
 
 export const WEEKDAYS_LIST: { key: WeekDayKey; label: string; index: number }[] = [
   { key: 'sunday', label: 'الأحد', index: 0 },
@@ -212,7 +220,93 @@ export class AttendanceService {
     // Period Assignments
     if (!localStorage.getItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS)) {
       this.initDefaultPeriodAssignments();
+    } else {
+      this.migratePeriodAssignmentTeacherIds();
     }
+  }
+
+  /** Broadcast schedule/settings changes to open tabs and React views */
+  private static dispatchScheduleChange(source: 'settings' | 'assignments' | 'users' | 'classes'): void {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent(SCHEDULE_CHANGE_EVENT, { detail: { source } }));
+  }
+
+  /** Reload schedule-related caches from localStorage (cross-tab sync) */
+  static reloadScheduleCaches(keys?: string[]): void {
+    const touched = keys ?? SCHEDULE_STORAGE_KEYS;
+    if (touched.includes(STORAGE_KEYS.SETTINGS)) this._cacheSettings = null;
+    if (touched.includes(STORAGE_KEYS.PERIOD_ASSIGNMENTS)) this._cachePeriodAssignments = null;
+    if (touched.includes(STORAGE_KEYS.USERS)) this._cacheUsers = null;
+    if (touched.includes(STORAGE_KEYS.CLASSES)) this._cacheClasses = null;
+  }
+
+  static registerScheduleStorageSyncListener(): void {
+    if (typeof window === 'undefined') return;
+    window.addEventListener('storage', (event) => {
+      if (!event.key || !SCHEDULE_STORAGE_KEYS.includes(event.key)) return;
+      this.reloadScheduleCaches([event.key]);
+      const source =
+        event.key === STORAGE_KEYS.SETTINGS ? 'settings'
+        : event.key === STORAGE_KEYS.PERIOD_ASSIGNMENTS ? 'assignments'
+        : event.key === STORAGE_KEYS.USERS ? 'users'
+        : 'classes';
+      this.dispatchScheduleChange(source);
+    });
+  }
+
+  /** Map legacy timetable teacher ids to official login ids */
+  static resolveTeacherLoginId(teacherId: string, teacherName?: string): string {
+    const mapped = mapLegacyTimetableTeacherId(teacherId);
+    const users = this.getUsers();
+    if (users.some(u => u.id === mapped)) return mapped;
+    if (users.some(u => u.id === teacherId)) return teacherId;
+    if (teacherName) {
+      const normalized = teacherName.replace(/^أ\.\s*/, '').trim();
+      const byName = users.find(u =>
+        u.role === 'teacher' &&
+        (u.name.includes(normalized) || normalized.includes(u.name.replace(/^أ\.\s*/, '').trim()))
+      );
+      if (byName) return byName.id;
+    }
+    return mapped;
+  }
+
+  static migratePeriodAssignmentTeacherIds(): void {
+    const assignments = this.getPeriodAssignments();
+    let changed = false;
+    const migrated = assignments.map(a => {
+      const resolvedId = this.resolveTeacherLoginId(a.teacherId, a.teacherName);
+      if (resolvedId === a.teacherId) return a;
+      const teacher = this.getUsers().find(u => u.id === resolvedId);
+      changed = true;
+      return {
+        ...a,
+        teacherId: resolvedId,
+        teacherName: teacher?.name || a.teacherName
+      };
+    });
+    if (changed) {
+      this._cachePeriodAssignments = migrated;
+      try { localStorage.setItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS, JSON.stringify(migrated)); } catch (e) {}
+      this.dispatchScheduleChange('assignments');
+    }
+  }
+
+  static reseedPeriodAssignmentsFromOfficialTimetable(performedBy?: User): void {
+    try { localStorage.removeItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS); } catch (e) {}
+    this._cachePeriodAssignments = null;
+    this.initDefaultPeriodAssignments();
+    if (performedBy) {
+      this.logAudit({
+        userId: performedBy.id,
+        userName: performedBy.name,
+        role: performedBy.role,
+        action: 'إعادة بناء إسناد الحصة الثانية',
+        details: 'تمت إعادة بناء إسناد الحصة الثانية من الجدول المعتمد بعد تصحيح معرّفات المعلمين',
+        type: 'settings_change'
+      });
+    }
+    this.dispatchScheduleChange('assignments');
   }
 
   // --- Day-by-Day Period 2 Teacher Assignments Engine ---
@@ -239,7 +333,13 @@ export class AttendanceService {
       days.forEach(day => {
         const found = extractedAssignments.find(a => a.classId === cls.id && a.day === day.key);
         if (found) {
-          finalizedAssignments.push(found);
+          const resolvedId = this.resolveTeacherLoginId(found.teacherId, found.teacherName);
+          const teacher = teachers.find(t => t.id === resolvedId);
+          finalizedAssignments.push({
+            ...found,
+            teacherId: resolvedId,
+            teacherName: teacher?.name || found.teacherName
+          });
         } else {
           // Fallback to default class teacher
           const defaultTeacher = teachers.find(t => t.id === cls.teacherId) || teachers[0];
@@ -261,6 +361,17 @@ export class AttendanceService {
 
     this._cachePeriodAssignments = finalizedAssignments;
     try { localStorage.setItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS, JSON.stringify(finalizedAssignments)); } catch (e) {}
+  }
+
+  private static buildPeriodSchedules(settings?: SchoolSettings): PeriodSchedule[] {
+    const base = INITIAL_PERIODS.map(p => ({ ...p }));
+    const resolvedSettings = settings ?? this.getSettings();
+    const p2 = base.find(p => p.periodNumber === 2);
+    if (p2 && resolvedSettings.period2StartTime && resolvedSettings.period2EndTime) {
+      p2.startTime = resolvedSettings.period2StartTime;
+      p2.endTime = resolvedSettings.period2EndTime;
+    }
+    return base;
   }
 
   // --- Official Master Timetable Records Access ---
@@ -322,6 +433,7 @@ export class AttendanceService {
 
     this._cachePeriodAssignments = assignments;
     try { localStorage.setItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS, JSON.stringify(assignments)); } catch (e) {}
+    this.dispatchScheduleChange('assignments');
 
     if (performedBy) {
       this.logAudit({
@@ -338,6 +450,7 @@ export class AttendanceService {
   static saveAllPeriodAssignments(assignments: DayPeriodAssignment[], performedBy?: User): void {
     this._cachePeriodAssignments = assignments;
     try { localStorage.setItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS, JSON.stringify(assignments)); } catch (e) {}
+    this.dispatchScheduleChange('assignments');
     if (performedBy) {
       this.logAudit({
         userId: performedBy.id,
@@ -363,7 +476,7 @@ export class AttendanceService {
       case 2: return { key: 'tuesday', label: 'الثلاثاء' };
       case 3: return { key: 'wednesday', label: 'الأربعاء' };
       case 4: return { key: 'thursday', label: 'الخميس' };
-      default: return { key: 'sunday', label: 'الأحد (يوم عمل تجريبي)' };
+      default: return { key: 'sunday', label: 'الأحد' };
     }
   }
 
@@ -373,7 +486,10 @@ export class AttendanceService {
   static getTeacherAssignedClassForDay(teacherId: string, dayKey?: WeekDayKey): SchoolClass | null {
     const currentDay = dayKey || this.getCurrentDayKey().key;
     const assignments = this.getPeriodAssignments();
-    const match = assignments.find(a => a.teacherId === teacherId && a.day === currentDay && a.periodNumber === 2);
+    const match = assignments.find(a => {
+      const resolvedId = this.resolveTeacherLoginId(a.teacherId, a.teacherName);
+      return resolvedId === teacherId && a.day === currentDay && a.periodNumber === 2;
+    });
     
     const classes = this.getClasses();
     if (match) {
@@ -402,7 +518,8 @@ export class AttendanceService {
     
     const users = this.getUsers();
     if (match) {
-      const foundTeacher = users.find(u => u.id === match.teacherId);
+      const resolvedId = this.resolveTeacherLoginId(match.teacherId, match.teacherName);
+      const foundTeacher = users.find(u => u.id === resolvedId);
       if (foundTeacher) return foundTeacher;
     }
 
@@ -1307,6 +1424,7 @@ export class AttendanceService {
   static saveSettings(settings: SchoolSettings, user: User): void {
     this._cacheSettings = settings;
     try { localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings)); } catch (e) {}
+    this.dispatchScheduleChange('settings');
     this.logAudit({
       userId: user.id,
       userName: user.name,
@@ -1467,14 +1585,15 @@ export class AttendanceService {
   }
 
   // --- Periods & Time Check Logic ---
-  static getPeriods(): PeriodSchedule[] {
-    return INITIAL_PERIODS;
+  static getPeriods(settings?: SchoolSettings): PeriodSchedule[] {
+    return this.buildPeriodSchedules(settings);
   }
 
   /**
    * Get the currently active period according to current time or simulated time
    */
-  static getCurrentlyActivePeriod(simulatedTime?: string): PeriodSchedule | undefined {
+  static getCurrentlyActivePeriod(simulatedTime?: string, settings?: SchoolSettings): PeriodSchedule | undefined {
+    const periods = this.buildPeriodSchedules(settings);
     let now = new Date();
     if (simulatedTime) {
       const [hours, minutes] = simulatedTime.split(':').map(Number);
@@ -1482,7 +1601,7 @@ export class AttendanceService {
     }
     const currentTotalMins = now.getHours() * 60 + now.getMinutes();
 
-    return INITIAL_PERIODS.find(p => {
+    return periods.find(p => {
       const [pH1, pM1] = p.startTime.split(':').map(Number);
       const [pH2, pM2] = p.endTime.split(':').map(Number);
       const pStart = pH1 * 60 + pM1;
@@ -1500,7 +1619,7 @@ export class AttendanceService {
   static validatePeriodAttendance(
     periodNumber: number,
     simulatedTime?: string,
-    _settings?: SchoolSettings,
+    settings?: SchoolSettings,
     user?: User,
     classId?: string
   ): {
@@ -1515,7 +1634,8 @@ export class AttendanceService {
     minutesRemaining?: number;
     assignedTeacherName?: string;
   } {
-    const periods = INITIAL_PERIODS;
+    const resolvedSettings = settings ?? this.getSettings();
+    const periods = this.buildPeriodSchedules(resolvedSettings);
     const targetPeriod = periods.find(p => p.periodNumber === periodNumber) || periods[0];
 
     let now = new Date();
@@ -1529,15 +1649,16 @@ export class AttendanceService {
     const currentTimeStr = `${currentHours}:${currentMins}`;
     const currentTotalMins = now.getHours() * 60 + now.getMinutes();
 
-    // 1. Time Check against period schedule
     const [startH, startM] = targetPeriod.startTime.split(':').map(Number);
     const [endH, endM] = targetPeriod.endTime.split(':').map(Number);
     const startTotalMins = startH * 60 + startM;
     const endTotalMins = endH * 60 + endM;
 
     const isWithinSchedule = currentTotalMins >= startTotalMins && currentTotalMins <= endTotalMins;
+    const enforceSchedule =
+      user?.role === 'teacher' || resolvedSettings.lockAttendanceOutsidePeriod;
 
-    if (!isWithinSchedule) {
+    if (enforceSchedule && !isWithinSchedule) {
       return {
         isAllowed: false,
         status: 'outside_schedule',
@@ -1550,17 +1671,17 @@ export class AttendanceService {
       };
     }
 
-    const minutesRemaining = endTotalMins - currentTotalMins;
+    const minutesRemaining = isWithinSchedule ? endTotalMins - currentTotalMins : undefined;
 
-    // 2. Teacher Assignment Check for Period 2 (لمن تسند له الحصة فقط وفق الجدول)
+    // Teacher Assignment Check for Period 2 (لمن تسند له الحصة فقط وفق الجدول)
     if (periodNumber === 2 && user && user.role === 'teacher' && classId) {
       const currentDayKey = this.getCurrentDayKey().key;
       const assignedTeacher = this.getClassAssignedTeacherForDay(classId, currentDayKey);
       const teacherAssignedClass = this.getTeacherAssignedClassForDay(user.id, currentDayKey);
 
-      const isTeacherAssignedToThisClass = (assignedTeacher && assignedTeacher.id === user.id) ||
-        (teacherAssignedClass && teacherAssignedClass.id === classId) ||
-        (user.assignedClassId === classId);
+      const isTeacherAssignedToThisClass =
+        (assignedTeacher && assignedTeacher.id === user.id) ||
+        (teacherAssignedClass && teacherAssignedClass.id === classId);
 
       if (!isTeacherAssignedToThisClass) {
         return {
@@ -1621,7 +1742,8 @@ export class AttendanceService {
     const minutesRemaining = isActive ? (endTotalMins - currentTotalMins) : 0;
 
     let currentPeriodName = 'خارج أوقات الدوام';
-    for (const p of INITIAL_PERIODS) {
+    const periodSchedules = this.buildPeriodSchedules(settings);
+    for (const p of periodSchedules) {
       const [pH1, pM1] = p.startTime.split(':').map(Number);
       const [pH2, pM2] = p.endTime.split(':').map(Number);
       const pStart = pH1 * 60 + pM1;
@@ -2372,6 +2494,21 @@ export class AttendanceService {
 
   // System Reset
   static resetToDefault(): void {
+    this._initialized = false;
+    this._cacheUsers = null;
+    this._cacheClasses = null;
+    this._cacheStudents = null;
+    this._cacheSubmissions = null;
+    this._cacheSettings = null;
+    this._cacheAuditLogs = null;
+    this._cacheExcuses = null;
+    this._cacheReferrals = null;
+    this._cachePeriodAssignments = null;
+    this._cacheNotifications = null;
+    this._cacheTeacherReminders = null;
+    this._cacheCurrentUser = null;
+    this._currentUserLoaded = false;
+
     localStorage.removeItem(STORAGE_KEYS.USERS);
     localStorage.removeItem(STORAGE_KEYS.CLASSES);
     localStorage.removeItem(STORAGE_KEYS.STUDENTS);
@@ -2382,6 +2519,12 @@ export class AttendanceService {
     localStorage.removeItem(STORAGE_KEYS.SIMULATED_TIME);
     localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
     localStorage.removeItem(STORAGE_KEYS.ARCHIVES);
+    localStorage.removeItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS);
+    localStorage.removeItem(STORAGE_KEYS.TEACHER_REMINDERS);
+    localStorage.removeItem(STORAGE_KEYS.REFERRALS);
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    localStorage.removeItem(STORAGE_KEYS.LAST_ACTIVITY);
     this.initStorage();
+    this.dispatchScheduleChange('settings');
   }
 }

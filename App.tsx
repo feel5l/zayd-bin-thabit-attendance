@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, SchoolSettings } from './types';
-import { AttendanceService } from './services/attendanceService';
+import { AttendanceService, SCHEDULE_CHANGE_EVENT } from './services/attendanceService';
 import { Navbar } from './components/Navbar';
 import { TimeSimulatorBar } from './components/TimeSimulatorBar';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -31,24 +31,11 @@ import { getTodayDateString } from './services/initialData';
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     AttendanceService.initStorage();
-    const existing = AttendanceService.getCurrentUser();
-    if (existing) return existing;
-    
-    // Check URL parameters on first load
-    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const portal = params?.get('portal') || params?.get('role');
-    const hash = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
-    
-    const users = AttendanceService.getUsers();
-    if (portal === 'teacher' || hash.includes('teacher')) {
-      const teacher = users.find(u => u.role === 'teacher');
-      return teacher || users[0];
-    }
-    return users.find(u => u.username === 'admin') || users[0];
+    return AttendanceService.getCurrentUser();
   });
 
   const [settings, setSettings] = useState<SchoolSettings>(() => AttendanceService.getSettings());
-  const [simulatedTime, setSimulatedTime] = useState<string | null>('08:15'); // Start inside period 2 by default for great UX
+  const [simulatedTime, setSimulatedTime] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>(() => {
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const portal = params?.get('portal') || params?.get('role');
@@ -58,7 +45,10 @@ export const App: React.FC = () => {
     }
     return 'dashboard';
   });
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(() => {
+    AttendanceService.initStorage();
+    return !AttendanceService.getCurrentUser();
+  });
   const [loginInitialRole, setLoginInitialRole] = useState<'teacher' | 'admin' | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isPrintReportOpen, setIsPrintReportOpen] = useState(false);
@@ -71,35 +61,38 @@ export const App: React.FC = () => {
   const [isPortalLinksModalOpen, setIsPortalLinksModalOpen] = useState(false);
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
 
-  // Parse direct portal URL query params (?portal=teacher / ?portal=admin)
+  // Portal deep links: role hint only — no silent auto-login
   useEffect(() => {
+    AttendanceService.registerScheduleStorageSyncListener();
+
     const params = new URLSearchParams(window.location.search);
     const portal = params.get('portal') || params.get('role');
     const hash = window.location.hash.toLowerCase();
 
     if (portal === 'teacher' || hash.includes('teacher')) {
       setLoginInitialRole('teacher');
-      const current = AttendanceService.getCurrentUser();
-      if (!current || current.role !== 'teacher') {
-        const teachers = AttendanceService.getUsers().filter(u => u.role === 'teacher');
-        if (teachers.length > 0) {
-          AttendanceService.setCurrentUser(teachers[0]);
-          setCurrentUser(teachers[0]);
-        }
-      }
       setActiveTab('attendance');
+      const session = AttendanceService.getCurrentUser();
+      if (!session || session.role !== 'teacher') {
+        setIsLoginModalOpen(true);
+      }
     } else if (portal === 'admin' || hash.includes('admin')) {
       setLoginInitialRole('admin');
-      const current = AttendanceService.getCurrentUser();
-      if (!current || current.role !== 'admin') {
-        const adminUser = AttendanceService.getUsers().find(u => u.role === 'admin');
-        if (adminUser) {
-          AttendanceService.setCurrentUser(adminUser);
-          setCurrentUser(adminUser);
-        }
-      }
       setActiveTab('dashboard');
+      const session = AttendanceService.getCurrentUser();
+      if (!session || session.role !== 'admin') {
+        setIsLoginModalOpen(true);
+      }
     }
+  }, []);
+
+  useEffect(() => {
+    const handleScheduleChange = () => {
+      setSettings(AttendanceService.getSettings());
+      setRefreshTrigger(prev => prev + 1);
+    };
+    window.addEventListener(SCHEDULE_CHANGE_EVENT, handleScheduleChange);
+    return () => window.removeEventListener(SCHEDULE_CHANGE_EVENT, handleScheduleChange);
   }, []);
   const [pdfReportModal, setPdfReportModal] = useState<{
     isOpen: boolean;
@@ -208,13 +201,15 @@ export const App: React.FC = () => {
         onViewStudentProfile={handleViewStudentProfile}
       />
 
-      {/* Top Time Simulator Toolbar */}
-      <TimeSimulatorBar
-        settings={settings}
-        simulatedTime={simulatedTime}
-        onSetSimulatedTime={setSimulatedTime}
-        onUpdateSettings={handleUpdateSettings}
-      />
+      {/* Time simulator — admin only (hidden from teachers) */}
+      {currentUser?.role === 'admin' && (
+        <TimeSimulatorBar
+          settings={settings}
+          simulatedTime={simulatedTime}
+          onSetSimulatedTime={setSimulatedTime}
+          onUpdateSettings={handleUpdateSettings}
+        />
+      )}
 
       {/* Main Navbar */}
       <Navbar
@@ -381,6 +376,7 @@ export const App: React.FC = () => {
         }}
         onLoginSuccess={(user) => {
           setCurrentUser(user);
+          setIsLoginModalOpen(false);
           setSessionExpiredNotice(false);
           if (user.role === 'admin') setActiveTab('dashboard');
           else setActiveTab('attendance');
@@ -393,7 +389,7 @@ export const App: React.FC = () => {
         onClose={() => setIsSettingsModalOpen(false)}
         currentUser={currentUser || AttendanceService.getUsers()[0]}
         settings={settings}
-        onSaveSettings={(s) => setSettings(s)}
+        onSaveSettings={handleUpdateSettings}
       />
 
       {/* Official PDF & Printable Reports Export Modal */}

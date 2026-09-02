@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, SchoolClass, Student, StudentAttendanceItem, SchoolSettings, ClassAttendanceSubmission } from '../types';
-import { AttendanceService, TEACHER_REMINDER_EVENT } from '../services/attendanceService';
+import { AttendanceService, TEACHER_REMINDER_EVENT, SCHEDULE_CHANGE_EVENT } from '../services/attendanceService';
 import { ABSENCE_REASONS, BEHAVIORAL_NOTE_PRESETS, getTodayDateString } from '../services/initialData';
 import confetti from 'canvas-confetti';
 import { 
@@ -56,8 +56,8 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
 }) => {
   const currentDayInfo = AttendanceService.getCurrentDayKey();
   const classes = AttendanceService.getClasses();
-  const periods = AttendanceService.getPeriods();
-  const activePeriod = AttendanceService.getCurrentlyActivePeriod(simulatedTime || undefined);
+  const periods = AttendanceService.getPeriods(settings);
+  const activePeriod = AttendanceService.getCurrentlyActivePeriod(simulatedTime || undefined, settings);
 
   // Determine initial assigned class for this teacher today from day-by-day database assignments table
   const initialClassId = () => {
@@ -70,16 +70,17 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
 
   const [selectedClassId, setSelectedClassId] = useState<string>(initialClassId);
   const [selectedPeriodNumber, setSelectedPeriodNumber] = useState<number>(2);
+  const [scheduleRefreshTick, setScheduleRefreshTick] = useState(0);
 
-  // Validate period attendance based on system rules:
-  // - Period 2 is strictly between 07:45 and 08:30 and restricted to the assigned teacher according to the schedule
-  // - Other periods matched with schedule times
-  const periodValidation = AttendanceService.validatePeriodAttendance(
-    selectedPeriodNumber,
-    simulatedTime || undefined,
-    settings,
-    currentUser,
-    selectedClassId
+  const periodValidation = useMemo(
+    () => AttendanceService.validatePeriodAttendance(
+      selectedPeriodNumber,
+      simulatedTime || undefined,
+      settings,
+      currentUser,
+      selectedClassId
+    ),
+    [selectedPeriodNumber, simulatedTime, settings, currentUser, selectedClassId, scheduleRefreshTick]
   );
   const [students, setStudents] = useState<Student[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, StudentAttendanceItem>>({});
@@ -120,6 +121,19 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
     window.addEventListener(TEACHER_REMINDER_EVENT, handleReminderEvent);
     return () => window.removeEventListener(TEACHER_REMINDER_EVENT, handleReminderEvent);
   }, [selectedClassId]);
+
+  // Live refresh when admin updates schedule or settings (same browser / cross-tab)
+  useEffect(() => {
+    const refreshFromSchedule = () => {
+      if (currentUser.role === 'teacher') {
+        const todayClass = AttendanceService.getTeacherAssignedClassForDay(currentUser.id, currentDayInfo.key);
+        if (todayClass) setSelectedClassId(todayClass.id);
+      }
+      setScheduleRefreshTick(t => t + 1);
+    };
+    window.addEventListener(SCHEDULE_CHANGE_EVENT, refreshFromSchedule);
+    return () => window.removeEventListener(SCHEDULE_CHANGE_EVENT, refreshFromSchedule);
+  }, [currentUser.id, currentUser.role, currentDayInfo.key]);
 
   // Load students and existing submission on class or period change
   useEffect(() => {

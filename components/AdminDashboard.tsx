@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, SchoolSettings, ClassAttendanceSubmission, SchoolClass } from '../types';
-import { AttendanceService, NOTIFICATION_EVENT } from '../services/attendanceService';
+import { AttendanceService, NOTIFICATION_EVENT, SCHEDULE_CHANGE_EVENT } from '../services/attendanceService';
 import { getTodayDateString, getPastDateString } from '../services/initialData';
 import { TeacherReminderModal } from './TeacherReminderModal';
 import { TeacherLiveSimulationWidget } from './TeacherLiveSimulationWidget';
@@ -101,7 +101,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isTeacherReminderModalOpen, setIsTeacherReminderModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [showSimulatorPanel, setShowSimulatorPanel] = useState(true);
+  const [showSimulatorPanel, setShowSimulatorPanel] = useState(false);
 
   // Re-fetch on any teacher submission event
   useEffect(() => {
@@ -109,7 +109,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setRefreshTrigger(prev => prev + 1);
     };
     window.addEventListener(NOTIFICATION_EVENT, handleSubmissionsChange);
-    return () => window.removeEventListener(NOTIFICATION_EVENT, handleSubmissionsChange);
+    window.addEventListener(SCHEDULE_CHANGE_EVENT, handleSubmissionsChange);
+    return () => {
+      window.removeEventListener(NOTIFICATION_EVENT, handleSubmissionsChange);
+      window.removeEventListener(SCHEDULE_CHANGE_EVENT, handleSubmissionsChange);
+    };
   }, []);
 
   const stats = AttendanceService.getTodaySchoolStats(selectedDate);

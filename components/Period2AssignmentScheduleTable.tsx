@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { User, SchoolClass, DayPeriodAssignment, WeekDayKey, TeacherTimetableRecord, TimetableEntry } from '../types';
 import { AttendanceService, WEEKDAYS_LIST } from '../services/attendanceService';
-import { extractPeriod2AssignmentsFromTimetable } from '../services/timetableData';
 import { 
   Calendar, 
   Clock, 
@@ -127,9 +126,9 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
 
   const handleLoadOfficialTimetable = () => {
     if (confirm('هل تريد تثبيت وتطبيق جدول الحصة الثانية المعتمد رسمياً من الجدول المدرسي العام للمدرسة؟')) {
-      const extracted = extractPeriod2AssignmentsFromTimetable();
-      setAssignments(extracted);
-      AttendanceService.saveAllPeriodAssignments(extracted, currentUser);
+      AttendanceService.reseedPeriodAssignmentsFromOfficialTimetable(currentUser);
+      const fresh = AttendanceService.getPeriodAssignments();
+      setAssignments(fresh);
       setHasChanges(false);
       setSaveSuccess(true);
       if (onShowNotification) {
