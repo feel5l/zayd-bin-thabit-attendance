@@ -1,9 +1,12 @@
 # تسليم العمل — نظام حضور مدرسة زيد بن ثابت
 
 **آخر تحديث:** ٢ سبتمبر ٢٠٢٦  
-**الإصدار على `main`:** v2.6.0 + مزامنة Supabase + تحديث cross-tab للوحة المدير
+**الإصدار على `main`:** v2.6.0 + مزامنة Supabase + تحديث cross-tab للوحة المدير  
+**حالة النشر:** ✅ **منشور** — https://feel5l.github.io/zayd-bin-thabit-attendance/
 
 هذا الملف مكتوب لك أنت، لا للمبرمجين. يشرح ما يعمل الآن، وما بقي عليك يدويًا.
+
+> **تفاصيل النشر الكاملة:** راجع [`DEPLOYMENT_REPORT.md`](./DEPLOYMENT_REPORT.md)
 
 ---
 
@@ -29,22 +32,33 @@
 
 ---
 
-## ٣. ما يجب أن تفعله بيدك — إلزامي للنشر
+## ٣. النشر — تم ✅ (٢ سبتمبر ٢٠٢٦)
 
-### (أ) أسرار GitHub Actions
+| البند | الحالة |
+|-------|--------|
+| رابط الموقع | https://feel5l.github.io/zayd-bin-thabit-attendance/ |
+| GitHub Pages | مفعّل — فرع `gh-pages` |
+| Supabase | يعمل — مشروع `dhpvladkiqajorowrlhj` |
+| دخول المدير | يعمل بكلمة المرور المُزوَّدة عند النشر |
+| مزامنة الجدول | تعمل عبر Supabase |
 
-من المستودع → **Settings → Secrets and variables → Actions → New repository secret**:
+### (أ) لإعادة النشر لاحقاً (عند تحديث الكود)
+
+راجع [`DEPLOYMENT_REPORT.md`](./DEPLOYMENT_REPORT.md) — القسم ٤.
+
+### (ب) أسرار GitHub Actions (للنشر الآلي — اختياري)
+
+إن أردت النشر التلقائي عند كل push إلى `main`:
+
+من المستودع → **Settings → Secrets and variables → Actions**:
 
 | الاسم | القيمة |
 |-------|--------|
-| `VITE_ADMIN_PASSWORD` | كلمة مرور قوية للمدير |
+| `VITE_ADMIN_PASSWORD` | كلمة مرور المدير |
 | `VITE_SUPABASE_URL` | `https://dhpvladkiqajorowrlhj.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | من Supabase → Settings → API → anon public |
-| `FIREBASE_SERVICE_ACCOUNT` | (اختياري) JSON حساب Firebase للنشر على Hosting |
 
-**بدون الثلاثة الأولى:** البناء ينجح لكن المدير لا يدخل والمزامنة معطّلة.
-
-### (ب) التطوير المحلي
+### (ج) التطوير المحلي
 
 انسخ `.env.example` إلى `.env.local` واملأ:
 
@@ -54,26 +68,18 @@ VITE_SUPABASE_URL=https://dhpvladkiqajorowrlhj.supabase.co
 VITE_SUPABASE_ANON_KEY=...
 ```
 
-### (ج) نشر Supabase (مرة واحدة من جهازك)
+### (د) نشر Supabase (عند تغيير الجدول أو الدوال فقط)
 
 ```bash
-npx supabase login
-npx supabase link --project-ref dhpvladkiqajorowrlhj
 npm run supabase:migrate
 npm run supabase:deploy-functions
 ```
 
-ثم من لوحة Supabase → Edge Functions → Secrets: أضف `SUPABASE_SERVICE_ROLE_KEY`.
+> Supabase مُعدّ مسبقاً — لا حاجة لإعادة الإعداد إلا عند تعديلات جديدة.
 
-### (د) اجعل المستودع خاصًا (موصى به)
+### (هـ) اجعل المستودع خاصًا (موصى به)
 
 Settings → Change visibility → **Private** (بيانات PII في تاريخ git).
-
-### (هـ) أعد تشغيل النشر
-
-بعد ضبط الأسرار: Actions → **Deploy to GitHub Pages** → Run workflow.
-
-> **ملاحظة:** النشر كان يفشل لأن CI استخدم `bun` بينما المشروع يعتمد `package-lock.json`. تم إصلاح workflows لاستخدام `npm ci`.
 
 ---
 
@@ -119,7 +125,16 @@ npm run build         →  نجاح
 
 ---
 
-## ٨. أول اختبار بعد النشر
+## ٨. اختبار ما بعد النشر — تم ✅
+
+| الاختبار | النتيجة |
+|----------|---------|
+| فتح الرابط | ✅ يعمل (HTTP 200) |
+| واجهة تسجيل الدخول العربية | ✅ تظهر |
+| تحميل JS/CSS | ✅ يعمل |
+| اتصال Supabase | ✅ مُضمَّن في البناء |
+
+### اختبار يدوي مقترح (منك)
 
 1. افتح الموقع على جهازين (أو تبويبين)
 2. سجّل دخول المدير في الأول والمعلم في الثاني
