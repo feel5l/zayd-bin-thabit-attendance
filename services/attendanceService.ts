@@ -240,6 +240,50 @@ export class AttendanceService {
     if (touched.includes(STORAGE_KEYS.CLASSES)) this._cacheClasses = null;
   }
 
+  /**
+   * Apply a schedule bundle pulled from the server (see services/scheduleSync.ts).
+   *
+   * The server is authoritative for the period-2 assignments and the period
+   * times, which is the whole point of syncing: the admin edits once and every
+   * teacher's device converges on the same answer. Everything else the app
+   * stores — attendance submissions, students, archives — is untouched here.
+   *
+   * Returns true when something actually changed, so the caller can avoid
+   * waking the UI for a no-op poll.
+   */
+  static applyServerSchedule(payload: {
+    assignments?: DayPeriodAssignment[];
+    settingsPatch?: Partial<SchoolSettings>;
+  }): boolean {
+    this.initStorage();
+    let changed = false;
+
+    if (payload.assignments && payload.assignments.length > 0) {
+      const incoming = JSON.stringify(payload.assignments);
+      const current = localStorage.getItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS);
+      if (incoming !== current) {
+        try { localStorage.setItem(STORAGE_KEYS.PERIOD_ASSIGNMENTS, incoming); } catch (e) {}
+        this._cachePeriodAssignments = payload.assignments;
+        changed = true;
+      }
+    }
+
+    if (payload.settingsPatch && Object.keys(payload.settingsPatch).length > 0) {
+      const current = this.getSettings();
+      const merged = { ...current, ...payload.settingsPatch };
+      if (JSON.stringify(merged) !== JSON.stringify(current)) {
+        this._cacheSettings = merged;
+        try { localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged)); } catch (e) {}
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.dispatchScheduleChange('assignments');
+    }
+    return changed;
+  }
+
   static registerScheduleStorageSyncListener(): void {
     if (typeof window === 'undefined') return;
     window.addEventListener('storage', (event) => {
@@ -255,18 +299,65 @@ export class AttendanceService {
   }
 
   /** Map legacy timetable teacher ids to official login ids */
+  /**
+   * Strip the 'أ.' honorific and fold the Arabic spelling variants that appear
+   * between the timetable and the staff roster for the same person: the alif
+   * forms (أ إ آ ٱ), taa marbuta vs haa, alif maqsura vs yaa, and diacritics.
+   * Without this, "أسامة الدوغان" and "اسامة الدوغان" are different strings.
+   */
+  private static normalizeTeacherName(name: string): string {
+    return (name || '')
+      .replace(/^أ\.\s*/, '')
+      .replace(/[ً-ْـ]/g, '')
+      .replace(/[أإآٱ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/ى/g, 'ي')
+      .replace(/\s+/g, ' ')
+      // The roster spells compound names apart ("عبد الرحمن") where the
+      // timetable joins them ("عبدالرحمن"). Join them so both read the same.
+      // No \b here: JavaScript word boundaries are ASCII-only and never match
+      // between Arabic letters.
+      .replace(/(^|\s)(عبد|ابو|ام)\s+/g, '$1$2')
+      .trim();
+  }
+
+  /**
+   * True when two teacher names plausibly refer to the same person.
+   * The timetable stores short names ("خالد الملا") while accounts store full
+   * ones ("خالد محمد عمر الملا"), so plain substring matching fails; every word
+   * of the shorter name must appear in the longer one instead.
+   */
+  private static teacherNamesMatch(a: string, b: string): boolean {
+    const left = this.normalizeTeacherName(a);
+    const right = this.normalizeTeacherName(b);
+    if (!left || !right) return false;
+    if (left === right) return true;
+    const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
+    const longerWords = new Set(longer.split(' '));
+    return shorter.split(' ').every(word => longerWords.has(word));
+  }
+
   static resolveTeacherLoginId(teacherId: string, teacherName?: string): string {
+    const users = this.getUsers();
+
+    // The legacy timetable numbering (teacher-1..teacher-22) overlaps the real
+    // account ids (teacher-5..teacher-25), so an id on its own cannot say which
+    // space it belongs to. The name is what disambiguates: if the id already
+    // points at an account whose name matches, it is a real account id and must
+    // be left alone. Remapping such an id a second time is not a no-op — it
+    // silently hands the class to a different teacher, because the legacy map
+    // is not idempotent (teacher-11 -> teacher-10 -> teacher-13 -> ...).
+    const direct = users.find(u => u.id === teacherId);
+    if (direct && (!teacherName || this.teacherNamesMatch(direct.name, teacherName))) {
+      return teacherId;
+    }
+
     const mapped = mapLegacyTimetableTeacherId(teacherId);
     if (isUnmappedTimetableTeacherId(mapped)) return mapped;
-    const users = this.getUsers();
     if (users.some(u => u.id === mapped)) return mapped;
     if (users.some(u => u.id === teacherId)) return teacherId;
     if (teacherName) {
-      const normalized = teacherName.replace(/^أ\.\s*/, '').trim();
-      const byName = users.find(u =>
-        u.role === 'teacher' &&
-        (u.name.includes(normalized) || normalized.includes(u.name.replace(/^أ\.\s*/, '').trim()))
-      );
+      const byName = users.find(u => u.role === 'teacher' && this.teacherNamesMatch(u.name, teacherName));
       if (byName) return byName.id;
     }
     return mapped;

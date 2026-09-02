@@ -27,6 +27,7 @@ import { StudentReferralModal } from './components/StudentReferralModal';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
 import { GraduationCap, ShieldAlert, Sparkles, BookOpen, Clock, Heart, ShieldCheck } from 'lucide-react';
 import { getTodayDateString } from './services/initialData';
+import { startScheduleSync } from './services/scheduleSync';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -60,6 +61,10 @@ export const App: React.FC = () => {
   const [isContactsModalOpen, setIsContactsModalOpen] = useState(false);
   const [isPortalLinksModalOpen, setIsPortalLinksModalOpen] = useState(false);
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
+
+  // Pull the shared schedule from the server, then keep it fresh. No-op when
+  // VITE_SUPABASE_URL is unset, so local-only installs behave exactly as before.
+  useEffect(() => startScheduleSync(), []);
 
   // Portal deep links: role hint only — no silent auto-login
   useEffect(() => {
