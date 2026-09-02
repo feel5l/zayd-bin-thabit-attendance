@@ -15,22 +15,52 @@ import {
 import { OFFICIAL_TIMETABLE_RECORDS, extractPeriod2AssignmentsFromTimetable, mapLegacyTimetableTeacherId, isUnmappedTimetableTeacherId } from './timetableData';
 
 const STORAGE_KEYS = {
-  USERS: 'zbt_users_prod_v3',
-  CLASSES: 'zbt_classes_prod_v3',
-  STUDENTS: 'zbt_students_prod_v3',
-  SUBMISSIONS: 'zbt_submissions_prod_v3',
-  SETTINGS: 'zbt_settings_prod_v3',
-  AUDIT_LOGS: 'zbt_logs_prod_v3',
-  EXCUSES: 'zbt_excuses_prod_v3',
-  SIMULATED_TIME: 'zbt_simulated_time_prod_v3',
-  CURRENT_USER: 'zbt_current_user_prod_v3',
-  NOTIFICATIONS: 'zbt_notifications_prod_v3',
-  ARCHIVES: 'zbt_attendance_archives_prod_v3',
-  TEACHER_REMINDERS: 'zbt_teacher_reminders_prod_v3',
-  PERIOD_ASSIGNMENTS: 'zbt_period_assignments_prod_v3',
+  USERS: 'zbt_users_prod_v4',
+  CLASSES: 'zbt_classes_prod_v4',
+  STUDENTS: 'zbt_students_prod_v4',
+  SUBMISSIONS: 'zbt_submissions_prod_v4',
+  SETTINGS: 'zbt_settings_prod_v4',
+  AUDIT_LOGS: 'zbt_logs_prod_v4',
+  EXCUSES: 'zbt_excuses_prod_v4',
+  SIMULATED_TIME: 'zbt_simulated_time_prod_v4',
+  CURRENT_USER: 'zbt_current_user_prod_v4',
+  NOTIFICATIONS: 'zbt_notifications_prod_v4',
+  ARCHIVES: 'zbt_attendance_archives_prod_v4',
+  TEACHER_REMINDERS: 'zbt_teacher_reminders_prod_v4',
+  PERIOD_ASSIGNMENTS: 'zbt_period_assignments_prod_v4',
   REFERRALS: 'zbt_student_referrals_prod_v1',
-  LAST_ACTIVITY: 'zbt_last_activity_prod_v3'
+  LAST_ACTIVITY: 'zbt_last_activity_prod_v4',
+  SYNC_META: 'zbt_sync_meta_v1',
 };
+
+// One-time migration: copy v3 → v4 keys for existing devices.
+// v3 keys are kept as backup until Sync-5 migration cutover.
+function migrateV3toV4(): void {
+  const V3_MAP: Record<string, string> = {
+    'zbt_users_prod_v3': STORAGE_KEYS.USERS,
+    'zbt_classes_prod_v3': STORAGE_KEYS.CLASSES,
+    'zbt_students_prod_v3': STORAGE_KEYS.STUDENTS,
+    'zbt_submissions_prod_v3': STORAGE_KEYS.SUBMISSIONS,
+    'zbt_settings_prod_v3': STORAGE_KEYS.SETTINGS,
+    'zbt_logs_prod_v3': STORAGE_KEYS.AUDIT_LOGS,
+    'zbt_excuses_prod_v3': STORAGE_KEYS.EXCUSES,
+    'zbt_simulated_time_prod_v3': STORAGE_KEYS.SIMULATED_TIME,
+    'zbt_current_user_prod_v3': STORAGE_KEYS.CURRENT_USER,
+    'zbt_notifications_prod_v3': STORAGE_KEYS.NOTIFICATIONS,
+    'zbt_attendance_archives_prod_v3': STORAGE_KEYS.ARCHIVES,
+    'zbt_teacher_reminders_prod_v3': STORAGE_KEYS.TEACHER_REMINDERS,
+    'zbt_period_assignments_prod_v3': STORAGE_KEYS.PERIOD_ASSIGNMENTS,
+    'zbt_last_activity_prod_v3': STORAGE_KEYS.LAST_ACTIVITY,
+  };
+  try {
+    for (const [v3Key, v4Key] of Object.entries(V3_MAP)) {
+      if (!localStorage.getItem(v4Key)) {
+        const v3Val = localStorage.getItem(v3Key);
+        if (v3Val) localStorage.setItem(v4Key, v3Val);
+      }
+    }
+  } catch { /* localStorage unavailable */ }
+}
 
 export const NOTIFICATION_EVENT = 'attendance_notification_event';
 export const TEACHER_REMINDER_EVENT = 'attendance_teacher_reminder_event';
@@ -75,6 +105,9 @@ export class AttendanceService {
   static initStorage(): void {
     if (this._initialized) return;
     this._initialized = true;
+
+    // Migrate v3 → v4 keys for existing devices (one-time, idempotent)
+    migrateV3toV4();
 
     // Purge legacy mock data if present
     try {
