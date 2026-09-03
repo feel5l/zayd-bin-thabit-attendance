@@ -1,179 +1,206 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const SCHOOL_ID = 'zbt-primary';
+// submit-attendance
+// Teacher device pushes one class attendance sheet. Requires x-device-token.
+// Assignment rules mirror the client:
+//   - daily_period_assignments match, OR
+//   - teacher.assigned_class_id (homeroom), OR
+//   - classes.homeroom_teacher_id when no daily row exists for that class/day
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+const SCHOOL_ID = "zbt-primary";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-device-token",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
-  }
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...CORS,
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    },
+  });
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+const DAY_KEYS = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+];
+const VALID_STATUS = new Set(["present", "absent", "late", "excused"]);
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   try {
-    // GET: pull today's submissions
-    if (req.method === 'GET') {
-      const url = new URL(req.url);
-      const date = url.searchParams.get('date') || new Date().toISOString().slice(0, 10);
+    const token = req.headers.get("x-device-token") || "";
+    if (!token) return json({ error: "missing_device_token" }, 401);
 
-      const { data, error } = await supabase
-        .from('attendance_submissions')
-        .select(`
-          *,
-          attendance_student_items (*)
-        `)
-        .eq('school_id', SCHOOL_ID)
-        .eq('date', date);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
-      if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+    const { data: device, error: deviceError } = await supabase
+      .from("device_tokens")
+      .select("teacher_id, role, revoked_at")
+      .eq("token_hash", await sha256Hex(token))
+      .eq("school_id", SCHOOL_ID)
+      .maybeSingle();
+    if (deviceError) return json({ error: deviceError.message }, 500);
+    if (!device || device.revoked_at) {
+      return json({ error: "invalid_device_token" }, 401);
+    }
+
+    const body = await req.json().catch(() => null);
+    const s = body?.submission;
+    if (!s || !s.id || !s.classId || !s.date) {
+      return json({ error: "invalid_submission" }, 400);
+    }
+
+    const periodNumber = Number(s.periodNumber ?? 2);
+    const items = Array.isArray(body?.items)
+      ? body.items
+      : Array.isArray(body?.studentItems)
+        ? body.studentItems
+        : [];
+
+    if (device.role !== "admin") {
+      const dayKey = DAY_KEYS[new Date(`${s.date}T12:00:00+03:00`).getUTCDay()];
+      const [assigned, homeroom, classRow] = await Promise.all([
+        supabase
+          .from("daily_period_assignments")
+          .select("teacher_id")
+          .eq("school_id", SCHOOL_ID)
+          .eq("class_id", s.classId)
+          .eq("day_of_week", dayKey)
+          .eq("period_number", periodNumber)
+          .maybeSingle(),
+        supabase
+          .from("teachers")
+          .select("assigned_class_id")
+          .eq("id", device.teacher_id)
+          .maybeSingle(),
+        supabase
+          .from("classes")
+          .select("homeroom_teacher_id")
+          .eq("id", s.classId)
+          .maybeSingle(),
+      ]);
+
+      const isAssigned = assigned.data?.teacher_id === device.teacher_id;
+      const isHomeroom = homeroom.data?.assigned_class_id === s.classId;
+      const isClassHomeroom =
+        !assigned.data &&
+        classRow.data?.homeroom_teacher_id === device.teacher_id;
+
+      if (!isAssigned && !isHomeroom && !isClassHomeroom) {
+        return json({ error: "not_assigned_to_class" }, 403);
       }
-
-      return new Response(JSON.stringify({ submissions: data }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
     }
 
-    // POST: upsert a submission
-    const body = await req.json();
-    const { submission, studentItems, clientOpId } = body;
+    const nowIso = new Date().toISOString();
 
-    if (!submission || !studentItems) {
-      return new Response(JSON.stringify({ error: 'submission and studentItems required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Resolve stable submission id: reuse existing row for (class,date,period) to avoid FK conflicts
+    const { data: existingRow } = await supabase
+      .from("attendance_submissions")
+      .select("id")
+      .eq("school_id", SCHOOL_ID)
+      .eq("class_id", s.classId)
+      .eq("date", s.date)
+      .eq("period_number", periodNumber)
+      .maybeSingle();
+    const submissionId = existingRow?.id ?? s.id;
+
+    if (existingRow?.id) {
+      await supabase
+        .from("attendance_student_items")
+        .delete()
+        .eq("submission_id", existingRow.id);
     }
 
-    // Idempotency: check if this clientOpId already exists
-    if (clientOpId) {
-      const { data: existing } = await supabase
-        .from('attendance_submissions')
-        .select('id')
-        .eq('client_op_id', clientOpId)
-        .limit(1);
+    const { error: upsertError } = await supabase
+      .from("attendance_submissions")
+      .upsert(
+        {
+          id: submissionId,
+          school_id: SCHOOL_ID,
+          date: s.date,
+          class_id: s.classId,
+          class_name: s.className ?? "",
+          grade_level: s.gradeLevel ?? "",
+          teacher_id: device.teacher_id,
+          teacher_name: s.teacherName ?? "",
+          period_number: periodNumber,
+          submitted_at: s.submittedAt ?? nowIso,
+          updated_at: nowIso,
+          total_students: Number(s.totalStudents ?? items.length),
+          present_count: Number(s.presentCount ?? 0),
+          absent_count: Number(s.absentCount ?? 0),
+          late_count: Number(s.lateCount ?? 0),
+          excused_count: Number(s.excusedCount ?? 0),
+          notes: s.notes ?? null,
+          client_device_id: s.clientDeviceId ?? null,
+        },
+        { onConflict: "school_id,class_id,date,period_number" },
+      );
+    if (upsertError) return json({ error: upsertError.message }, 500);
 
-      if (existing && existing.length > 0) {
-        return new Response(JSON.stringify({ status: 'duplicate', id: existing[0].id }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
+    await supabase
+      .from("attendance_student_items")
+      .delete()
+      .eq("submission_id", submissionId);
 
-    // LWW conflict check: same class+date+period
-    const { data: conflicting } = await supabase
-      .from('attendance_submissions')
-      .select('id, teacher_id, updated_at')
-      .eq('school_id', SCHOOL_ID)
-      .eq('class_id', submission.classId || submission.class_id)
-      .eq('date', submission.date)
-      .eq('period_number', submission.periodNumber || submission.period_number || 2)
-      .limit(1);
-
-    if (conflicting && conflicting.length > 0) {
-      const existing = conflicting[0];
-      const teacherId = submission.teacherId || submission.teacher_id;
-      if (existing.teacher_id !== teacherId) {
-        return new Response(
-          JSON.stringify({ error: 'conflict', conflictingTeacherId: existing.teacher_id }),
-          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      // Same teacher: LWW — update if newer
-      const existingTime = new Date(existing.updated_at).getTime();
-      const incomingTime = new Date(submission.updatedAt || submission.updated_at || new Date()).getTime();
-      if (incomingTime <= existingTime) {
-        return new Response(JSON.stringify({ status: 'stale', id: existing.id }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // Delete old items then upsert
-      await supabase.from('attendance_student_items').delete().eq('submission_id', existing.id);
-      await supabase.from('attendance_submissions').delete().eq('id', existing.id);
-    }
-
-    // Insert submission
-    const subRow = {
-      id: submission.id,
-      school_id: SCHOOL_ID,
-      date: submission.date,
-      class_id: submission.classId || submission.class_id,
-      class_name: submission.className || submission.class_name,
-      grade_level: submission.gradeLevel || submission.grade_level,
-      teacher_id: submission.teacherId || submission.teacher_id,
-      teacher_name: submission.teacherName || submission.teacher_name,
-      period_number: submission.periodNumber || submission.period_number || 2,
-      submitted_at: submission.submittedAt || submission.submitted_at || new Date().toISOString(),
-      updated_at: submission.updatedAt || submission.updated_at || new Date().toISOString(),
-      total_students: submission.totalStudents ?? submission.total_students ?? 0,
-      present_count: submission.presentCount ?? submission.present_count ?? 0,
-      absent_count: submission.absentCount ?? submission.absent_count ?? 0,
-      late_count: submission.lateCount ?? submission.late_count ?? 0,
-      excused_count: submission.excusedCount ?? submission.excused_count ?? 0,
-      notes: submission.notes || null,
-      client_device_id: submission.clientDeviceId || submission.client_device_id || null,
-      client_op_id: clientOpId || null,
-    };
-
-    const { error: subError } = await supabase
-      .from('attendance_submissions')
-      .insert(subRow);
-
-    if (subError) {
-      return new Response(JSON.stringify({ error: subError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Insert student items
-    if (Array.isArray(studentItems) && studentItems.length > 0) {
-      const itemRows = studentItems.map((item: Record<string, unknown>) => ({
-        submission_id: submission.id,
-        student_id: item.studentId || item.student_id,
-        student_name: item.studentName || item.student_name,
-        status: item.status,
-        reason: item.reason || null,
-        notes: item.notes || null,
-        behavioral_note: item.behavioralNote || item.behavioral_note || null,
-        minutes_late: item.minutesLate ?? item.minutes_late ?? null,
-        contacted_parent: item.contactedParent ?? item.contacted_parent ?? false,
+    const rows = items
+      .filter((it: Record<string, unknown>) =>
+        it && it.studentId && VALID_STATUS.has(String(it.status))
+      )
+      .map((it: Record<string, unknown>) => ({
+        submission_id: submissionId,
+        student_id: it.studentId,
+        student_name: it.studentName ?? "",
+        status: it.status,
+        reason: it.reason ?? null,
+        notes: it.notes ?? null,
+        behavioral_note: it.behavioralNote ?? null,
+        minutes_late: it.minutesLate ?? null,
+        contacted_parent: Boolean(it.contactedParent),
       }));
 
-      const { error: itemError } = await supabase
-        .from('attendance_student_items')
-        .insert(itemRows);
-
-      if (itemError) {
-        return new Response(JSON.stringify({ error: itemError.message, partial: true }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    if (rows.length > 0) {
+      const { error: itemsError } = await supabase
+        .from("attendance_student_items")
+        .insert(rows);
+      if (itemsError) return json({ error: itemsError.message }, 500);
     }
 
-    return new Response(JSON.stringify({ status: 'ok', id: submission.id }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    await supabase
+      .from("device_tokens")
+      .update({ last_seen_at: nowIso })
+      .eq("token_hash", await sha256Hex(token));
+
+    return json({ ok: true, submissionId, itemCount: rows.length });
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return json({ error: String(err) }, 500);
   }
 });

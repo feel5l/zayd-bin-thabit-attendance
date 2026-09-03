@@ -9,6 +9,7 @@ export default defineConfig({
       ['tests/crossTabSync.test.ts', 'happy-dom'],
       ['tests/applyServerSubmissions.test.ts', 'happy-dom'],
       ['tests/deviceAuth.test.ts', 'happy-dom'],
+      ['tests/pushSubmission.test.ts', 'happy-dom'],
     ],
   },
   resolve: {

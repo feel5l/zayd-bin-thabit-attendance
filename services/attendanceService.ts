@@ -1419,7 +1419,10 @@ export class AttendanceService {
     return subs.find(s => s.classId === classId);
   }
 
-  static saveAttendanceSubmission(submission: ClassAttendanceSubmission, user: User): void {
+  static async saveAttendanceSubmission(
+    submission: ClassAttendanceSubmission,
+    user: User
+  ): Promise<{ localOk: true; syncOk: boolean; syncError?: string; needsAuth?: boolean; notAssigned?: boolean }> {
     const subs = [...this.getSubmissions()];
     const existingIdx = subs.findIndex(s => 
       s.classId === submission.classId && 
@@ -1491,10 +1494,22 @@ export class AttendanceService {
 
     this.saveNotification(notification);
 
-    // Push to server asynchronously (fire-and-forget; offline queue handles failures)
-    import('./syncAdapter').then(({ pushSubmission }) => {
-      pushSubmission(submission, submission.students || []).catch(() => {});
-    }).catch(() => {});
+    try {
+      const { pushSubmission } = await import('./syncAdapter');
+      const result = await pushSubmission(submission, submission.students || []);
+      if (result.ok) {
+        return { localOk: true, syncOk: true };
+      }
+      return {
+        localOk: true,
+        syncOk: false,
+        syncError: result.error,
+        needsAuth: result.needsAuth,
+        notAssigned: result.notAssigned,
+      };
+    } catch {
+      return { localOk: true, syncOk: false, syncError: 'network' };
+    }
   }
 
   // --- Notifications Management ---
@@ -1734,8 +1749,8 @@ export class AttendanceService {
       students: studentItems
     };
 
-    // Save & Trigger
-    this.saveAttendanceSubmission(submission, teacher as User);
+    // Save & Trigger (fire-and-forget for simulation helper)
+    void this.saveAttendanceSubmission(submission, teacher as User);
     
     // Return latest generated notification
     const latestNotif = this.getNotifications()[0];

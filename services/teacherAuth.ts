@@ -157,7 +157,14 @@ export async function lookupTeacher(identifier: string): Promise<TeacherLookupOu
 
   if (identifierHash) {
     const known = readTrustStore()[identifierHash];
-    if (known) return { status: 'found', user: known, source: 'device' };
+    // Device-cache login has no fresh deviceToken. When Supabase is configured,
+    // refuse silent offline login so push/pull cannot run without credentials.
+    if (known) {
+      if (SUPABASE_URL) {
+        return { status: 'unavailable' };
+      }
+      return { status: 'found', user: known, source: 'device' };
+    }
   }
 
   // Remote configured but unreachable, and this device has not seen this

@@ -248,13 +248,18 @@ function mapServerStudentItem(row: Record<string, unknown>): StudentAttendanceIt
 export async function pushSubmission(
   submission: ClassAttendanceSubmission,
   studentItems: StudentAttendanceItem[]
-): Promise<{ ok: boolean; conflict?: boolean; needsAuth?: boolean }> {
-  if (!isSupabaseConfigured()) return { ok: false };
+): Promise<{
+  ok: boolean;
+  conflict?: boolean;
+  needsAuth?: boolean;
+  notAssigned?: boolean;
+  error?: string;
+}> {
+  if (!isSupabaseConfigured()) return { ok: true }; // local-only mode — treat as synced
 
   const token = getDeviceToken();
   if (!token) {
-    // Teacher/admin must re-login to obtain a device token.
-    return { ok: false, needsAuth: true };
+    return { ok: false, needsAuth: true, error: 'missing_device_token' };
   }
 
   const clientOpId = crypto.randomUUID();
@@ -270,20 +275,29 @@ export async function pushSubmission(
     });
 
     if (res.status === 401) {
-      return { ok: false, needsAuth: true };
+      return { ok: false, needsAuth: true, error: 'unauthorized' };
     }
     if (res.status === 409) {
-      return { ok: false, conflict: true };
+      return { ok: false, conflict: true, error: 'conflict' };
+    }
+    if (res.status === 403) {
+      // Permanent authorization failure — do NOT enqueue for retry.
+      let detail = 'not_assigned_to_class';
+      try {
+        const body = await res.json();
+        if (body?.error) detail = String(body.error);
+      } catch { /* ignore */ }
+      return { ok: false, notAssigned: true, error: detail };
     }
     if (!res.ok) {
       await enqueue({ clientOpId, endpoint: 'submit-attendance', payload, createdAt: new Date().toISOString() });
-      return { ok: false };
+      return { ok: false, error: `http_${res.status}` };
     }
 
     return { ok: true };
   } catch {
     await enqueue({ clientOpId, endpoint: 'submit-attendance', payload, createdAt: new Date().toISOString() });
-    return { ok: false };
+    return { ok: false, error: 'network' };
   }
 }
 

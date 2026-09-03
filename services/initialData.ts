@@ -6,16 +6,29 @@ import { PUBLIC_TEACHERS_LIST } from './teachersPublic';
 import { OFFICIAL_CLASSES_LIST } from './officialClassesData';
 import { OFFICIAL_STUDENTS_LIST } from './officialStudentsData';
 
-// Helper date utilities
+// Helper date utilities — school timezone is Asia/Riyadh (UTC+3)
 export const getTodayDateString = (): string => {
-  const d = new Date();
-  return d.toISOString().split('T')[0];
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Riyadh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
 };
 
 export const getPastDateString = (daysAgo: number): string => {
   const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().split('T')[0];
+  // Shift in Riyadh calendar days without depending on local TZ
+  const riyadhNow = getTodayDateString();
+  const [y, m, day] = riyadhNow.split('-').map(Number);
+  const utcNoon = new Date(Date.UTC(y, m - 1, day, 12, 0, 0));
+  utcNoon.setUTCDate(utcNoon.getUTCDate() - daysAgo);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Riyadh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(utcNoon);
 };
 
 // Default initial school leadership (Principal: Ziyad Al-Otaibi, Vice Principal: Mohammed Al-Zamami)

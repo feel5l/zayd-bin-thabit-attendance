@@ -3,7 +3,8 @@ import { User, TeacherSessionValidation } from '../types';
 import { AttendanceService } from '../services/attendanceService';
 import { lookupTeacher } from '../services/teacherAuth';
 import { loginAdmin } from '../services/adminAuth';
-import { clearDeviceToken } from '../services/deviceAuth';
+import { clearDeviceToken, getDeviceToken } from '../services/deviceAuth';
+import { isSupabaseConfigured } from '../services/supabaseClient';
 import { 
   GraduationCap, 
   Lock, 
@@ -135,6 +136,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       // homeroom/class fields the rest of the app already relies on.
       const localMatch = teachersList.find(u => u.id === outcome.user.id);
       const user = localMatch ? { ...localMatch, ...outcome.user, password: '' } : outcome.user;
+
+      if (isSupabaseConfigured() && !getDeviceToken()) {
+        setError('تعذّر تفعيل مزامنة هذا الجهاز. تأكد من الاتصال بالإنترنت وحاول مرة أخرى.');
+        setLoading(false);
+        return;
+      }
 
       const validation = AttendanceService.validateTeacherSessionData(user);
       if (!validation.isValid) {
