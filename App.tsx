@@ -27,7 +27,7 @@ import { StudentReferralModal } from './components/StudentReferralModal';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
 import { GraduationCap, ShieldAlert, Sparkles, BookOpen, Clock, Heart, ShieldCheck } from 'lucide-react';
 import { getTodayDateString } from './services/initialData';
-import { startSync } from './services/syncAdapter';
+import { startSync, syncTodayAttendance } from './services/syncAdapter';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -385,6 +385,8 @@ export const App: React.FC = () => {
           setSessionExpiredNotice(false);
           if (user.role === 'admin') setActiveTab('dashboard');
           else setActiveTab('attendance');
+          // Token was just issued — pull remote attendance immediately for admin.
+          void syncTodayAttendance();
         }}
       />
 

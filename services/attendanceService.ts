@@ -359,6 +359,109 @@ export class AttendanceService {
     return changed;
   }
 
+  /**
+   * Merge attendance sheets pulled from the server into localStorage.
+   * Server wins for the same class+date+period when its updatedAt is newer
+   * or equal (LWW). Dispatches ATTENDANCE_UPDATE_EVENT so AdminDashboard refreshes.
+   */
+  static applyServerSubmissions(incoming: ClassAttendanceSubmission[]): boolean {
+    this.initStorage();
+    if (!incoming || incoming.length === 0) return false;
+
+    const local = [...this.getSubmissions()];
+    let changed = false;
+    const newForNotify: ClassAttendanceSubmission[] = [];
+
+    for (const remote of incoming) {
+      if (!remote?.id || !remote.classId || !remote.date) continue;
+      const period = remote.periodNumber || 2;
+      const idx = local.findIndex(
+        (s) =>
+          s.classId === remote.classId &&
+          s.date === remote.date &&
+          (s.periodNumber === period || (!s.periodNumber && period === 2))
+      );
+
+      const remoteTime = new Date(remote.updatedAt || remote.submittedAt || 0).getTime();
+
+      if (idx === -1) {
+        local.unshift({
+          ...remote,
+          periodNumber: period,
+          students: Array.isArray(remote.students) ? remote.students : [],
+        });
+        newForNotify.push(remote);
+        changed = true;
+        continue;
+      }
+
+      const existing = local[idx];
+      const localTime = new Date(existing.updatedAt || existing.submittedAt || 0).getTime();
+      if (remoteTime >= localTime) {
+        const next = {
+          ...existing,
+          ...remote,
+          periodNumber: period,
+          students:
+            Array.isArray(remote.students) && remote.students.length > 0
+              ? remote.students
+              : existing.students || [],
+        };
+        if (JSON.stringify(next) !== JSON.stringify(existing)) {
+          local[idx] = next;
+          changed = true;
+        }
+      }
+    }
+
+    if (!changed) return false;
+
+    this._cacheSubmissions = local;
+    try {
+      localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(local));
+    } catch (e) {}
+
+    this.dispatchAttendanceUpdate('submissions');
+
+    // Surface a toast for newly seen remote sheets (admin dashboard).
+    for (const submission of newForNotify.slice(0, 5)) {
+      const absentStudents: AbsentStudentDetail[] = (submission.students || [])
+        .filter((st) => st.status === 'absent' || st.status === 'excused' || st.status === 'late')
+        .map((st) => ({
+          studentId: st.studentId,
+          studentName: st.studentName,
+          status: st.status as 'absent' | 'excused' | 'late',
+          reason: st.reason,
+          isExcused: st.status === 'excused',
+          notes: st.notes,
+          minutesLate: st.minutesLate,
+        }));
+
+      const notification: AttendanceNotification = {
+        id: `notif-sync-${submission.id}`,
+        submissionId: submission.id,
+        timestamp: new Date().toISOString(),
+        date: submission.date,
+        classId: submission.classId,
+        className: submission.className,
+        gradeLevel: submission.gradeLevel,
+        teacherId: submission.teacherId,
+        teacherName: submission.teacherName,
+        periodNumber: submission.periodNumber || 2,
+        presentCount: submission.presentCount,
+        absentCount: submission.absentCount,
+        excusedCount: submission.excusedCount,
+        lateCount: submission.lateCount,
+        totalStudents: submission.totalStudents,
+        absentStudents,
+        read: false,
+      };
+      this.saveNotification(notification);
+    }
+
+    return true;
+  }
+
   private static _crossTabStorageListenerRegistered = false;
 
   /** Cross-tab sync for schedule + attendance localStorage keys (< 3s per .cursorrules) */
@@ -959,6 +1062,8 @@ export class AttendanceService {
       });
     } else {
       try { localStorage.removeItem(STORAGE_KEYS.CURRENT_USER); } catch (e) {}
+      // Drop device token so the next login issues a fresh credential.
+      import('./deviceAuth').then(({ clearDeviceToken }) => clearDeviceToken()).catch(() => {});
     }
   }
 

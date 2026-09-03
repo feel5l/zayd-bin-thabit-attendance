@@ -7,6 +7,8 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     environmentMatchGlobs: [
       ['tests/crossTabSync.test.ts', 'happy-dom'],
+      ['tests/applyServerSubmissions.test.ts', 'happy-dom'],
+      ['tests/deviceAuth.test.ts', 'happy-dom'],
     ],
   },
   resolve: {
