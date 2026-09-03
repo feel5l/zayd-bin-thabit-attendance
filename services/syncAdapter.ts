@@ -19,7 +19,9 @@
 
 import { isSupabaseConfigured, getSupabaseFunctionsUrl, getAnonKey, getSupabaseClient } from './supabaseClient';
 import { AttendanceService, SCHEDULE_CHANGE_EVENT } from './attendanceService';
-import type { ClassAttendanceSubmission, StudentAttendanceItem, DayPeriodAssignment, SchoolSettings } from '../types';
+import { getDeviceToken } from './deviceAuth';
+import type { ClassAttendanceSubmission, StudentAttendanceItem, DayPeriodAssignment, SchoolSettings, AttendanceStatus } from '../types';
+import { getTodayDateString } from './initialData';
 
 // ─── Status ───
 
@@ -42,12 +44,16 @@ export function getSyncStatus(): SyncStatus { return _status; }
 
 const TIMEOUT_MS = 10_000;
 
-function fetchHeaders(): Record<string, string> {
+function fetchHeaders(includeDeviceToken = false): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   const key = getAnonKey();
   if (key) {
     h.apikey = key;
     h.Authorization = `Bearer ${key}`;
+  }
+  if (includeDeviceToken) {
+    const token = getDeviceToken();
+    if (token) h['x-device-token'] = token;
   }
   return h;
 }
@@ -186,59 +192,171 @@ export async function pullSchedule(): Promise<boolean> {
 
 // ─── Attendance Sync ───
 
+function mapServerSubmission(
+  row: Record<string, unknown>,
+  itemsBySubmission: Map<string, StudentAttendanceItem[]>
+): ClassAttendanceSubmission | null {
+  const id = String(row.id ?? '');
+  const classId = String(row.class_id ?? row.classId ?? '');
+  const date = String(row.date ?? '');
+  if (!id || !classId || !date) return null;
+
+  return {
+    id,
+    date,
+    classId,
+    className: String(row.class_name ?? row.className ?? ''),
+    gradeLevel: String(row.grade_level ?? row.gradeLevel ?? ''),
+    teacherId: String(row.teacher_id ?? row.teacherId ?? ''),
+    teacherName: String(row.teacher_name ?? row.teacherName ?? ''),
+    periodNumber: Number(row.period_number ?? row.periodNumber ?? 2),
+    submittedAt: String(row.submitted_at ?? row.submittedAt ?? new Date().toISOString()),
+    updatedAt: row.updated_at || row.updatedAt
+      ? String(row.updated_at ?? row.updatedAt)
+      : undefined,
+    totalStudents: Number(row.total_students ?? row.totalStudents ?? 0),
+    presentCount: Number(row.present_count ?? row.presentCount ?? 0),
+    absentCount: Number(row.absent_count ?? row.absentCount ?? 0),
+    lateCount: Number(row.late_count ?? row.lateCount ?? 0),
+    excusedCount: Number(row.excused_count ?? row.excusedCount ?? 0),
+    notes: row.notes ? String(row.notes) : undefined,
+    students: itemsBySubmission.get(id) ?? [],
+  };
+}
+
+function mapServerStudentItem(row: Record<string, unknown>): StudentAttendanceItem | null {
+  const studentId = String(row.student_id ?? row.studentId ?? '');
+  const status = String(row.status ?? '') as AttendanceStatus;
+  if (!studentId || !['present', 'absent', 'late', 'excused'].includes(status)) return null;
+  return {
+    studentId,
+    studentName: String(row.student_name ?? row.studentName ?? ''),
+    status,
+    reason: row.reason ? String(row.reason) : undefined,
+    notes: row.notes ? String(row.notes) : undefined,
+    behavioralNote: row.behavioral_note || row.behavioralNote
+      ? String(row.behavioral_note ?? row.behavioralNote)
+      : undefined,
+    minutesLate:
+      row.minutes_late != null || row.minutesLate != null
+        ? Number(row.minutes_late ?? row.minutesLate)
+        : undefined,
+    contactedParent: Boolean(row.contacted_parent ?? row.contactedParent ?? false),
+  };
+}
+
 export async function pushSubmission(
   submission: ClassAttendanceSubmission,
   studentItems: StudentAttendanceItem[]
-): Promise<{ ok: boolean; conflict?: boolean }> {
-  if (!isSupabaseConfigured()) return { ok: false };
+): Promise<{
+  ok: boolean;
+  conflict?: boolean;
+  needsAuth?: boolean;
+  notAssigned?: boolean;
+  error?: string;
+}> {
+  if (!isSupabaseConfigured()) return { ok: true }; // local-only mode — treat as synced
+
+  const token = getDeviceToken();
+  if (!token) {
+    return { ok: false, needsAuth: true, error: 'missing_device_token' };
+  }
 
   const clientOpId = crypto.randomUUID();
   const baseUrl = getSupabaseFunctionsUrl();
-  const payload = { submission, studentItems, clientOpId };
+  // Deployed submit-attendance expects `items` (not studentItems) + x-device-token.
+  const payload = { submission, items: studentItems, clientOpId };
 
   try {
     const res = await fetchWithTimeout(`${baseUrl}/submit-attendance`, {
       method: 'POST',
-      headers: fetchHeaders(),
+      headers: fetchHeaders(true),
       body: JSON.stringify(payload),
     });
 
+    if (res.status === 401) {
+      return { ok: false, needsAuth: true, error: 'unauthorized' };
+    }
     if (res.status === 409) {
-      return { ok: false, conflict: true };
+      return { ok: false, conflict: true, error: 'conflict' };
+    }
+    if (res.status === 403) {
+      // Permanent authorization failure — do NOT enqueue for retry.
+      let detail = 'not_assigned_to_class';
+      try {
+        const body = await res.json();
+        if (body?.error) detail = String(body.error);
+      } catch { /* ignore */ }
+      return { ok: false, notAssigned: true, error: detail };
     }
     if (!res.ok) {
       await enqueue({ clientOpId, endpoint: 'submit-attendance', payload, createdAt: new Date().toISOString() });
-      return { ok: false };
+      return { ok: false, error: `http_${res.status}` };
     }
 
     return { ok: true };
   } catch {
     await enqueue({ clientOpId, endpoint: 'submit-attendance', payload, createdAt: new Date().toISOString() });
-    return { ok: false };
+    return { ok: false, error: 'network' };
   }
 }
 
-export async function pullTodaySubmissions(): Promise<ClassAttendanceSubmission[]> {
+export async function pullTodaySubmissions(date?: string): Promise<ClassAttendanceSubmission[]> {
   if (!isSupabaseConfigured()) return [];
+  const token = getDeviceToken();
+  if (!token) return [];
+
   const baseUrl = getSupabaseFunctionsUrl();
-  const today = new Date().toISOString().slice(0, 10);
+  const day = date || getTodayDateString();
   try {
-    const res = await fetchWithTimeout(`${baseUrl}/submit-attendance?date=${today}`, {
+    const res = await fetchWithTimeout(`${baseUrl}/get-attendance?date=${encodeURIComponent(day)}`, {
       method: 'GET',
-      headers: fetchHeaders(),
+      headers: fetchHeaders(true),
     });
     if (!res.ok) return [];
     const data = await res.json();
-    return data.submissions ?? [];
+
+    const itemsBySubmission = new Map<string, StudentAttendanceItem[]>();
+    for (const raw of (data.items ?? []) as Record<string, unknown>[]) {
+      const mapped = mapServerStudentItem(raw);
+      if (!mapped) continue;
+      const submissionId = String(raw.submission_id ?? '');
+      if (!submissionId) continue;
+      const list = itemsBySubmission.get(submissionId) ?? [];
+      list.push(mapped);
+      itemsBySubmission.set(submissionId, list);
+    }
+
+    const submissions: ClassAttendanceSubmission[] = [];
+    for (const row of (data.submissions ?? []) as Record<string, unknown>[]) {
+      const mapped = mapServerSubmission(row, itemsBySubmission);
+      if (mapped) submissions.push(mapped);
+    }
+    return submissions;
   } catch {
     return [];
+  }
+}
+
+/** Pull today's sheets from the server and merge into AttendanceService. */
+export async function syncTodayAttendance(date?: string): Promise<boolean> {
+  if (!isSupabaseConfigured() || !getDeviceToken()) return false;
+  try {
+    setStatus('syncing');
+    const remote = await pullTodaySubmissions(date);
+    const changed = AttendanceService.applyServerSubmissions(remote);
+    setStatus('synced');
+    return changed;
+  } catch {
+    setStatus('offline');
+    return false;
   }
 }
 
 // ─── Flush offline queue ───
 
 export async function flushOfflineQueue(): Promise<number> {
-  if (!isSupabaseConfigured()) return 0;
+  if (!isSupabaseConfigured() || !getDeviceToken()) return 0;
   const items = await dequeueAll();
   let flushed = 0;
   const baseUrl = getSupabaseFunctionsUrl();
@@ -247,7 +365,7 @@ export async function flushOfflineQueue(): Promise<number> {
     try {
       const res = await fetchWithTimeout(`${baseUrl}/${item.endpoint}`, {
         method: 'POST',
-        headers: fetchHeaders(),
+        headers: fetchHeaders(true),
         body: JSON.stringify(item.payload),
       });
       if (res.ok || res.status === 409) {
@@ -328,17 +446,22 @@ function startRealtime(): void {
 // ─── Lifecycle ───
 
 let _pollTimer: ReturnType<typeof setInterval> | null = null;
+let _attendancePollTimer: ReturnType<typeof setInterval> | null = null;
 const POLL_INTERVAL_MS = 60_000;
+/** Attendance pull interval — keep admin dashboard within ~3–10s of teacher submits */
+const ATTENDANCE_POLL_MS = 8_000;
 
 export function startSync(): () => void {
   if (!isSupabaseConfigured() || typeof window === 'undefined') return () => {};
 
   // Initial pull
   void pullSchedule();
+  void syncTodayAttendance();
   void flushOfflineQueue();
 
   // Polling fallback (Realtime is primary but polling ensures resilience)
   _pollTimer = setInterval(() => { void pullSchedule(); }, POLL_INTERVAL_MS);
+  _attendancePollTimer = setInterval(() => { void syncTodayAttendance(); }, ATTENDANCE_POLL_MS);
 
   // Realtime
   startRealtime();
@@ -347,11 +470,13 @@ export function startSync(): () => void {
   const onWake = () => {
     if (document.visibilityState === 'visible') {
       void pullSchedule();
+      void syncTodayAttendance();
       void flushOfflineQueue();
     }
   };
   const onOnline = () => {
     void pullSchedule();
+    void syncTodayAttendance();
     void flushOfflineQueue();
   };
 
@@ -361,6 +486,7 @@ export function startSync(): () => void {
 
   return () => {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    if (_attendancePollTimer) { clearInterval(_attendancePollTimer); _attendancePollTimer = null; }
     if (_realtimeCleanup) { _realtimeCleanup(); _realtimeCleanup = null; }
     document.removeEventListener('visibilitychange', onWake);
     window.removeEventListener('online', onOnline);

@@ -44,6 +44,7 @@ interface TeacherAttendanceSheetProps {
   onAttendanceSubmitted: () => void;
   onViewStudentProfile?: (studentId: string) => void;
   onOpenReferralModal?: (studentId: string) => void;
+  onNeedsReauth?: () => void;
 }
 
 export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
@@ -52,7 +53,8 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
   simulatedTime,
   onAttendanceSubmitted,
   onViewStudentProfile,
-  onOpenReferralModal
+  onOpenReferralModal,
+  onNeedsReauth,
 }) => {
   const currentDayInfo = AttendanceService.getCurrentDayKey();
   const classes = AttendanceService.getClasses();
@@ -93,6 +95,7 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
   const [submissionTime, setSubmissionTime] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [syncWarning, setSyncWarning] = useState('');
   const [quickActionNotice, setQuickActionNotice] = useState<string | null>(null);
   const [adminReminderAlert, setAdminReminderAlert] = useState<{ active: boolean; message?: string }>(() => ({
     active: AttendanceService.isTeacherRemindedToday(initialClassId())
@@ -237,11 +240,13 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
   };
 
   // Mark all as saved in submission
-  const handleSubmitAttendance = () => {
+  const handleSubmitAttendance = async () => {
     if (!periodValidation.isAllowed) {
       return;
     }
     setIsSubmitting(true);
+    setSyncWarning('');
+    setSuccessMessage('');
 
     const items: StudentAttendanceItem[] = students.map(st => attendanceRecords[st.id] || {
       studentId: st.id,
@@ -272,18 +277,15 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
       students: items
     };
 
-    // Save to service
-    AttendanceService.saveAttendanceSubmission(submission, currentUser);
+    const result = await AttendanceService.saveAttendanceSubmission(submission, currentUser);
 
-    // Realistic processing animation with loader
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setShowConfirmModal(false);
-      setIsSubmittedToday(true);
-      setSubmissionTime(new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }));
-      setSuccessMessage(`تم حفظ واعتماد كشف ${periodValidation.periodName} لفصل ${currentClass.name} بنجاح! تم تحديث سجلات الإدارة فورياً.`);
-      
-      // Trigger festive celebration
+    setIsSubmitting(false);
+    setShowConfirmModal(false);
+    setIsSubmittedToday(true);
+    setSubmissionTime(new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }));
+
+    if (result.syncOk) {
+      setSuccessMessage(`تم حفظ واعتماد كشف ${periodValidation.periodName} لفصل ${currentClass.name} ومزامنته مع لوحة الإدارة بنجاح.`);
       try {
         confetti({
           particleCount: 90,
@@ -293,9 +295,16 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
       } catch (e) {
         // ignore if not supported
       }
+    } else if (result.needsAuth) {
+      setSyncWarning('تم الحفظ على هذا الجهاز فقط. أعد تسجيل الدخول لتفعيل المزامنة مع لوحة الإدارة.');
+      onNeedsReauth?.();
+    } else if (result.notAssigned) {
+      setSyncWarning('تم الحفظ محلياً، لكن الخادم رفض المزامنة لأن هذا الفصل غير مسند لك اليوم وفق الجدول.');
+    } else {
+      setSyncWarning('تم الحفظ على هذا الجهاز. تعذّرت المزامنة مع الخادم حالياً — ستُعاد المحاولة عند عودة الاتصال.');
+    }
 
-      onAttendanceSubmitted();
-    }, 750);
+    onAttendanceSubmitted();
   };
 
   // Helper stats
@@ -582,7 +591,22 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
           </div>
           <button 
             onClick={() => setSuccessMessage('')}
-            className="text-emerald-600 hover:text-emerald-900 font-bold"
+            className="text-emerald-600 hover:text-emerald-900 font-bold min-h-[44px] min-w-[44px] touch-manipulation"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {syncWarning && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold flex items-center justify-between shadow-sm animate-in fade-in gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+            <span>{syncWarning}</span>
+          </div>
+          <button
+            onClick={() => setSyncWarning('')}
+            className="text-amber-700 hover:text-amber-950 font-bold min-h-[44px] min-w-[44px] touch-manipulation"
           >
             ✕
           </button>

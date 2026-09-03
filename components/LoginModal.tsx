@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { User, TeacherSessionValidation } from '../types';
 import { AttendanceService } from '../services/attendanceService';
 import { lookupTeacher } from '../services/teacherAuth';
+import { loginAdmin } from '../services/adminAuth';
+import { clearDeviceToken, getDeviceToken } from '../services/deviceAuth';
+import { isSupabaseConfigured } from '../services/supabaseClient';
 import { 
   GraduationCap, 
   Lock, 
@@ -134,6 +137,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       const localMatch = teachersList.find(u => u.id === outcome.user.id);
       const user = localMatch ? { ...localMatch, ...outcome.user, password: '' } : outcome.user;
 
+      if (isSupabaseConfigured() && !getDeviceToken()) {
+        setError('تعذّر تفعيل مزامنة هذا الجهاز. تأكد من الاتصال بالإنترنت وحاول مرة أخرى.');
+        setLoading(false);
+        return;
+      }
+
       const validation = AttendanceService.validateTeacherSessionData(user);
       if (!validation.isValid) {
         setSessionWarning({ user, validation });
@@ -149,17 +158,32 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   };
 
   // Form submit for Admin Login
-  const handleAdminSubmit = (e: React.FormEvent) => {
+  const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      const trimmedUser = adminUsername.trim().toLowerCase();
-      const enteredPass = adminPassword.trim();
+    const trimmedUser = adminUsername.trim().toLowerCase();
+    const enteredPass = adminPassword.trim();
 
-      const user = users.find(u => u.role === 'admin' && (u.username.toLowerCase() === trimmedUser || trimmedUser === 'admin'));
+    const user = users.find(u => u.role === 'admin' && (u.username.toLowerCase() === trimmedUser || trimmedUser === 'admin'));
 
+    try {
+      // Prefer server login so this device receives a token for get-attendance.
+      const remote = await loginAdmin(enteredPass, trimmedUser || 'admin', user);
+      if (remote.status === 'ok') {
+        const merged = user
+          ? { ...user, ...remote.user, password: '', role: 'admin' as const }
+          : remote.user;
+        completeLogin(merged);
+        return;
+      }
+      if (remote.status === 'invalid') {
+        setError('بيانات دخول الإدارة غير صحيحة. يرجى التأكد من اسم المستخدم وكلمة المرور الخاصة بالإدارة.');
+        return;
+      }
+
+      // Server unavailable: fall back to local password (no cross-device sync token).
       const envAdminPassword = import.meta.env.VITE_ADMIN_PASSWORD || '';
       let isValid = false;
       if (user) {
@@ -170,12 +194,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       }
 
       if (user && isValid) {
+        clearDeviceToken();
         completeLogin(user);
       } else {
         setError('بيانات دخول الإدارة غير صحيحة. يرجى التأكد من اسم المستخدم وكلمة المرور الخاصة بالإدارة.');
       }
+    } catch {
+      setError('حدث خطأ غير متوقع أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.');
+    } finally {
       setLoading(false);
-    }, 250);
+    }
   };
 
   return (

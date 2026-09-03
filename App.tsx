@@ -25,9 +25,11 @@ import { PortalLinksModal } from './components/PortalLinksModal';
 import { StudentReferralsManager } from './components/StudentReferralsManager';
 import { StudentReferralModal } from './components/StudentReferralModal';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
-import { GraduationCap, ShieldAlert, Sparkles, BookOpen, Clock, Heart, ShieldCheck } from 'lucide-react';
+import { GraduationCap, ShieldAlert, Sparkles, BookOpen, Clock, Heart, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { getTodayDateString } from './services/initialData';
-import { startSync } from './services/syncAdapter';
+import { startSync, syncTodayAttendance } from './services/syncAdapter';
+import { isSupabaseConfigured } from './services/supabaseClient';
+import { getDeviceToken } from './services/deviceAuth';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -48,9 +50,28 @@ export const App: React.FC = () => {
   });
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(() => {
     AttendanceService.initStorage();
-    return !AttendanceService.getCurrentUser();
+    const session = AttendanceService.getCurrentUser();
+    if (!session) return true;
+    // Half-synced sessions (logged in locally, no device token) cannot push/pull.
+    if (isSupabaseConfigured() && !getDeviceToken()) return true;
+    return false;
   });
-  const [loginInitialRole, setLoginInitialRole] = useState<'teacher' | 'admin' | null>(null);
+  const [loginInitialRole, setLoginInitialRole] = useState<'teacher' | 'admin' | null>(() => {
+    AttendanceService.initStorage();
+    const session = AttendanceService.getCurrentUser();
+    if (session && isSupabaseConfigured() && !getDeviceToken()) {
+      return session.role === 'admin' ? 'admin' : 'teacher';
+    }
+    return null;
+  });
+  const [syncAuthRequired, setSyncAuthRequired] = useState(() => {
+    AttendanceService.initStorage();
+    return Boolean(
+      AttendanceService.getCurrentUser() &&
+      isSupabaseConfigured() &&
+      !getDeviceToken()
+    );
+  });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isPrintReportOpen, setIsPrintReportOpen] = useState(false);
   const [isArchivingModalOpen, setIsArchivingModalOpen] = useState(false);
@@ -61,6 +82,19 @@ export const App: React.FC = () => {
   const [isContactsModalOpen, setIsContactsModalOpen] = useState(false);
   const [isPortalLinksModalOpen, setIsPortalLinksModalOpen] = useState(false);
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
+
+  // Force re-login when a restored session has no sync device token
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const session = AttendanceService.getCurrentUser();
+    if (session && !getDeviceToken()) {
+      setSyncAuthRequired(true);
+      setLoginInitialRole(session.role === 'admin' ? 'admin' : 'teacher');
+      setIsLoginModalOpen(true);
+      setCurrentUser(null);
+      AttendanceService.setCurrentUser(null);
+    }
+  }, []);
 
   // Cross-device sync: schedule, attendance, Realtime. No-op when
   // VITE_SUPABASE_URL is unset, so local-only installs behave exactly as before.
@@ -193,6 +227,10 @@ export const App: React.FC = () => {
     setActiveTab('attendance');
   };
 
+  const needsSyncReauth = Boolean(
+    currentUser && isSupabaseConfigured() && !getDeviceToken()
+  );
+
   const stats = AttendanceService.getTodaySchoolStats();
 
   return (
@@ -205,6 +243,25 @@ export const App: React.FC = () => {
         }}
         onViewStudentProfile={handleViewStudentProfile}
       />
+
+      {(needsSyncReauth || syncAuthRequired) && (
+        <div className="bg-amber-600 text-white px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-sm font-bold shadow-md z-40">
+          <div className="flex items-center gap-2 min-h-[44px]">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <span>المزامنة معطّلة على هذا الجهاز. أعد تسجيل الدخول لتفعيل انعكاس الغياب بين الأجهزة.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setLoginInitialRole(currentUser?.role === 'admin' ? 'admin' : 'teacher');
+              setIsLoginModalOpen(true);
+            }}
+            className="min-h-[44px] px-4 rounded-xl bg-white text-amber-800 font-black touch-manipulation"
+          >
+            تسجيل الدخول الآن
+          </button>
+        </div>
+      )}
 
       {/* Time simulator — admin only (hidden from teachers) */}
       {currentUser?.role === 'admin' && (
@@ -273,6 +330,11 @@ export const App: React.FC = () => {
                 onAttendanceSubmitted={() => setRefreshTrigger(prev => prev + 1)}
                 onViewStudentProfile={handleViewStudentProfile}
                 onOpenReferralModal={handleOpenReferralModal}
+                onNeedsReauth={() => {
+                  setLoginInitialRole('teacher');
+                  setSyncAuthRequired(true);
+                  setIsLoginModalOpen(true);
+                }}
               />
             )}
 
@@ -383,8 +445,11 @@ export const App: React.FC = () => {
           setCurrentUser(user);
           setIsLoginModalOpen(false);
           setSessionExpiredNotice(false);
+          setSyncAuthRequired(false);
           if (user.role === 'admin') setActiveTab('dashboard');
           else setActiveTab('attendance');
+          // Token was just issued — pull remote attendance immediately for admin.
+          void syncTodayAttendance();
         }}
       />
 

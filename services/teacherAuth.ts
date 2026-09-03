@@ -1,4 +1,5 @@
 import { User } from '../types';
+import { setDeviceToken } from './deviceAuth';
 
 /**
  * Server-side teacher identification.
@@ -135,6 +136,13 @@ export async function lookupTeacher(identifier: string): Promise<TeacherLookupOu
         if (data?.found && data.teacher) {
           const user = toUser(data.teacher as ServerTeacher);
           if (identifierHash) rememberOnDevice(identifierHash, user);
+          // Persist device token so submit-attendance / get-attendance work
+          if (typeof data.deviceToken === 'string' && data.deviceToken) {
+            setDeviceToken(data.deviceToken, {
+              teacherId: user.id,
+              role: user.role === 'admin' ? 'admin' : 'teacher',
+            });
+          }
           return { status: 'found', user, source: 'server' };
         }
         return { status: 'not_found' };
@@ -149,7 +157,14 @@ export async function lookupTeacher(identifier: string): Promise<TeacherLookupOu
 
   if (identifierHash) {
     const known = readTrustStore()[identifierHash];
-    if (known) return { status: 'found', user: known, source: 'device' };
+    // Device-cache login has no fresh deviceToken. When Supabase is configured,
+    // refuse silent offline login so push/pull cannot run without credentials.
+    if (known) {
+      if (SUPABASE_URL) {
+        return { status: 'unavailable' };
+      }
+      return { status: 'found', user: known, source: 'device' };
+    }
   }
 
   // Remote configured but unreachable, and this device has not seen this
