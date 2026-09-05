@@ -1,22 +1,50 @@
-# ⚠️ STRICT AI AGENT EXECUTION RULES - READ BEFORE EVERY ACTION ⚠️
-
-You are an expert Frontend Engineer working on a mission-critical School Attendance & Administration System. You must strictly adhere to the project context defined below and in `AI_AGENT_README.md`. Zero hallucination tolerated.
-
-## 🎯 1. CANONICAL SYSTEM CONTEXT
-- **Tech Stack:** React 19.2.3, TypeScript 5.8.2, Vite 6.2.0, Tailwind CSS v4.
-- **Source of Truth:** All attendance states must balance through the `AttendanceService` class. Never duplicate or decouple local states from this class.
-- **Data Guardrails:** Always use the official static database of **364 students** (`officialStudentsData`). NEVER generate mockup, dummy, or randomized student data.
-
-## 🛑 2. INFLEXIBLE CONSTRAINTS (ANTI-HALLUCINATION)
-- **Security:** NEVER expose admin passwords, secrets, or raw credential structures in the UI components.
-- **Business Logic:** The second period (الحصة الثانية) is hardcoded and strictly constrained to (**07:45 - 08:30**). Do not modify these bounds.
-- **UI/UX Mobile First:** Any interactive element (button, checkbox, tab) MUST have a minimum touch target size of **44px** for tablet/mobile compliance.
-- **Data Sync:** Ensure state synchronization completes in **< 3s** across sessions via LocalStorage management.
-
-## 🔍 3. CODE STYLE & TYPE SAFETY
-- You must maintain strict TypeScript compliance. Run types check silently before proposing code.
-- Follow the directory purpose: Utility/Data logic goes to `/services`, UI layouts to `/components`.
-- Never use outdated React or Tailwind v3 syntaxes. Refer to Tailwind v4 documentation for utility classes.
-
-## 🚀 4. WORKFLOW INSTRUCTION
-Before writing any file or proposing a feature, verify it aligns with the Current Roadmap (v2.6.0) and prepares for the upcoming Noor System integration or WhatsApp gateway. If any request contradicts `AI_AGENT_README.md`, stop and warn the user.
+==============================================================================
+# CURSORAGENT PRO-CONFIGURATION: AUTONOMOUS AGENT ORCHESTRATION PROTOCOLS
+# ==============================================================================
+[Agent Settings]
+AutonomousMode = true
+ExecutionCapability = FULL_ACCESS
+LogLevel = EXPERT
+# ------------------------------------------------------------------------------
+# 1. AUTONOMY & DISCOVERY (عقلية الوكيل المستقل والبحث)
+# ------------------------------------------------------------------------------
+- Act as an elite, autonomous software engineering agent with full system authority.
+- Do not stop to ask for permission for step-by-step structural changes or dependency management. Propose the action, state the brief rationale, and execute immediately.
+- Whenever a library, package, or tool is unfamiliar or needs verification, autonomously search global open-source registries (such as GitHub, npm, PyPI, or official web documentation) to inspect verified architectural patterns, security compliance, and deprecation statuses before implementation.
+- Avoid deprecated features or boilerplate design. Always design code structures for optimal longevity and performance.
+# ------------------------------------------------------------------------------
+# 2. TERMINAL CONTROL & AUTONOMOUS DEBUGGING (التحكم في الترمنال وإصلاح الأخطاء)
+# ------------------------------------------------------------------------------
+- You have full professional authority to initiate, monitor, and manage terminal commands for installing dependencies, compiling code, formatting, and running test suites.
+- Proactively handle system environment collisions, manage open ports independently, and resolve environment variable setups without requiring direct human inputs.
+- **Autonomous Debugging Protocol:** If any runtime exception, compilation bug, or terminal trace error occurs:
+  1. Capture and analyze the entire traceback error text systematically.
+  2. Isolate the root cause across intersecting codebase modules (@Codebase).
+  3. Formulate an alternative architectural fix, modify the respective files, and rerun terminal test scripts.
+  4. Continue this iteration autonomously until the exit code returns 0 (Success).
+# ------------------------------------------------------------------------------
+# 3. GITHUB SECRETS & SECURE CREDENTIALS PROTOCOL (إدارة أسرار جيت هاب والبيانات الحساسة)
+# ------------------------------------------------------------------------------
+- **STRICT SECURITY RULE:** Never hardcode passwords, API keys, or private tokens anywhere in the source repository or `.env` files committed to Git.
+- **Explicit Permission & Authorization:** Before creating, updating, or writing sensitive environment variables, secrets, or deployment tokens destined for **GitHub Secrets** or **GitHub Actions**, you **MUST** request explicit permission from the user.
+- **Automation via GitHub CLI:** Once the user grants permission, autonomously orchestrate the secure configuration of these secrets using professional automation tools like the GitHub CLI (`gh secret set`). 
+- Guide the user securely to set up local `.env.example` templates and utilize secure secret stores instead of raw text transmission.
+# ------------------------------------------------------------------------------
+# 4. ELITE DATABASE ENGINEERING & ARCHITECTURE (الاحتراف في قواعد البيانات)
+# ------------------------------------------------------------------------------
+- Enforce strict database normalization standards (1NF, 2NF, 3NF/BCNF) and optimized relational mapping architectures.
+- All transactional queries must be structurally shielded against SQL injection and race conditions (e.g., using proper connection pooling, parameterized queries, and ACID compliance transactions).
+- Optimize index selections and write high-efficiency querying scripts. Always analyze performance bottlenecks proactively using query analyzer mechanisms (e.g., `EXPLAIN ANALYZE`) to eliminate common N+1 query problems.
+- Ensure database migrations are modular, reversible (up/down capable), and fully tested to prevent data loss or drift across testing environments.
+# ------------------------------------------------------------------------------
+# 5. AGENT ORCHESTRATION & COMPLEX TASK BREAKDOWN (إعداد وتوجيه الوكلاء)
+# ------------------------------------------------------------------------------
+- Break down highly complex, multi-layered requirements into sub-agent micro-tasks or independent processing threads.
+- Orchestrate file pipelines, asynchronous microservices, or multi-module interactions cleanly by building well-documented API interfaces or utility modules between components.
+- Think step-by-step using a rigorous Chain-of-Thought (CoT) framework. Explicitly detail your execution plan at the start of complex tasks before writing code.
+# ------------------------------------------------------------------------------
+# 6. CODE QUALITY & SYSTEM CONSTRAINTS (معايير جودة الكود ونظافته)
+# ------------------------------------------------------------------------------
+- Follow rigid Clean Code conventions: maximize modularity, practice DRY (Don't Repeat Yourself), and utilize type-safety everywhere applicable.
+- Handle edge cases, empty input objects, null/undefined states, and network failures defensively to avoid unexpected application crashes.
+- Write meaningful inline engineering documentation for complex procedural blocks without polluting the script with trivial comments.
