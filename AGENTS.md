@@ -6,7 +6,7 @@
 **Label version:** `v2.6.0`  
 **Canonical production:** https://zayd-bin-thabit-attendance.vercel.app  
 
-**Read next:** [`ENGINEERING_HISTORY.md`](./ENGINEERING_HISTORY.md) (why things changed), [`SYNC_DESIGN.md`](./SYNC_DESIGN.md) (sync contract).
+**Read next:** [`PRODUCT_LOGIC.md`](./PRODUCT_LOGIC.md) (production purpose & expected behavior), [`ENGINEERING_HISTORY.md`](./ENGINEERING_HISTORY.md) (why things changed), [`SYNC_DESIGN.md`](./SYNC_DESIGN.md) (sync contract).
 
 ---
 
@@ -172,6 +172,7 @@ npm run supabase:deploy-functions
 
 | Doc | Audience |
 |-----|----------|
+| [`PRODUCT_LOGIC.md`](./PRODUCT_LOGIC.md) | Ops/agents — purpose & production expectations |
 | [`ENGINEERING_HISTORY.md`](./ENGINEERING_HISTORY.md) | Agents — bugs, reasons, verify |
 | [`AI_AGENT_README.md`](./AI_AGENT_README.md) | Agents — architecture depth |
 | [`SYNC_DESIGN.md`](./SYNC_DESIGN.md) | Agents — sync design |

@@ -10,6 +10,7 @@
 | الوثيقة | لمن؟ |
 |---------|------|
 | [`AGENTS.md`](./AGENTS.md) | أي وكيل/مطوّر — قواعد التشغيل الحالية |
+| [`PRODUCT_LOGIC.md`](./PRODUCT_LOGIC.md) | منطق العمل والتوقعات الإنتاجية |
 | [`ENGINEERING_HISTORY.md`](./ENGINEERING_HISTORY.md) | سجل التعديلات والأخطاء والأسباب |
 | [`AI_AGENT_README.md`](./AI_AGENT_README.md) | المعمارية التقنية |
 | [`DEPLOYMENT_REPORT.md`](./DEPLOYMENT_REPORT.md) | النشر على Vercel |
