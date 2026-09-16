@@ -1,124 +1,181 @@
-# 🚀 AGENTS.md — Developer & AI Agent Reference Manual
-**Project:** Zayd Bin Thabit Elementary Attendance System (نظام متابعة ورصد الغياب المبتكر)  
-**Target Environment:** React 18+ / TypeScript / Vite / Tailwind CSS / Firebase Firestore Ready / Cloud Run Ready  
+# AGENTS.md — Developer & AI Agent Operating Manual
+
+**Project:** Zayd Bin Thabit Elementary Attendance (نظام متابعة ورصد الغياب المبتكر)  
+**Stack:** React 19 + TypeScript + Vite 6 + Tailwind CSS v4 + Supabase (Edge Functions)  
 **Application ID:** `e18b3982-4516-4e7a-aa23-07b607fd09c1`  
-**Current Production Version:** `v2.6.0`
+**Label version:** `v2.6.0`  
+**Canonical production:** https://zayd-bin-thabit-attendance.vercel.app  
+
+**Read next:** [`ENGINEERING_HISTORY.md`](./ENGINEERING_HISTORY.md) (why things changed), [`SYNC_DESIGN.md`](./SYNC_DESIGN.md) (sync contract).
 
 ---
 
-## 1. Project Overview & Architecture
+## 1. Mission
 
-This application is a specialized, production-ready school attendance and student discipline tracking platform, tailored for primary education institutions (specifically modeled on Saudi Arabian elementary school workflows focusing on **Period 2 / الحصة الثانية (07:45 - 08:30)** official absence recording and compliance with Ministry of Education regulations).
+Saudi elementary attendance / discipline tracking focused on **Period 2 / الحصة الثانية (07:45–08:30)** as the official absence recording window, with RBAC for admin and teachers, offline-first LocalStorage, and optional Supabase multi-device sync.
 
-### Key Architectural Pillars
-- **Frontend Stack**: React 18 with TypeScript, Vite, Tailwind CSS v4, Lucide React icons, and Motion (`motion/react`).
-- **Data Layer**: Standardized client-side LocalStorage caching with dual-mode Firestore synchronization capability via `attendanceService.ts`.
-- **Roster Baseline**: 364 real enrolled students structured across 11 official class sections (Grade 3 to Grade 6) and 20+ official faculty profiles.
-- **Role-Based Access Control (RBAC)**:
-  - **Administrator (`admin`)**: Full control over class allocations, period schedules, student directories, PDF/Excel reports, WhatsApp blast triggers, audit trails, and system settings. Credential privacy is strictly enforced on login views.
-  - **Teacher (`teacher`)**: Focused single-purpose view for attendance recording, timetable-based period validation (Period 2 restricted to 07:45-08:30 and assigned teachers), quick status toggling, offline draft caching, and parental communication.
+### Roles
+- **admin:** Live Period-2 monitoring, reminders, exports, roster/tools, settings.
+- **teacher:** Record attendance for assigned class/period; parental WhatsApp helpers.
 
 ---
 
-## 2. Directory Structure & Key Files
+## 2. Non-negotiable constraints
+
+1. **Period 2 bounds are fixed:** `07:45`–`08:30`. Do not change.
+2. **Roster:** Use official data (`officialStudentsData` / grade files). Never invent mock students.
+3. **State:** All attendance balances through `AttendanceService`. No parallel local sources of truth.
+4. **Touch targets:** Interactive controls ≥ **44px** + `touch-manipulation` on mobile.
+5. **Secrets:** Never expose admin passwords, tokens, or raw credential structures in UI.
+6. **Sync honesty:** Local save ≠ cloud sync. Surface `needsAuth` / `notAssigned` / network failure.
+7. **Dates:** Use Asia/Riyadh “today” helpers for attendance dates and day keys.
+8. **QA chrome:** Simulators stay behind `?debug=1` or `localStorage zayd_qa_tools=1` (`services/qaTools.ts`).
+
+---
+
+## 3. Architecture (current)
 
 ```text
-├── components/                     # UI Subcomponents & Modals
-│   ├── AdminDashboard.tsx          # Administrator main command center & live statistics
-│   ├── ContactsManager.tsx         # Contacts directory, phonebook & search/sort manager
-│   ├── ContactsManagerModal.tsx    # Modal wrapper for quick contact access
-│   ├── TeacherAttendanceSheet.tsx  # Optimized mobile/desktop 1-touch attendance recording sheet
-│   ├── TeacherAndClassManagerModal.tsx # Teacher assignment & class roster allocation
-│   ├── StudentDirectory.tsx        # Comprehensive student roster & individual student profiles
-│   ├── StudentImportModal.tsx      # Excel / CSV smart bulk roster importer
-│   ├── ExcuseManager.tsx           # Absence excuses management & medical report approvals
-│   ├── PrintableDailyReport.tsx    # Official A4 formatted daily attendance printouts
-│   ├── PdfReportsExportModal.tsx   # PDF export engine for statistical sheets
-│   ├── GoogleSheetsExportModal.tsx # Cloud spreadsheet synchronization
-│   ├── NotificationCenterModal.tsx # WhatsApp notifications & automated parental alerts
-│   ├── SchoolSettingsModal.tsx     # School configuration (terms, period timings, branding)
-│   ├── TimeSimulatorBar.tsx        # Period 2 / school time simulation and lock testing
-│   ├── ToastNotificationContainer.tsx # Global action feedback notifications
-│   └── Navbar.tsx                  # Global responsive header & role switcher
-├── services/                       # Data services & static baselines
-│   ├── contactsService.ts          # Local phonebook database CRUD, search, filter, and vCard
-│   ├── googleContactsService.ts    # Google People API OAuth2 integration (import & export)
-│   ├── attendanceService.ts        # Central business logic, persistence, and CRUD methods
-│   ├── officialStudentsData.ts     # Aggregated roster of 364 official students
-│   ├── studentsGrade3.ts           # Grade 3 classes (3 sections: ثالث 1, ثالث 2, ثالث 3)
-│   ├── studentsGrade4.ts           # Grade 4 classes (3 sections: رابع 1, رابع 2, رابع 3)
-│   ├── studentsGrade5.ts           # Grade 5 classes (3 sections: خامس 1, خامس 2, خامس 3)
-│   ├── studentsGrade6.ts           # Grade 6 classes (2 sections: سادس 1, سادس 2)
-│   ├── officialClassesData.ts      # 11 School Classes with capacities, room numbers, and teachers
-│   ├── teachersData.ts             # 20+ Official faculty and staff records with phone/credentials
-│   └── initialData.ts              # System default seed configurations and period schemas
-├── types.ts                        # Master TypeScript interfaces, schemas, and types
-├── USER_MANUAL.md                  # Comprehensive Arabic user manual for school staff
-└── AGENTS.md                       # This technical architecture and developer guide
+UI (components/*)
+  → AttendanceService (canonical)
+  → LocalStorage
+  → syncAdapter (optional)
+       → teacher-login / admin-login  → deviceToken
+       → submit-attendance (push)
+       → get-attendance (pull, ~8s poll)
+       → applyServerSubmissions (LWW merge)
+```
+
+Supabase project ref: `dhpvladkiqajorowrlhj`  
+Without `VITE_SUPABASE_*`, sync is a silent no-op and the app remains usable offline.
+
+---
+
+## 4. Critical paths & files
+
+| Area | Files |
+|------|--------|
+| Attendance core | `services/attendanceService.ts`, `types.ts` |
+| Sync | `services/syncAdapter.ts`, `services/deviceAuth.ts`, `services/supabaseClient.ts` |
+| Auth | `services/teacherAuth.ts`, `services/adminAuth.ts`, `components/LoginModal.tsx` |
+| QA gate | `services/qaTools.ts`, `App.tsx` |
+| Admin UI | `components/AdminDashboard.tsx`, `components/Navbar.tsx` |
+| Teacher UI | `components/TeacherAttendanceSheet.tsx` |
+| Roster | `services/officialStudentsData.ts`, `studentsGrade3..6.ts`, `officialClassesData.ts`, `teachersData.ts` |
+| Edge | `supabase/functions/submit-attendance`, `get-attendance`, `teacher-login`, `admin-login`, `get-schedule` |
+
+Layout is **root-level** (no `src/` app tree). Do not create a parallel `src/` app.
+
+---
+
+## 5. Sync contract (agents)
+
+### Login
+- Teacher: phone via `teacher-login` → store `deviceToken`.
+- Admin: password via `admin-login` → store `deviceToken`.
+- If Supabase configured and token missing → force re-login (amber banner). Do not allow device-cache login without token.
+
+### Push (`pushSubmission`)
+- Headers: `Authorization` + `apikey` + **`x-device-token`**
+- Body: `{ submission, items, clientOpId }` (`items`, not `studentItems`)
+- **401** → `needsAuth` (do not enqueue)
+- **403** → `notAssigned` (do not enqueue)
+- Other failures may enqueue for retry
+
+### Assignment rules (server mirrors client)
+Teacher may submit if daily Period assignment matches **OR** homeroom `assigned_class_id` **OR** `classes.homeroom_teacher_id` when no daily row.
+
+### Pull
+- Admin/teacher poll `get-attendance?date=YYYY-MM-DD` with device token.
+- Merge via `AttendanceService.applyServerSubmissions`.
+
+### Verify sync end-to-end
+1. Teacher submit with token for assigned/homeroom class.
+2. Admin `get-attendance` includes class + absent student.
+3. Admin dashboard count updates without hard refresh (poll ~8s).
+
+---
+
+## 6. Local development
+
+```bash
+cp .env.example .env.local
+# fill VITE_ADMIN_PASSWORD, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+
+npm install
+npm run lint      # tsc --noEmit
+npm test          # vitest (expect 24+ passing)
+npm run build
+npm run dev       # http://localhost:3000
+```
+
+QA tools: open `http://localhost:3000/?debug=1`.
+
+---
+
+## 7. Production deploy (Vercel)
+
+```bash
+npx vercel link --yes --project zayd-bin-thabit-attendance   # once
+npx vercel env ls
+npx vercel deploy --prod --yes
+```
+
+Required env (Production/Preview/Development):
+
+- `VITE_ADMIN_PASSWORD`
+- `VITE_SUPABASE_URL` = `https://dhpvladkiqajorowrlhj.supabase.co`
+- `VITE_SUPABASE_ANON_KEY` (anon/publishable only — never service_role in Vite)
+
+**Vite bakes env at build time** — changing env requires a new production deploy.
+
+Historical GitHub Pages (`gh-pages`) may still exist; **do not treat it as canonical** unless explicitly asked.
+
+Supabase function/schema changes:
+
+```bash
+npm run supabase:migrate
+npm run supabase:deploy-functions
 ```
 
 ---
 
-## 3. Core Workflows & Logic
+## 8. UI product rules (post-declutter)
 
-### 3.1 Attendance Recording & Timetable Validation (`validatePeriodAttendance`)
-- **Period 2 Schedule**: Recording is restricted to the official window (**07:45 AM - 08:30 AM**).
-- **Teacher Assignment Guard**: For Period 2, only the teacher assigned to the class for that day in the school timetable can record/submit attendance.
-- **Other Periods**: Available for attendance tracking whenever the current time matches that period's schedule slot.
-- **Default State**: Students default to `present` (حاضر). Teachers toggle exceptions: `absent` (غائب), `late` (متأخر), `excused` (بعذر).
-- **Mobile Optimization**: Single-touch 44px targets with quick preset buttons for reasons (`غياب بدون عذر`, `مرض / عذر طبي`, `ظرف أسري طارئ`, `سفر`).
-- Instant summary bar at screen bottom: counts present, absent, and late tallies dynamically.
-
-### 3.2 Live Synchronization
-- Submissions update local storage and trigger event listeners that update the `AdminDashboard` in `< 3 seconds` without requiring manual browser reloads.
-- Audit logs capture timestamp, teacher ID, class, student status changes, and device metadata.
-
-### 3.3 Excuses & Discipline Rules
-- Pre-approved medical excuses (e.g. from Seha platform) automatically convert "Unexcused Absence" to "Excused Absence" in cumulative statistics.
+- Admin dashboard primary job: **monitor Period 2 + remind late teachers**.
+- Tools live under **تصدير** and **إدارة** menus — do not restore the dense emoji CTA strip / “بوابة الإدارة والتعديل الشامل” hub.
+- Keep Navbar light; put deep tools in menus / settings.
+- Teacher sheet: roster + submit first; avoid celebratory confetti on submit.
 
 ---
 
-## 4. Development & Maintenance Guidelines for AI Agents
+## 9. Engineering standards
 
-When modifying or extending this codebase, adhere strictly to these engineering standards:
-
-1. **Security & Privacy**: Never hardcode or display administrator credentials in UI placeholders, labels, or client errors.
-2. **Type Safety**: Keep `types.ts` synchronized with all changes. Never use `any` for core data entities (`Student`, `SchoolClass`, `ClassAttendanceSubmission`, `User`).
-3. **Component Separation**: Avoid bloating `App.tsx`. Extract modals and viewers into `/components/`.
-4. **Responsive Design**:
-   - Ensure all touch targets on mobile viewports are at least `44px` with `touch-manipulation`.
-   - Test layouts against standard Tailwind breakpoints (`sm:`, `md:`, `lg:`, `xl:`).
-5. **Icons**: Use `lucide-react` exclusively. Do not write custom inline SVGs.
-6. **No Mock Placeholder Data**: Always utilize the official data structures exported from `/services/` containing real class and student names.
-7. **Linter & Compilation Verification**: Always run `npm run lint` (`tsc --noEmit`) and `npm run build` after changes to ensure zero compiler warnings or broken imports.
+1. Keep `types.ts` aligned; no `any` on core entities.
+2. Prefer `/components` and `/services` over bloating `App.tsx`.
+3. Icons: `lucide-react` only.
+4. After code changes: `npm run lint`, `npm test`, `npm run build`.
+5. Document non-obvious fixes in [`ENGINEERING_HISTORY.md`](./ENGINEERING_HISTORY.md).
 
 ---
 
-## 5. Completed Capabilities Matrix
+## 10. Roadmap (do not confuse with done)
 
-- [x] Complete 364-student database distributed across 11 classes (Grades 3, 4, 5, 6).
-- [x] 20+ Official teacher accounts with national IDs and phone credentials.
-- [x] One-touch mobile-optimized attendance sheet (`TeacherAttendanceSheet.tsx`) with Responsive Grid (1-col mobile, 2-col tablet, 3-col desktop) and 44px touch targets.
-- [x] Official Period 2 window lock (07:45 - 08:30) and timetable-based assigned teacher verification.
-- [x] Multi-period recording capability aligned with the school timetable.
-- [x] Secured login view with hidden administrative credentials.
-- [x] Real-time Admin Dashboard with instantaneous KPI gauges and < 3s synchronization.
-- [x] In-memory high-speed caching layer with resilient LocalStorage persistence.
-- [x] WhatsApp direct parental notifications generator.
-- [x] Full-fledged Contacts Directory (`ContactsManager.tsx`) with local persistence, fast multi-field search, multi-tier sorting, 1-click roster synchronization, and Google Contacts (People API) OAuth integration.
-- [x] Formal A4 PDF / Print daily attendance report layout matching official ministry standards.
-- [x] Smart CSV / Excel roster import and export engine.
-- [x] Master End-to-End QA Test Plan (`QA-MTP-ATTENDANCE-2026-V2.0`) covering RBAC login, Period 2 scheduling, concurrency, resilience, and UI accessibility.
+- Noor ministry export
+- WhatsApp Business / SMS gateway
+- Optional NFC / kiosk
+- Absenteeism analytics
 
 ---
 
-## 6. Future Expansion Roadmap & Suggestions
+## 11. Doc index
 
-1. **Ministry System Integration (Noor API)**:
-   - Provide automated nightly export payloads formatted for direct upload into the Noor Educational System.
-2. **Direct SMS / WhatsApp Business API Gateway**:
-   - Integrate server-side WhatsApp Cloud API / Twilio SMS for automatic batch messaging to all parents of absent students upon Period 2 lock.
-3. **Smart Facial Recognition / NFC Terminal**:
-   - Add optional classroom tablet kiosk mode with NFC tag student check-in.
-4. **Automated Behavioral Analytics (AI Insights)**:
-   - Predict chronic absenteeism patterns using machine learning trends across days of the week (e.g., Sunday/Thursday absence spikes).
+| Doc | Audience |
+|-----|----------|
+| [`ENGINEERING_HISTORY.md`](./ENGINEERING_HISTORY.md) | Agents — bugs, reasons, verify |
+| [`AI_AGENT_README.md`](./AI_AGENT_README.md) | Agents — architecture depth |
+| [`SYNC_DESIGN.md`](./SYNC_DESIGN.md) | Agents — sync design |
+| [`DEPLOYMENT_REPORT.md`](./DEPLOYMENT_REPORT.md) | Ops — deploy truth |
+| [`HANDOVER.md`](./HANDOVER.md) | School ops (Arabic) |
+| [`USER_MANUAL.md`](./USER_MANUAL.md) | Staff (Arabic) |
+| [`README.md`](./README.md) | Entry point |
