@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { User, SchoolClass, Student, StudentAttendanceItem, SchoolSettings, ClassAttendanceSubmission } from '../types';
 import { AttendanceService, TEACHER_REMINDER_EVENT, SCHEDULE_CHANGE_EVENT } from '../services/attendanceService';
 import { ABSENCE_REASONS, BEHAVIORAL_NOTE_PRESETS, getTodayDateString } from '../services/initialData';
-import confetti from 'canvas-confetti';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -286,15 +285,6 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
 
     if (result.syncOk) {
       setSuccessMessage(`تم حفظ واعتماد كشف ${periodValidation.periodName} لفصل ${currentClass.name} ومزامنته مع لوحة الإدارة بنجاح.`);
-      try {
-        confetti({
-          particleCount: 90,
-          spread: 80,
-          origin: { y: 0.6 }
-        });
-      } catch (e) {
-        // ignore if not supported
-      }
     } else if (result.needsAuth) {
       setSyncWarning('تم الحفظ على هذا الجهاز فقط. أعد تسجيل الدخول لتفعيل المزامنة مع لوحة الإدارة.');
       onNeedsReauth?.();
@@ -690,57 +680,24 @@ export const TeacherAttendanceSheet: React.FC<TeacherAttendanceSheetProps> = ({
         </div>
       </div>
 
-      {/* Class Statistics Overview Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold shrink-0">
-            <Users className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] font-bold text-slate-400 truncate">إجمالي طلاب الفصل</div>
-            <div className="text-lg sm:text-xl font-black text-slate-800">{students.length}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-emerald-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] font-bold text-emerald-600 truncate">الحاضرون</div>
-            <div className="text-lg sm:text-xl font-black text-emerald-700">{presentTotal}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-rose-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold shrink-0">
-            <XCircle className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] font-bold text-rose-600 truncate">الغياب بدون عذر</div>
-            <div className="text-lg sm:text-xl font-black text-rose-700">{absentTotal}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-blue-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold shrink-0">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] font-bold text-blue-600 truncate">غياب بعذر معتمد</div>
-            <div className="text-lg sm:text-xl font-black text-blue-700">{excusedTotal}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-amber-200 shadow-sm flex items-center gap-3 col-span-2 sm:col-span-1">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold shrink-0">
-            <Clock className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] font-bold text-amber-600 truncate">المتأخرون</div>
-            <div className="text-lg sm:text-xl font-black text-amber-700">{lateTotal}</div>
-          </div>
-        </div>
+      {/* Compact class tallies — keep roster as visual priority */}
+      <div className="bg-white px-3 py-2.5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-bold">
+        <span className="text-slate-500 flex items-center gap-1.5 min-h-[36px]">
+          <Users className="w-3.5 h-3.5" />
+          {students.length} طالب
+        </span>
+        <span className="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-lg min-h-[36px] inline-flex items-center">
+          حاضر {presentTotal}
+        </span>
+        <span className="text-rose-700 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-lg min-h-[36px] inline-flex items-center">
+          غائب {absentTotal}
+        </span>
+        <span className="text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg min-h-[36px] inline-flex items-center">
+          بعذر {excusedTotal}
+        </span>
+        <span className="text-amber-700 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-lg min-h-[36px] inline-flex items-center">
+          متأخر {lateTotal}
+        </span>
       </div>
 
       {/* Toolbar & Filter */}

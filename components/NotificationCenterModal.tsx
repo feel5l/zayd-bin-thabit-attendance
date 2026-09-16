@@ -22,12 +22,14 @@ interface NotificationCenterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenClassSheet: (classId: string) => void;
+  qaToolsEnabled?: boolean;
 }
 
 export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = ({
   isOpen,
   onClose,
-  onOpenClassSheet
+  onOpenClassSheet,
+  qaToolsEnabled = false
 }) => {
   const [notifications, setNotifications] = useState<AttendanceNotification[]>(() => AttendanceService.getNotifications());
   const [activeFilter, setActiveFilter] = useState<'all' | 'unexcused' | 'excused' | 'unread'>('all');
@@ -170,14 +172,16 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
 
           {/* Action buttons */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleSimulateNew}
-              className="px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
-              title="توليد إشعار رصد افتراضي لاختبار نظام التنبيهات الفورية"
-            >
-              <PlayCircle className="w-3.5 h-3.5 text-amber-700" />
-              <span>محاكاة رصد جديد 🔔</span>
-            </button>
+            {qaToolsEnabled && (
+              <button
+                onClick={handleSimulateNew}
+                className="min-h-[44px] px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition shadow-sm touch-manipulation"
+                title="توليد إشعار رصد افتراضي لاختبار نظام التنبيهات الفورية"
+              >
+                <PlayCircle className="w-3.5 h-3.5 text-amber-700" />
+                <span>محاكاة رصد جديد</span>
+              </button>
+            )}
 
             {unreadCount > 0 && (
               <button
@@ -212,13 +216,15 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
               <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
                 ستظهر هنا التنبيهات اللحظية فور اعتماد المعلمين لكشوف غياب الحصة الثانية، مع تفصيل حالات الغياب.
               </p>
-              <button
-                onClick={handleSimulateNew}
-                className="mt-4 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition inline-flex items-center gap-2"
-              >
-                <PlayCircle className="w-4 h-4" />
-                <span>تجربة محاكاة رصد معلم الآن</span>
-              </button>
+              {qaToolsEnabled && (
+                <button
+                  onClick={handleSimulateNew}
+                  className="mt-4 min-h-[44px] px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition inline-flex items-center gap-2 touch-manipulation"
+                >
+                  <PlayCircle className="w-4 h-4" />
+                  <span>تجربة محاكاة رصد معلم</span>
+                </button>
+              )}
             </div>
           ) : (
             filteredNotifications.map((notif) => {

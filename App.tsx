@@ -30,8 +30,10 @@ import { getTodayDateString } from './services/initialData';
 import { startSync, syncTodayAttendance } from './services/syncAdapter';
 import { isSupabaseConfigured } from './services/supabaseClient';
 import { getDeviceToken } from './services/deviceAuth';
+import { isQaToolsEnabled } from './services/qaTools';
 
 export const App: React.FC = () => {
+  const qaToolsEnabled = isQaToolsEnabled();
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     AttendanceService.initStorage();
     return AttendanceService.getCurrentUser();
@@ -263,8 +265,8 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Time simulator — admin only (hidden from teachers) */}
-      {currentUser?.role === 'admin' && (
+      {/* Time simulator — admin QA only (hidden in daily use) */}
+      {currentUser?.role === 'admin' && qaToolsEnabled && (
         <TimeSimulatorBar
           settings={settings}
           simulatedTime={simulatedTime}
@@ -293,6 +295,7 @@ export const App: React.FC = () => {
         onOpenStudentImportModal={() => setIsStudentImportModalOpen(true)}
         onOpenContactsModal={() => setIsContactsModalOpen(true)}
         onOpenPortalLinksModal={() => setIsPortalLinksModalOpen(true)}
+        qaToolsEnabled={qaToolsEnabled}
       />
 
 
@@ -306,6 +309,7 @@ export const App: React.FC = () => {
                 currentUser={currentUser}
                 settings={settings}
                 simulatedTime={simulatedTime}
+                qaToolsEnabled={qaToolsEnabled}
                 onOpenPrintReport={() => setPdfReportModal({ isOpen: true, type: 'daily', date: getTodayDateString() })}
                 onOpenPdfReport={(type, date) => setPdfReportModal({ isOpen: true, type, date })}
                 onOpenClassSheet={handleOpenClassSheetFromAdmin}

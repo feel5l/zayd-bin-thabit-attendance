@@ -62,6 +62,7 @@ interface AdminDashboardProps {
   currentUser: User;
   settings: SchoolSettings;
   simulatedTime: string | null;
+  qaToolsEnabled?: boolean;
   onOpenPrintReport: () => void;
   onOpenClassSheet: (classId: string) => void;
   onViewStudentProfile: (studentId: string) => void;
@@ -80,6 +81,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   currentUser,
   settings,
   simulatedTime,
+  qaToolsEnabled = false,
   onOpenPrintReport,
   onOpenClassSheet,
   onViewStudentProfile,
@@ -102,6 +104,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [toastMessage, setToastMessage] = useState<string>('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showSimulatorPanel, setShowSimulatorPanel] = useState(false);
+  const [openToolsMenu, setOpenToolsMenu] = useState<'export' | 'manage' | null>(null);
 
   // Re-fetch on any teacher submission event
   useEffect(() => {
@@ -243,25 +246,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* Top Banner & Date Selector */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-4">
+      {/* Top Banner & Date Selector — monitoring first, tools in menus */}
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-black font-brand text-slate-900">
-              لوحة المتابعة الميدانية ورصد الحصة الثانية
+              متابعة رصد الحصة الثانية
             </h2>
             <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-emerald-200">
-              مباشر لحظي
+              مباشر
             </span>
           </div>
           <p className="text-xs text-slate-500 font-semibold mt-1">
-            متابعة دقيقة لحضور وغياب طلاب مدرسة زيد بن ثابت وإشراف الإدارة المدرسية
+            حالة إرسال المعلمين والفصول المتأخرة
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Date Picker */}
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-2xl">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 min-h-[44px] rounded-2xl">
             <Clock className="w-4 h-4 text-slate-500" />
             <input
               type="date"
@@ -272,127 +274,198 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           <button
-            onClick={() => setShowSimulatorPanel(prev => !prev)}
-            className={`px-4 py-2 text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md ${
-              showSimulatorPanel 
-                ? 'bg-amber-400 text-slate-950 shadow-amber-400/20' 
-                : 'bg-indigo-700 hover:bg-indigo-600 text-white shadow-indigo-900/20'
-            }`}
-            title="إظهار/إخفاء لوحة محاكاة رصد المعلمين التفاعلية اللحظية"
-          >
-            <Radio className="w-4 h-4 animate-pulse" />
-            <span>{showSimulatorPanel ? 'محاكي المعلمين (نشط) ⚡' : 'فتح محاكي رصد المعلمين ⚡'}</span>
-          </button>
-
-          <button
-            onClick={() => {
-              if (onOpenPdfReport) onOpenPdfReport('daily', selectedDate);
-              else onOpenPrintReport();
-            }}
-            className="px-4 py-2 bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-800 hover:to-teal-900 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-900/20"
-            title="تصدير وتحميل التقرير اليومي المعتمد بصيغة PDF"
-          >
-            <FileText className="w-4 h-4 text-emerald-300" />
-            <span>تصدير PDF اليومي 📄</span>
-          </button>
-
-          <button
-            onClick={() => {
-              if (onOpenPdfReport) onOpenPdfReport('monthly', selectedDate);
-              else onOpenPrintReport();
-            }}
-            className="px-4 py-2 bg-gradient-to-r from-indigo-700 to-slate-800 hover:from-indigo-800 hover:to-slate-900 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-indigo-900/20"
-            title="تصدير التقرير الإحصائي الشهري الشامل إلى صيغة PDF"
-          >
-            <Users className="w-4 h-4 text-indigo-300" />
-            <span>التقرير الشهري PDF 📊</span>
-          </button>
-
-          {onOpenPortalLinksModal && (
-            <button
-              onClick={onOpenPortalLinksModal}
-              className="px-4 py-2 bg-gradient-to-r from-teal-800 to-emerald-950 hover:from-teal-900 hover:to-slate-900 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-teal-950/20 border border-teal-500/40"
-              title="نسخ ومشاركة روابط الدخول المنفصلة للمعلمين (برقم الجوال) والإدارة المدرسية"
-            >
-              <Link2 className="w-4 h-4 text-teal-300" />
-              <span>روابط الدخول والمعلمين 🔗</span>
-            </button>
-          )}
-
-          {onOpenStudentImportModal && (
-            <button
-              onClick={onOpenStudentImportModal}
-              className="px-4 py-2 bg-gradient-to-r from-emerald-800 to-teal-900 hover:from-emerald-900 hover:to-teal-950 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-950/20 border border-emerald-600/40"
-              title="استيراد وتوزيع أسماء الطلاب من ملف Excel أو CSV وتوزيعهم على الفصول آلياً"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
-              <span>استيراد وتوزيع الطلاب (Excel) 📥</span>
-            </button>
-          )}
-
-          {onOpenGoogleSheetsModal && (
-            <button
-              onClick={onOpenGoogleSheetsModal}
-              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-900/20"
-              title="تصدير ومزامنة كشوفات الحصة الثانية والتقارير الشهرية وسجل الطلاب مع Google Sheets وDrive"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-              <span>تصدير Google Sheets 📊</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => {
-              if (onOpenContactsModal) onOpenContactsModal();
-              else onNavigateToTab('contacts');
-            }}
-            className="px-4 py-2 bg-gradient-to-r from-teal-700 to-emerald-800 hover:from-teal-800 hover:to-emerald-900 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-teal-900/20"
-            title="فتح دليل جهات الاتصال وأرقام المعلمين وأولياء الأمور"
-          >
-            <Phone className="w-4 h-4 text-emerald-300" />
-            <span>دليل الاتصال المدرسي 📱</span>
-          </button>
-
-          {onOpenArchivingModal && (
-            <button
-              onClick={onOpenArchivingModal}
-              className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-amber-900/20"
-              title="أرشفة بيانات الغياب القديمة (أكثر من 3 أشهر) لتحسين سرعة قاعدة البيانات مع إمكانية الاسترجاع"
-            >
-              <Archive className="w-4 h-4 text-amber-200" />
-              <span>أرشفة واسترجاع البيانات 📦</span>
-            </button>
-          )}
-
-          <button
-            onClick={onOpenPrintReport}
-            className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm"
-          >
-            <Printer className="w-4 h-4 text-slate-500" />
-            <span>طباعة رسمية</span>
-          </button>
-
-          <button
-            onClick={handleExportCSV}
-            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm"
-          >
-            <Download className="w-4 h-4 text-emerald-600" />
-            <span>Excel</span>
-          </button>
-
-          <button
+            type="button"
             onClick={() => setIsTeacherReminderModalOpen(true)}
-            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 border border-amber-400/60 text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-md shadow-amber-500/20"
-            title="فتح مركز إرسال التنبيهات وتذكيرات الواتساب والنظام للمعلمين المتأخرين"
+            className="min-h-[44px] px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 border border-amber-400 text-xs font-black rounded-xl transition flex items-center gap-1.5 shadow-sm touch-manipulation"
+            title="تنبيه المعلمين المتأخرين"
           >
-            <Bell className="w-4 h-4 text-slate-950 animate-bounce" />
-            <span>مركز تنبيه المعلمين ({stats.totalClasses - stats.submittedCount} متبقي) 📢</span>
+            <Bell className="w-4 h-4" />
+            <span>تنبيه المعلمين ({stats.totalClasses - stats.submittedCount})</span>
           </button>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setOpenToolsMenu(openToolsMenu === 'export' ? null : 'export')}
+              className="min-h-[44px] px-4 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 touch-manipulation"
+            >
+              <Download className="w-4 h-4 text-slate-500" />
+              <span>تصدير</span>
+              <ChevronLeft className={`w-3.5 h-3.5 transition ${openToolsMenu === 'export' ? '-rotate-90' : ''}`} />
+            </button>
+            {openToolsMenu === 'export' && (
+              <div className="absolute left-0 top-full mt-1 z-30 min-w-[220px] bg-white border border-slate-200 rounded-2xl shadow-lg p-1.5 space-y-0.5">
+                <button
+                  type="button"
+                  className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-2 touch-manipulation"
+                  onClick={() => {
+                    setOpenToolsMenu(null);
+                    if (onOpenPdfReport) onOpenPdfReport('daily', selectedDate);
+                    else onOpenPrintReport();
+                  }}
+                >
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                  تقرير PDF اليومي
+                </button>
+                <button
+                  type="button"
+                  className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-2 touch-manipulation"
+                  onClick={() => {
+                    setOpenToolsMenu(null);
+                    if (onOpenPdfReport) onOpenPdfReport('monthly', selectedDate);
+                    else onOpenPrintReport();
+                  }}
+                >
+                  <Users className="w-4 h-4 text-indigo-600" />
+                  التقرير الشهري PDF
+                </button>
+                <button
+                  type="button"
+                  className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-2 touch-manipulation"
+                  onClick={() => {
+                    setOpenToolsMenu(null);
+                    onOpenPrintReport();
+                  }}
+                >
+                  <Printer className="w-4 h-4 text-slate-500" />
+                  طباعة رسمية
+                </button>
+                <button
+                  type="button"
+                  className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-2 touch-manipulation"
+                  onClick={() => {
+                    setOpenToolsMenu(null);
+                    handleExportCSV();
+                  }}
+                >
+                  <Download className="w-4 h-4 text-emerald-600" />
+                  Excel
+                </button>
+                {onOpenGoogleSheetsModal && (
+                  <button
+                    type="button"
+                    className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-2 touch-manipulation"
+                    onClick={() => {
+                      setOpenToolsMenu(null);
+                      onOpenGoogleSheetsModal();
+                    }}
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-teal-600" />
+                    Google Sheets
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setOpenToolsMenu(openToolsMenu === 'manage' ? null : 'manage')}
+              className="min-h-[44px] px-4 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 touch-manipulation"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-slate-500" />
+              <span>إدارة</span>
+              <ChevronLeft className={`w-3.5 h-3.5 transition ${openToolsMenu === 'manage' ? '-rotate-90' : ''}`} />
+            </button>
+            {openToolsMenu === 'manage' && (
+              <div className="absolute left-0 top-full mt-1 z-30 min-w-[240px] bg-white border border-slate-200 rounded-2xl shadow-lg p-1.5 space-y-0.5">
+                {onOpenTeacherAndClassManager && (
+                  <button
+                    type="button"
+                    className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-2 touch-manipulation"
+                    onClick={() => {
+                      setOpenToolsMenu(null);
+                      onOpenTeacherAndClassManager();
+                    }}
+                  >
+                    <Users className="w-4 h-4 text-emerald-600" />
+                    المعلمون والفصول
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-2 touch-manipulation"
+                  onClick={() => {
+                    setOpenToolsMenu(null);
+                    onNavigateToTab('students');
+                  }}
+                >
+                  <UserCheck className="w-4 h-4 text-emerald-600" />
+                  دليل الطلاب
+                </button>
+                {onOpenPortalLinksModal && (
+                  <button
+                    type="button"
+                    className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-2 touch-manipulation"
+                    onClick={() => {
+                      setOpenToolsMenu(null);
+                      onOpenPortalLinksModal();
+                    }}
+                  >
+                    <Link2 className="w-4 h-4 text-teal-600" />
+                    روابط الدخول
+                  </button>
+                )}
+                {onOpenStudentImportModal && (
+                  <button
+                    type="button"
+                    className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-2 touch-manipulation"
+                    onClick={() => {
+                      setOpenToolsMenu(null);
+                      onOpenStudentImportModal();
+                    }}
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                    استيراد طلاب
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-2 touch-manipulation"
+                  onClick={() => {
+                    setOpenToolsMenu(null);
+                    if (onOpenContactsModal) onOpenContactsModal();
+                    else onNavigateToTab('contacts');
+                  }}
+                >
+                  <Phone className="w-4 h-4 text-teal-600" />
+                  دليل الاتصال
+                </button>
+                {onOpenArchivingModal && (
+                  <button
+                    type="button"
+                    className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-2 touch-manipulation"
+                    onClick={() => {
+                      setOpenToolsMenu(null);
+                      onOpenArchivingModal();
+                    }}
+                  >
+                    <Archive className="w-4 h-4 text-amber-600" />
+                    أرشفة البيانات
+                  </button>
+                )}
+                {qaToolsEnabled && (
+                  <button
+                    type="button"
+                    className="w-full min-h-[44px] text-right px-3 py-2 rounded-xl text-xs font-bold text-amber-900 hover:bg-amber-50 flex items-center gap-2 touch-manipulation border-t border-slate-100 mt-1 pt-2"
+                    onClick={() => {
+                      setOpenToolsMenu(null);
+                      setShowSimulatorPanel((prev) => !prev);
+                    }}
+                  >
+                    <Radio className="w-4 h-4" />
+                    {showSimulatorPanel ? 'إخفاء محاكي المعلمين' : 'محاكي رصد المعلمين'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Multi-Teacher Live Simulation Engine Widget */}
-      {showSimulatorPanel && (
+      {/* Multi-Teacher Live Simulation — QA only */}
+      {qaToolsEnabled && showSimulatorPanel && (
         <TeacherLiveSimulationWidget
           currentUser={currentUser}
           settings={settings}
@@ -401,44 +474,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onSimulationStep={() => setRefreshTrigger(p => p + 1)}
         />
       )}
-
-      {/* Quick Administrative Management Hub */}
-      <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 p-4 sm:p-5 rounded-3xl text-white shadow-xl flex flex-wrap items-center justify-between gap-4 border border-emerald-800/40">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
-            <Zap className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-black text-sm font-brand text-white flex items-center gap-2">
-              <span>بوابة الإدارة والتعديل الشامل</span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-700/60 text-emerald-200">تحكم كامل</span>
-            </h3>
-            <p className="text-[11px] text-slate-300 font-medium">
-              القدرة الفورية على إضافة وتعديل أي معلومة (الطلاب، نقل الشعب، بيانات المعلمين، الفصول والقاعات)
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {onOpenTeacherAndClassManager && (
-            <button
-              onClick={onOpenTeacherAndClassManager}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-900/30"
-            >
-              <Users className="w-4 h-4" />
-              <span>إدارة المعلمين والفصول 🎓</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => onNavigateToTab('students')}
-            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 border border-white/15"
-          >
-            <UserCheck className="w-4 h-4 text-emerald-300" />
-            <span>إضافة وتعديل الطلاب 👥</span>
-          </button>
-        </div>
-      </div>
 
       {/* Main KPI Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -44,6 +44,7 @@ interface NavbarProps {
   onOpenStudentImportModal?: () => void;
   onOpenContactsModal?: () => void;
   onOpenPortalLinksModal?: () => void;
+  qaToolsEnabled?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -64,7 +65,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenGoogleSheetsModal,
   onOpenStudentImportModal,
   onOpenContactsModal,
-  onOpenPortalLinksModal
+  onOpenPortalLinksModal,
+  qaToolsEnabled = false
 }) => {
   const [currentDateStr, setCurrentDateStr] = useState('');
   const [currentTimeStr, setCurrentTimeStr] = useState('');
@@ -124,87 +126,39 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-emerald-100 shadow-sm">
-      {/* Top utility bar */}
-      <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 text-white text-xs px-6 py-1.5 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-4 text-emerald-100">
+      {/* Compact status strip — date/time only (tools live in user menu / dashboard) */}
+      <div className="bg-emerald-900 text-white text-xs px-4 sm:px-6 py-1.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-3 sm:gap-4 text-emerald-100">
           <div className="flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-emerald-300" />
             <span className="font-medium">{currentDateStr}</span>
           </div>
-          <span className="text-emerald-400/60 hidden md:inline">|</span>
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-emerald-300" />
             <span className="font-mono font-bold text-emerald-200">{currentTimeStr}</span>
           </div>
-          <span className="text-emerald-400/60 hidden lg:inline">|</span>
-          <span className="bg-emerald-700/50 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-100 hidden lg:inline">
+          <span className="bg-emerald-800/80 px-2 py-0.5 rounded text-[11px] font-semibold text-emerald-100 hidden md:inline">
             {settings.academicYear} — {settings.term}
           </span>
         </div>
 
-        {/* Active User Indicator & Switch Modal Trigger */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {currentUser ? (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 bg-black/20 px-2.5 py-1 rounded-xl border border-white/10 text-[11px]">
-                <span className="text-emerald-300 font-bold">الحساب الحالي:</span>
-                <span className="font-black text-white">
-                  {currentUser.role === 'admin' ? '👑 الإدارة المدرسية (المدير)' : `👨‍🏫 ${currentUser.name} (${currentUser.assignedClassName || 'معلم'})`}
-                </span>
-              </div>
-
-              {currentUser.role === 'admin' && onOpenPortalLinksModal && (
-                <button
-                  type="button"
-                  onClick={onOpenPortalLinksModal}
-                  className="px-2.5 py-1 bg-teal-600 hover:bg-teal-500 text-white font-black text-[11px] rounded-lg transition flex items-center gap-1 shadow-sm border border-teal-400/40"
-                  title="نسخ ومشاركة روابط الدخول المنفصلة للمعلمين والإدارة"
-                >
-                  <Link2 className="w-3.5 h-3.5 text-teal-200" />
-                  <span>روابط الدخول 🔗</span>
-                </button>
-              )}
-
-              {currentUser.role === 'admin' && onOpenGoogleSheetsModal && (
-                <button
-                  type="button"
-                  onClick={onOpenGoogleSheetsModal}
-                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] rounded-lg transition flex items-center gap-1 shadow-sm border border-emerald-400/40"
-                  title="تصدير ومزامنة كشف الحصة الثانية وسجل الطلاب مع Google Sheets"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-200" />
-                  <span>Google Sheets</span>
-                </button>
-              )}
-
-              {currentUser.role === 'admin' && onOpenTeacherReminderModal && (
-                <button
-                  type="button"
-                  onClick={onOpenTeacherReminderModal}
-                  className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] rounded-lg transition flex items-center gap-1 shadow-sm"
-                  title="فتح مركز إرسال التنبيهات وتذكير المعلمين"
-                >
-                  <Bell className="w-3 h-3 text-slate-950 animate-pulse" />
-                  <span>تنبيه المعلمين ({pendingClassesCount})</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={onOpenLoginModal}
-                className="px-2.5 py-1 bg-white/15 hover:bg-white/25 text-white font-bold text-[11px] rounded-lg transition border border-white/20 flex items-center gap-1"
-                title="تبديل الحساب (الدخول كمعلم أو إدارة)"
-              >
-                <span>تبديل الحساب</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={onOpenLoginModal}
+              className="min-h-[36px] px-2.5 py-1 bg-white/15 hover:bg-white/25 text-white font-bold text-[11px] rounded-lg transition border border-white/20 touch-manipulation"
+              title="تبديل الحساب"
+            >
+              تبديل الحساب
+            </button>
           ) : (
             <button
               type="button"
               onClick={onOpenLoginModal}
-              className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-lg transition flex items-center gap-1 shadow-sm"
+              className="min-h-[36px] px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-lg transition touch-manipulation"
             >
-              <span>تسجيل الدخول</span>
+              تسجيل الدخول
             </button>
           )}
         </div>
@@ -601,6 +555,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           onOpenClassSheet={(classId) => {
             if (onOpenClassSheet) onOpenClassSheet(classId);
           }}
+          qaToolsEnabled={qaToolsEnabled}
         />
       )}
 

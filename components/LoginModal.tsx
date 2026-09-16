@@ -18,9 +18,7 @@ import {
   Phone, 
   ChevronLeft,
   School,
-  X,
-  Copy,
-  Link2
+  X
 } from 'lucide-react';
 
 interface LoginModalProps {
@@ -51,26 +49,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [copiedPortal, setCopiedPortal] = useState(false);
   const [sessionWarning, setSessionWarning] = useState<{
     user: User;
     validation: TeacherSessionValidation;
   } | null>(null);
-
-  // Copy current portal direct link
-  const handleCopyCurrentPortalLink = () => {
-    if (!selectedRole) return;
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const path = typeof window !== 'undefined' ? window.location.pathname : '';
-    const url = `${origin}${path}?portal=${selectedRole}`;
-    
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(() => {
-        setCopiedPortal(true);
-        setTimeout(() => setCopiedPortal(false), 2500);
-      });
-    }
-  };
 
   // Reset state when modal opens
   useEffect(() => {
@@ -342,15 +324,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             {selectedRole === null && (
               <div className="p-6 sm:p-7 overflow-y-auto flex-1 space-y-5 animate-in fade-in duration-200">
                 <div className="text-center space-y-1">
-                  <span className="bg-emerald-100 text-emerald-900 text-[11px] font-black px-3 py-1 rounded-full border border-emerald-200 inline-block">
-                    الخطوة 1: حدد مسار الدخول
-                  </span>
-                  <h3 className="text-base font-black text-slate-900 pt-1">
-                    اختر نوع الحساب للمتابعة
+                  <h3 className="text-base font-black text-slate-900">
+                    اختر نوع الحساب
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    سيتم تخصيص شاشة الدخول والحقول تلقائياً بحسب صلاحياتك المدرسية
-                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
@@ -363,12 +339,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     }}
                     className="p-5 rounded-3xl border-2 border-slate-200 bg-gradient-to-br from-white via-amber-50/30 to-amber-100/40 hover:border-amber-400 hover:shadow-xl transition-all text-right group flex flex-col justify-between gap-4 relative overflow-hidden"
                   >
-                    <div className="absolute top-3 left-3">
-                      <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm">
-                        صلاحيات عليا
-                      </span>
-                    </div>
-
                     <div className="space-y-3">
                       <div className="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-md shadow-amber-500/20 group-hover:scale-110 transition-transform">
                         <Shield className="w-6 h-6" />
@@ -378,7 +348,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                           إدارة المدرسة
                         </h4>
                         <p className="text-[11px] text-slate-600 font-medium mt-1 leading-relaxed">
-                          المدير، الوكلاء، والمشرفون — لوحة المتابعة الشاملة، تنبيه المعلمين، وتصدير الكشوفات.
+                          لوحة المتابعة وتنبيه المعلمين والكشوفات.
                         </p>
                       </div>
                     </div>
@@ -398,12 +368,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     }}
                     className="p-5 rounded-3xl border-2 border-slate-200 bg-gradient-to-br from-white via-emerald-50/30 to-emerald-100/40 hover:border-emerald-500 hover:shadow-xl transition-all text-right group flex flex-col justify-between gap-4 relative overflow-hidden"
                   >
-                    <div className="absolute top-3 left-3">
-                      <span className="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-sm">
-                        رصد الحصة 2
-                      </span>
-                    </div>
-
                     <div className="space-y-3">
                       <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/20 group-hover:scale-110 transition-transform">
                         <GraduationCap className="w-6 h-6" />
@@ -413,7 +377,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                           معلم / مربي فصل
                         </h4>
                         <p className="text-[11px] text-slate-600 font-medium mt-1 leading-relaxed">
-                          معلمو الفصول والشعب — رصد كشف غياب الحصة الثانية، تأكيد الحضور، والتسجيل السريع.
+                          رصد غياب الحصة الثانية بسرعة.
                         </p>
                       </div>
                     </div>
@@ -439,7 +403,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         ? 'bg-amber-400 text-slate-950'
                         : 'bg-emerald-600 text-white'
                     }`}>
-                      {selectedRole === 'admin' ? '🛡️ إدارة المدرسة (المدير)' : '👨‍🏫 المعلم (رصد الحصة 2)'}
+                      {selectedRole === 'admin' ? 'إدارة المدرسة' : 'المعلم'}
                     </span>
                   </div>
 
@@ -452,31 +416,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     className="text-xs font-bold text-slate-600 hover:text-slate-950 px-2.5 py-1 bg-white hover:bg-slate-50 rounded-lg border border-slate-200 transition"
                   >
                     التبديل إلى {selectedRole === 'admin' ? 'مسار المعلم' : 'مسار الإدارة'}
-                  </button>
-                </div>
-
-                {/* Direct Shareable Link Banner for this Portal */}
-                <div className="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-slate-600">
-                  <span className="flex items-center gap-1.5 font-bold text-[11px]">
-                    <Link2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                    <span>رابط الدخول المباشر لهذه البوابة:</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyCurrentPortalLink}
-                    className="text-teal-700 hover:text-teal-900 font-bold bg-white border border-teal-200 hover:bg-teal-50 px-2.5 py-1 rounded-lg text-[11px] transition flex items-center gap-1 shadow-2xs cursor-pointer"
-                  >
-                    {copiedPortal ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-700 font-black">تم نسخ الرابط!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5 text-teal-600" />
-                        <span>نسخ الرابط</span>
-                      </>
-                    )}
                   </button>
                 </div>
 
