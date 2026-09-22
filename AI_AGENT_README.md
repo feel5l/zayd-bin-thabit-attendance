@@ -82,6 +82,11 @@ Official data must come from `services/officialStudentsData.ts` and grade/class/
 - `services/qaTools.ts`: `?debug=1` or `localStorage.zayd_qa_tools=1`
 - Gates `TimeSimulatorBar`, teacher live simulator, notification simulate buttons.
 
+### Admin chrome (post-declutter)
+- Primary job: **monitor Period 2 + remind late teachers**.
+- Secondary tools live under **تصدير** (PDF / Sheets / print) and **إدارة** (roster, teachers, contacts, settings) menus — not a dense emoji CTA strip.
+- Do **not** treat submit confetti / celebratory animations as required product behavior (removed from the default teacher submit path).
+
 ---
 
 ## 5. Sync pipeline (must understand before editing)
@@ -126,7 +131,7 @@ Vite embeds `VITE_*` at **build** time. Production env lives on Vercel; redeploy
 | Task | Done when |
 |------|-----------|
 | Sync fix | Unit tests + live submit/pull + admin UI reflection |
-| UI declutter | Production UX focused; QA only with debug flag |
+| UI declutter | Production UX focused on monitor + Export/Manage menus; QA only with `?debug=1` |
 | Deploy | Vercel production Ready; bundle has Supabase URL; no service_role |
 
 ---

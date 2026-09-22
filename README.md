@@ -160,7 +160,7 @@ npm run dev                  # http://localhost:3000
 #### 4. سجل التدقيق والمزامنة (Audit Logs & Persistence):
 - `addAuditLog(action, details, user)`: تسجيل كل عملية رصد أو تعديل مع التوقيت وهوية المستخدم.
 - `getAuditLogs()`: جلب سجل العمليات للإدارة المدرسية.
-- المزامنة المزدوجة (`LocalStorage` + دعم `Firebase Firestore`).
+- المزامنة المزدوجة: **LocalStorage أولاً** + اختياري **Supabase Edge** (`submit-attendance` / `get-attendance` مع `deviceToken`). Firebase في المستودع مسار قديم/اختياري فقط — **ليس** مصدر حقيقة الحضور بين الأجهزة.
 
 ---
 

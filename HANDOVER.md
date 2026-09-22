@@ -1,8 +1,9 @@
 # تسليم العمل — نظام حضور مدرسة زيد بن ثابت
 
-**آخر تحديث:** ١٦ سبتمبر ٢٠٢٦  
+**آخر تحديث:** ٢٢ سبتمبر ٢٠٢٦  
 **الإصدار:** v2.6.0 + مزامنة Supabase + تبسيط واجهة الإدارة  
 **الإنتاج الأساسي:** https://zayd-bin-thabit-attendance.vercel.app  
+**آخر تحقق مزامنة موثّق:** `main` @ `fa45302` — لوحة المدير وصلت `1 / 11` بعد رصد معلم (انظر [`DEPLOYMENT_REPORT.md`](./DEPLOYMENT_REPORT.md))
 
 هذا الملف لمشغّل المدرسة/المتسّلم التشغيلي. للتفاصيل الهندسية راجع [`ENGINEERING_HISTORY.md`](./ENGINEERING_HISTORY.md) و[`AGENTS.md`](./AGENTS.md).
 
