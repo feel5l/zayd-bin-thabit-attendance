@@ -260,7 +260,7 @@ export const OFFICIAL_TEACHERS_LIST: User[] = [
     id: 'teacher-24',
     sequenceNumber: 24,
     username: 'khalifa_alqaemi',
-    name: 'أ. خليفة سعد القعيبي',
+    name: 'أ. خليفة سعد القعيمي',
     nationalId: '1077033494',
     phone: '0556129529',
     email: '',
@@ -290,13 +290,14 @@ export const OFFICIAL_TEACHERS_LIST: User[] = [
     id: 'teacher-22',
     sequenceNumber: 22,
     username: 'faihan_almarri',
-    name: 'أ. فيحان المري',
+    name: 'أ. فيحان بن فالح جابر المري',
+    nationalId: '1051379707',
+    phone: '0556009778',
     email: 'f.f.almarri@hotmail.com',
     role: 'teacher',
     password: '',
-    subject: 'معلم',
-    avatar: '👨‍🏫',
-    phone: '0508773700'
+    subject: 'صعوبات تعلم',
+    avatar: '👨‍🏫'
   }
 ];
 
