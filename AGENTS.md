@@ -6,7 +6,7 @@
 **Label version:** `v2.6.0`  
 **Canonical production:** https://zayd-bin-thabit-attendance.vercel.app  
 
-**Read next:** [`ENGINEERING_HISTORY.md`](./ENGINEERING_HISTORY.md) (why things changed), [`SYNC_DESIGN.md`](./SYNC_DESIGN.md) (sync contract).
+**Read next:** [`ENGINEERING_HISTORY.md`](./ENGINEERING_HISTORY.md) (why things changed), [`SYNC_DESIGN.md`](./SYNC_DESIGN.md) (sync contract), [`HANDOVER.md`](./HANDOVER.md) (Arabic ops).
 
 ---
 
@@ -23,7 +23,7 @@ Saudi elementary attendance / discipline tracking focused on **Period 2 / الح
 ## 2. Non-negotiable constraints
 
 1. **Period 2 bounds are fixed:** `07:45`–`08:30`. Do not change.
-2. **Roster:** Use official data (`officialStudentsData` / grade files). Never invent mock students.
+2. **Roster:** Official baseline is **364 students** across 11 classes (`officialStudentsData` / grade files). Never invent mock students.
 3. **State:** All attendance balances through `AttendanceService`. No parallel local sources of truth.
 4. **Touch targets:** Interactive controls ≥ **44px** + `touch-manipulation` on mobile.
 5. **Secrets:** Never expose admin passwords, tokens, or raw credential structures in UI.

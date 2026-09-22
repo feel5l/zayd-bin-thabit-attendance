@@ -72,19 +72,19 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Why this design:** Agents need a durable contract before touching Edge Functions.
 - **Verify:** Read SYNC_DESIGN before changing `syncAdapter.ts`.
 
-### 4) Security: remove exposed credentials (PR #8 / related)
+### 4) Security: remove exposed credentials (PR #8 / `65f24e7` and follow-ups)
 
 - **Symptom:** Passwords / identifiers appeared in UI or client payloads.
 - **Root cause:** Client-side “convenience” auth leaked secrets.
-- **Change:** Stop displaying admin passwords; strengthen phone matching; move sensitive matching server-side over time.
+- **Change:** Stop displaying admin passwords; strengthen phone matching; move sensitive matching server-side over time (`teacher-login` hashes).
 - **Why this design:** School PII and admin secrets must never ship in placeholders or error text.
-- **Verify:** Login UI shows no password hints; `npm test` security tests pass.
+- **Verify:** Login UI shows no password hints; `tests/security.test.ts` passes.
 
-### 5) Schedule teacher-id resolution + server schedule sync
+### 5) Schedule teacher-id resolution + server schedule sync (`95c7fbc` and follow-ups)
 
 - **Symptom:** Wrong teacher assigned to Period 2; schedule edits on admin device not seen by teachers.
 - **Root cause:** Unstable / mismatched teacher IDs between timetable rows and user records; schedule lived only in LocalStorage.
-- **Change:** Resolve teacher IDs to canonical accounts; pull schedule from Supabase (`get-schedule`).
+- **Change:** Resolve teacher IDs to canonical accounts (`AttendanceService.resolveTeacherLoginId`); pull schedule from Supabase (`get-schedule`).
 - **Why this design:** Homeroom + daily assignment must agree with Edge authorization rules.
 - **Verify:** `tests/teacherIdResolution.test.ts`, `tests/timetableData.test.ts`.
 
@@ -128,7 +128,7 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Why this design:** Reproducible builds.
 - **Verify:** CI install uses lockfile.
 
-### 11) Pull path: admin cannot see remote absences (early sync gap)
+### 11) Pull path: admin cannot see remote absences (`e3e5f05` and follow-ups)
 
 - **Symptom:** Teacher data existed somehow, but admin dashboard never showed other devices’ sheets.
 - **Root cause:** Push alone is insufficient; no reliable `get-attendance` pull + `applyServerSubmissions` merge.
@@ -175,7 +175,7 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Root cause:** Dual hosting without a single source of truth in docs.
 - **Change:** Deploy `main` to Vercel with `VITE_ADMIN_PASSWORD`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`; verify bundle + E2E sync on https://zayd-bin-thabit-attendance.vercel.app
 - **Why this design:** Vite env is build-time — env changes require redeploy. Vercel holds production env.
-- **Verify:** Bundle contains `dhpvladkiqajorowrlhj.supabase.co` and no `service_role`; after teacher submit, admin UI ratio updates without hard refresh (poll ≤ ~8s).
+- **Verify:** Production deploy of `main` @ `fa45302` (example deployment `dpl_3LGGTxjpHExrRjdKbW2BWp7TdfiG`); bundle contains `dhpvladkiqajorowrlhj.supabase.co` and no `service_role`; after teacher submit, admin UI shows class ratio (e.g. `1 / 11`) without hard refresh (poll ≤ ~8s).
 
 ### 15) Ignore Vercel / env artifacts (PR #19)
 
@@ -184,6 +184,14 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Change:** Ignore `.vercel`, `.env`, `.env.*` (keep `.env.example`).
 - **Why this design:** Secrets never enter git history.
 - **Verify:** `git check-ignore .env .vercel`.
+
+### 16) Professional agent/ops documentation (PR #20)
+
+- **Symptom:** HANDOVER/DEPLOYMENT still pointed agents at GitHub Pages; AI_AGENT_README framed Firebase as the cloud layer; no single engineering history of bugs and reasons.
+- **Root cause:** Docs lagged the Supabase + Vercel + declutter reality.
+- **Change:** Add [`ENGINEERING_HISTORY.md`](./ENGINEERING_HISTORY.md); rewrite [`AGENTS.md`](./AGENTS.md) / [`AI_AGENT_README.md`](./AI_AGENT_README.md) (English for agents); refresh Arabic [`HANDOVER.md`](./HANDOVER.md) / [`DEPLOYMENT_REPORT.md`](./DEPLOYMENT_REPORT.md); index links in [`README.md`](./README.md).
+- **Why this design:** A new agent should start at AGENTS → ENGINEERING_HISTORY → lint/test without rediscovering silent-push bugs.
+- **Verify:** Doc links resolve; production URL is Vercel; Firebase is documented as non-primary only.
 
 ---
 
