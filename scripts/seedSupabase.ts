@@ -24,9 +24,16 @@ function esc(v: string | null | undefined): string {
 function boolLit(v: boolean | undefined): string {
   return v ? 'true' : 'false';
 }
+/** Must mirror teacherAuth / teacher-login Edge Function normalisation. */
+function normaliseSaudiPhone(raw: string | undefined): string {
+  let d = (raw || '').replace(/[^0-9]/g, '');
+  if (d.startsWith('00966')) d = '0' + d.slice(5);
+  else if (d.startsWith('966')) d = '0' + d.slice(3);
+  if (d.length === 9 && d.startsWith('5')) d = '0' + d;
+  return d;
+}
 function phoneHash(phone: string | undefined): string {
-  const digits = (phone || '').replace(/[^0-9]/g, '');
-  return createHash('sha256').update(digits).digest('hex');
+  return createHash('sha256').update(normaliseSaudiPhone(phone)).digest('hex');
 }
 function nationalIdHash(id: string | undefined): string {
   if (!id) return 'NULL';

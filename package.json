@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "lint": "tsc --noEmit",
     "verify:data": "tsx scripts/verifyData.ts",
+    "verify:teacher-login": "tsx scripts/verifyTeacherPhoneLogin.ts",
     "test": "vitest run",
     "supabase:migrate": "npx supabase db push --project-ref dhpvladkiqajorowrlhj",
     "supabase:deploy-functions": "npx supabase functions deploy --project-ref dhpvladkiqajorowrlhj"
