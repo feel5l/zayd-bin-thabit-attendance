@@ -207,7 +207,7 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Symptom (S3):** `publish-import-batch` had `verify_jwt=true` but no role check. The anon key is itself a valid JWT, so anyone could call it with service-role writes.
 - **Root cause:** Postgres grants `EXECUTE` to `PUBLIC` by default; `verify_jwt` was mistaken for authorization.
 - **Change:**
-  - Migration `0009_revoke_public_rpc_admin_password.sql`: revoke `EXECUTE` from `PUBLIC/anon/authenticated`, grant to `service_role` only. `is_admin()` / `current_teacher_id()` untouched (RLS policies need them).
+  - Migration `0010_revoke_public_rpc_admin_password.sql` (renumbered; `0009` now holds the previously uncommitted `admin_credentials` + password functions): revoke `EXECUTE` from `PUBLIC/anon/authenticated`, grant to `service_role` only. `is_admin()` / `current_teacher_id()` untouched (RLS policies need them).
   - `publish-import-batch` v2: requires `x-device-token` with `role = admin` (401 / 403 otherwise), ignores client `schoolId`, adds `x-device-token` to CORS. The repo file now mirrors the **deployed** v1 logic (the old repo version was never deployed).
   - Ops: all 234 device tokens revoked at `2026-09-24 10:15:00+00` (remote migration `revoke_all_device_tokens_security_review`) → every device re-logs in. Undo: `UPDATE device_tokens SET revoked_at = NULL WHERE revoked_at = '2026-09-24 10:15:00+00'`.
   - Ops: admin password rotated 2026-09-24 (remote migration `rotate_admin_password_security_review` stores the bcrypt hash only) and admin tokens revoked again. The new value differs from `VITE_ADMIN_PASSWORD`.
