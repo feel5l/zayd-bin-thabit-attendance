@@ -105,7 +105,6 @@ Full postmortem of silent push bugs: [`ENGINEERING_HISTORY.md`](./ENGINEERING_HI
 
 ```bash
 # .env.local (never commit)
-VITE_ADMIN_PASSWORD=
 VITE_SUPABASE_URL=https://dhpvladkiqajorowrlhj.supabase.co
 VITE_SUPABASE_ANON_KEY=
 # optional

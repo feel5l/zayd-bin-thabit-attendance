@@ -34,7 +34,7 @@
 
 | الاسم | الغرض |
 |-------|--------|
-| `VITE_ADMIN_PASSWORD` | دخول المدير |
+| ~~`VITE_ADMIN_PASSWORD`~~ | أُلغي — كلمة مرور المدير تُتحقق على الخادم فقط (`admin-login`). احذفه من Vercel |
 | `VITE_SUPABASE_URL` | عنوان المشروع |
 | `VITE_SUPABASE_ANON_KEY` | مفتاح anon العام فقط |
 

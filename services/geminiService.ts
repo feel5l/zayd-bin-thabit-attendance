@@ -1,13 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const getApiKey = (): string => {
-  return (
-    (typeof process !== 'undefined' && process.env?.API_KEY) ||
-    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
-    (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-    ''
-  );
-};
+// Disabled until a server-side proxy exists (security review S8): any key read
+// here would be inlined into the public bundle, and student data would leave
+// the browser for a third party. Callers already fall back when calls fail.
+const getApiKey = (): string => '';
 
 const apiKey = getApiKey();
 const ai = new GoogleGenAI({ apiKey });

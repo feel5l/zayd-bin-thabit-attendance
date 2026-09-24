@@ -215,7 +215,7 @@ npm run dev                  # http://localhost:3000
 ### تثبيت الاعتماديات والتشغيل:
 ```bash
 cp .env.example .env.local
-# املأ: VITE_ADMIN_PASSWORD, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+# املأ: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (كلمة مرور المدير على الخادم فقط)
 
 npm install
 npm run dev          # http://localhost:3000

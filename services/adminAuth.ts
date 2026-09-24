@@ -30,7 +30,7 @@ function toAdminUser(admin: Record<string, unknown>, fallback?: User): User {
 /**
  * Authenticate the school admin against the server and store a device token.
  * Returns unavailable when Supabase is not configured or the network fails —
- * callers may fall back to the local VITE_ADMIN_PASSWORD check.
+ * there is no local fallback (security review S7).
  */
 export async function loginAdmin(
   password: string,

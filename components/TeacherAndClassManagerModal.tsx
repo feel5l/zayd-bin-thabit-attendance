@@ -152,8 +152,9 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
       assignedClassId: teacherFormData.assignedClassId || undefined,
       assignedClassName: assignedCls ? `${assignedCls.gradeLevel} (${assignedCls.section})` : undefined,
       phone: teacherFormData.phone.trim(),
+      // Admin passwords live only on the server (admin-login); never store one locally.
       password: teacherFormData.role === 'admin'
-        ? (import.meta.env.VITE_ADMIN_PASSWORD || '')
+        ? ''
         : (teacherFormData.nationalId?.trim() || teacherFormData.phone.trim() || '123456'),
       subject: teacherFormData.subject.trim()
     };
@@ -722,7 +723,7 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
                   <span>معلومات كلمة المرور المعتمدة:</span>
                 </div>
                 <p className="text-[11px] text-emerald-700 leading-relaxed">
-                  كلمة مرور المعلم المضاف تُعيّن تلقائياً كـ <strong>رقم جواله المسجل</strong>. كلمة مرور حسابات الإدارة تُدار عبر إعدادات النظام الآمنة (<code className="font-mono text-[10px] bg-emerald-100 px-1 rounded">VITE_ADMIN_PASSWORD</code>) ولا تُعرض هنا.
+                  كلمة مرور المعلم المضاف تُعيّن تلقائياً كـ <strong>رقم جواله المسجل</strong>. كلمة مرور حسابات الإدارة محفوظة على الخادم فقط (مشفّرة) ولا تُعرض هنا.
                 </p>
               </div>
 

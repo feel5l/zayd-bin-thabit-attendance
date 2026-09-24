@@ -165,22 +165,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         return;
       }
 
-      // Server unavailable: fall back to local password (no cross-device sync token).
-      const envAdminPassword = import.meta.env.VITE_ADMIN_PASSWORD || '';
-      let isValid = false;
-      if (user) {
-        isValid = Boolean(
-          (user.password && enteredPass === user.password) ||
-          (envAdminPassword && enteredPass === envAdminPassword)
-        );
-      }
-
-      if (user && isValid) {
-        clearDeviceToken();
-        completeLogin(user);
-      } else {
-        setError('بيانات دخول الإدارة غير صحيحة. يرجى التأكد من اسم المستخدم وكلمة المرور الخاصة بالإدارة.');
-      }
+      // Server unavailable. There is deliberately no local password fallback:
+      // any VITE_* value is inlined into the public bundle (security review S7).
+      clearDeviceToken();
+      setError('تعذّر الاتصال بالخادم للتحقق من كلمة مرور الإدارة. تأكد من اتصال الإنترنت ثم أعد المحاولة.');
     } catch {
       setError('حدث خطأ غير متوقع أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.');
     } finally {

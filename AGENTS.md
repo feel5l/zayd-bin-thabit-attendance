@@ -100,7 +100,7 @@ Teacher may submit if daily Period assignment matches **OR** homeroom `assigned_
 
 ```bash
 cp .env.example .env.local
-# fill VITE_ADMIN_PASSWORD, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+# fill VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (admin password lives server-side only)
 
 npm install
 npm run lint      # tsc --noEmit
@@ -123,7 +123,7 @@ npx vercel deploy --prod --yes
 
 Required env (Production/Preview/Development):
 
-- `VITE_ADMIN_PASSWORD`
+- ~~`VITE_ADMIN_PASSWORD`~~ — removed (S7). Admin password is verified by `admin-login`; delete this env var from Vercel.
 - `VITE_SUPABASE_URL` = `https://dhpvladkiqajorowrlhj.supabase.co`
 - `VITE_SUPABASE_ANON_KEY` (anon/publishable only — never service_role in Vite)
 
