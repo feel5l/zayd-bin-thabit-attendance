@@ -1,0 +1,42 @@
+name: Decommission Firebase Hosting (one-off)
+
+# Temporary, approved by the repo owner (security review phase 0).
+# Disables the legacy Firebase Hosting site. Removed right after it runs.
+# Vercel is the only production host.
+
+on:
+  push:
+    branches: [claude/project-review-error-assessment-xxmjcv]
+    paths: ['.github/workflows/decommission-firebase.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  firebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write service account
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::FIREBASE_SERVICE_ACCOUNT secret is missing"; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+
+      - name: Disable Firebase Hosting
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: npx --yes firebase-tools@latest hosting:disable --project nizam-tracker-d8cdc --force
+
+      - name: Remove service account file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
+
+      - name: Verify legacy sites are down
+        if: always()
+        run: |
+          sleep 15
+          for u in https://nizam-tracker-d8cdc.web.app https://nizam-tracker-d8cdc.firebaseapp.com https://feel5l.github.io/zayd-bin-thabit-attendance/; do
+            code=$(curl -s -o /tmp/body -w '%{http_code}' "$u")
+            echo "$u -> $code | $(grep -o -m1 'Site Not Found\|<title>[^<]*' /tmp/body || true)"
+          done
