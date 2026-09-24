@@ -23,7 +23,7 @@ Saudi elementary attendance / discipline tracking focused on **Period 2 / الح
 ## 2. Non-negotiable constraints
 
 1. **Period 2 bounds are fixed:** `07:45`–`08:30`. Do not change.
-2. **Roster:** Official baseline is **364 students** across 11 classes (`officialStudentsData` / grade files). Never invent mock students.
+2. **Roster:** The roster holds **356 students** across 11 classes (grade files and Supabase `students` match as of 2026-09-24; older docs said 364 — the 8-student gap is unverified, check against Noor before changing). Sensitive fields come only from `get-student-contacts`. Never invent mock students.
 3. **State:** All attendance balances through `AttendanceService`. No parallel local sources of truth.
 4. **Touch targets:** Interactive controls ≥ **44px** + `touch-manipulation` on mobile.
 5. **Secrets:** Never expose admin passwords, tokens, or raw credential structures in UI.
@@ -62,7 +62,7 @@ Without `VITE_SUPABASE_*`, sync is a silent no-op and the app remains usable off
 | Admin UI | `components/AdminDashboard.tsx`, `components/Navbar.tsx` |
 | Teacher UI | `components/TeacherAttendanceSheet.tsx` |
 | Roster | `services/officialStudentsData.ts`, `studentsGrade3..6.ts`, `officialClassesData.ts`, `teachersData.ts` |
-| Edge | `supabase/functions/submit-attendance`, `get-attendance`, `teacher-login`, `admin-login`, `get-schedule` |
+| Edge | `supabase/functions/submit-attendance`, `get-attendance`, `teacher-login`, `admin-login`, `get-schedule`, `get-student-contacts`, `publish-import-batch` |
 
 Layout is **root-level** (no `src/` app tree). Do not create a parallel `src/` app.
 
@@ -104,7 +104,7 @@ cp .env.example .env.local
 
 npm install
 npm run lint      # tsc --noEmit
-npm test          # vitest (expect 24+ passing)
+npm test          # vitest (expect 33+ passing)
 npm run build
 npm run dev       # http://localhost:3000
 ```

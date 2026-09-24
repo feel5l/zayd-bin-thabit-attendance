@@ -252,6 +252,14 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Not done (needs a product decision):** a per-teacher PIN/OTP. Phone number alone still identifies a teacher (as before), now throttled.
 - **Verify:** phone of an admin row → 404; 11th wrong admin password from one IP in 15 min → 429; `select expires_at from device_tokens` populated.
 
+### 22) CI, code-splitting, xlsx exposure, roster count (D3/P1/S9, Sep 2026)
+
+- **CI:** `.github/workflows/ci.yml` runs `lint`, `test`, `build` on every PR/push (no secrets) and fails if student national ids or guardian phones reappear in `dist/`.
+- **Code-splitting:** `App.tsx` lazy-loads admin/import/report/AI/contacts screens. Initial JS 3.2 MB → 845 KB (gzip 831 KB → 195 KB); `xlsx`, `jspdf`, `recharts`, Firebase and `@google/genai` are no longer downloaded by teacher phones.
+- **xlsx (S9, not fixed):** npm only publishes the vulnerable 0.18.5 (prototype pollution + ReDoS, no npm fix). The fixed build lives at `cdn.sheetjs.com`, which the agent environment could not reach. Exposure is reduced (admin-only, lazy chunk, files come from school staff). **Next step:** vendor `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` into `vendor/` and depend on `file:vendor/xlsx-0.20.3.tgz` (SheetJS's documented install), then `npm install` to refresh the lockfile.
+- **CORS (Q2, deliberately unchanged):** functions keep `Access-Control-Allow-Origin: *`. Auth is a custom `x-device-token` header (never sent automatically by browsers), so a wildcard origin does not enable CSRF; pinning origins would break Vercel preview URLs.
+- **Roster count:** grade files and Supabase `students` both hold **356** students (fingerprint-matched). Docs said 364; the 8-student gap is unverified and should be checked against Noor, not invented.
+
 ---
 
 ## Critical files map

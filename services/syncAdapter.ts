@@ -9,7 +9,7 @@
  * Sync directions per cache (from §4.2):
  *  _cacheUsers           → pull on login (admin only pushes)
  *  _cacheClasses         → pull + Realtime
- *  _cacheStudents        → pull full (~364)
+ *  _cacheStudents        → roster bundled (~356, no PII) + get-student-contacts per role
  *  _cacheSubmissions     → push immediate + pull today
  *  _cacheSettings        → pull + Realtime
  *  _cachePeriodAssignments → pull on timetable_versions publish

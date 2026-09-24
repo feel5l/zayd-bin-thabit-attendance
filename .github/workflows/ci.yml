@@ -1,0 +1,35 @@
+name: CI
+
+# Typecheck, unit tests and production build on every PR and push to main.
+# No secrets are used; the build runs without VITE_SUPABASE_* (sync becomes a
+# no-op, which is the documented offline mode).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+      - name: Guard against student PII in the bundle
+        run: |
+          if grep -qE 'nationalId:"[0-9]{10}"|parentPhone:"05[0-9]{8}"' dist/assets/*.js; then
+            echo "::error::Student national ids or guardian phones found in dist/"; exit 1
+          fi

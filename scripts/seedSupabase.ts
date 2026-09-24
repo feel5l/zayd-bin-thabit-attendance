@@ -69,7 +69,7 @@ lines.push(
 );
 lines.push('');
 
-// --- students (batched — 364 rows) ---
+// --- students (batched — 356 rows) ---
 const STUDENT_BATCH = 100;
 for (let i = 0; i < OFFICIAL_STUDENTS_LIST.length; i += STUDENT_BATCH) {
   const batch = OFFICIAL_STUDENTS_LIST.slice(i, i + STUDENT_BATCH);
