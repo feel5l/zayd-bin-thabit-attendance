@@ -193,13 +193,13 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Why this design:** A new agent should start at AGENTS → ENGINEERING_HISTORY → lint/test without rediscovering silent-push bugs.
 - **Verify:** Doc links resolve; production URL is Vercel; Firebase is documented as non-primary only.
 
-### 17) Remove Firebase Hosting deploy (Sep 2026)
+### 17) Remove Firebase Hosting + GitHub Pages deploys (Sep 2026)
 
-- **Symptom:** Every push to `main` also deployed the bundle to Firebase Hosting (`nizam-tracker-d8cdc`) — a second, non-canonical public copy of the app carrying the same embedded roster data.
-- **Root cause:** Legacy `deploy-firebase.yml` + `firebase.json` left over after Vercel became canonical.
-- **Change:** Delete `.github/workflows/deploy-firebase.yml` and `firebase.json`. Firebase **Auth** (`firebase-applet-config.json`, Google Sheets/Contacts export) is untouched.
-- **Why this design:** One production host (Vercel) reduces exposure surface. Removing the workflow stops new deploys only; the already-live Firebase site must be taken down by the owner (`npx firebase-tools hosting:disable --project nizam-tracker-d8cdc` or Firebase console → Hosting).
-- **Verify:** `ls .github/workflows` has no Firebase workflow; Google export sign-in still works; Firebase site returns “Site Not Found” after `hosting:disable`.
+- **Symptom:** Every push to `main` also deployed the bundle to Firebase Hosting (`nizam-tracker-d8cdc`) and GitHub Pages — two non-canonical public copies of the app carrying the same embedded roster data.
+- **Root cause:** Legacy `deploy-firebase.yml`, `deploy-pages.yml` and `firebase.json` left over after Vercel became canonical.
+- **Change:** Delete `.github/workflows/deploy-firebase.yml`, `.github/workflows/deploy-pages.yml` and `firebase.json`. Firebase **Auth** (`firebase-applet-config.json`, Google Sheets/Contacts export) is untouched. `VITE_BASE_PATH` support stays in `vite.config.ts` (defaults to `/`).
+- **Why this design:** One production host (Vercel) reduces exposure surface. Removing the workflows stops new deploys only; the already-live sites must be taken down by the owner: Firebase (`npx firebase-tools hosting:disable --project nizam-tracker-d8cdc`) and GitHub Pages (repo Settings → Pages → unpublish, and delete the legacy `gh-pages` branch).
+- **Verify:** `.github/workflows` no longer exists; Google export sign-in still works; Firebase site returns “Site Not Found”; `https://feel5l.github.io/zayd-bin-thabit-attendance/` returns 404.
 
 ---
 

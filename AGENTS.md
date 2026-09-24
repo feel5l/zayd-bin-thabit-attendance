@@ -129,7 +129,7 @@ Required env (Production/Preview/Development):
 
 **Vite bakes env at build time** — changing env requires a new production deploy.
 
-Historical GitHub Pages (`gh-pages`) may still exist; **do not treat it as canonical** unless explicitly asked.
+Firebase Hosting and GitHub Pages deploy workflows were removed (see `ENGINEERING_HISTORY.md` §17). **Vercel is the only production host** — do not re-add other hosting workflows unless explicitly asked.
 
 Supabase function/schema changes:
 
