@@ -201,6 +201,19 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Why this design:** One production host (Vercel) reduces exposure surface. Removing the workflows stops new deploys only; the already-live sites must be taken down by the owner: Firebase (`npx firebase-tools hosting:disable --project nizam-tracker-d8cdc`) and GitHub Pages (repo Settings → Pages → unpublish, and delete the legacy `gh-pages` branch).
 - **Verify:** `.github/workflows` no longer exists; Google export sign-in still works; Firebase site returns “Site Not Found”; `https://feel5l.github.io/zayd-bin-thabit-attendance/` returns 404.
 
+### 18) Security review phase 0 — close public admin-password RPC + gate timetable publish (Sep 2026)
+
+- **Symptom (S1):** Supabase advisors flagged `set_admin_password` / `verify_admin_password` / `rls_auto_enable` as `SECURITY DEFINER` and executable by `anon`. Anyone with the public anon key could `POST /rest/v1/rpc/set_admin_password` and take over the admin account (then read all attendance via `admin-login` → `get-attendance`).
+- **Symptom (S3):** `publish-import-batch` had `verify_jwt=true` but no role check. The anon key is itself a valid JWT, so anyone could call it with service-role writes.
+- **Root cause:** Postgres grants `EXECUTE` to `PUBLIC` by default; `verify_jwt` was mistaken for authorization.
+- **Change:**
+  - Migration `0009_revoke_public_rpc_admin_password.sql`: revoke `EXECUTE` from `PUBLIC/anon/authenticated`, grant to `service_role` only. `is_admin()` / `current_teacher_id()` untouched (RLS policies need them).
+  - `publish-import-batch` v2: requires `x-device-token` with `role = admin` (401 / 403 otherwise), ignores client `schoolId`, adds `x-device-token` to CORS. The repo file now mirrors the **deployed** v1 logic (the old repo version was never deployed).
+  - Ops: all 234 device tokens revoked at `2026-09-24 10:15:00+00` (remote migration `revoke_all_device_tokens_security_review`) → every device re-logs in. Undo: `UPDATE device_tokens SET revoked_at = NULL WHERE revoked_at = '2026-09-24 10:15:00+00'`.
+- **Known, not fixed here:** deployed publish logic writes to `schedule_versions`, which does not exist, so timetable publish has been failing with 400 since v1 (no data was ever written; `timetable_versions` has only the migration seed). Do **not** repoint it at `timetable_versions` until `submit-attendance` filters `daily_period_assignments` by the published `version_id` — its `maybeSingle()` lookup errors once two versions exist, which would block teacher submits.
+- **Evidence of prior abuse:** none found — `admin_credentials.updated_at` = 2026-09-03 (owner bootstrap); no rows from publish in any version table.
+- **Verify:** as `anon`, `SELECT verify_admin_password(...)` raises `insufficient_privilege`; advisors show no `anon_security_definer_function_executable`; `publish-import-batch` without token → 401, teacher token → 403.
+
 ---
 
 ## Critical files map
