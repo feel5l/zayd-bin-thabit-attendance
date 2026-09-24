@@ -193,6 +193,73 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Why this design:** A new agent should start at AGENTS → ENGINEERING_HISTORY → lint/test without rediscovering silent-push bugs.
 - **Verify:** Doc links resolve; production URL is Vercel; Firebase is documented as non-primary only.
 
+### 17) Remove Firebase Hosting + GitHub Pages deploys (Sep 2026)
+
+- **Symptom:** Every push to `main` also deployed the bundle to Firebase Hosting (`nizam-tracker-d8cdc`) and GitHub Pages — two non-canonical public copies of the app carrying the same embedded roster data.
+- **Root cause:** Legacy `deploy-firebase.yml`, `deploy-pages.yml` and `firebase.json` left over after Vercel became canonical.
+- **Change:** Delete `.github/workflows/deploy-firebase.yml`, `.github/workflows/deploy-pages.yml` and `firebase.json`. Firebase **Auth** (`firebase-applet-config.json`, Google Sheets/Contacts export) is untouched. `VITE_BASE_PATH` support stays in `vite.config.ts` (defaults to `/`).
+- **Why this design:** One production host (Vercel) reduces exposure surface. Removing the workflows stops new deploys only; the already-live sites must be taken down by the owner: Firebase (`npx firebase-tools hosting:disable --project nizam-tracker-d8cdc`) and GitHub Pages (repo Settings → Pages → unpublish, and delete the legacy `gh-pages` branch).
+- **Verify:** `.github/workflows` no longer exists; Google export sign-in still works; Firebase site returns “Site Not Found”; `https://feel5l.github.io/zayd-bin-thabit-attendance/` returns 404.
+
+### 18) Security review phase 0 — close public admin-password RPC + gate timetable publish (Sep 2026)
+
+- **Symptom (S1):** Supabase advisors flagged `set_admin_password` / `verify_admin_password` / `rls_auto_enable` as `SECURITY DEFINER` and executable by `anon`. Anyone with the public anon key could `POST /rest/v1/rpc/set_admin_password` and take over the admin account (then read all attendance via `admin-login` → `get-attendance`).
+- **Symptom (S3):** `publish-import-batch` had `verify_jwt=true` but no role check. The anon key is itself a valid JWT, so anyone could call it with service-role writes.
+- **Root cause:** Postgres grants `EXECUTE` to `PUBLIC` by default; `verify_jwt` was mistaken for authorization.
+- **Change:**
+  - Migration `0010_revoke_public_rpc_admin_password.sql` (renumbered; `0009` now holds the previously uncommitted `admin_credentials` + password functions): revoke `EXECUTE` from `PUBLIC/anon/authenticated`, grant to `service_role` only. `is_admin()` / `current_teacher_id()` untouched (RLS policies need them).
+  - `publish-import-batch` v2: requires `x-device-token` with `role = admin` (401 / 403 otherwise), ignores client `schoolId`, adds `x-device-token` to CORS. The repo file now mirrors the **deployed** v1 logic (the old repo version was never deployed).
+  - Ops: all 234 device tokens revoked at `2026-09-24 10:15:00+00` (remote migration `revoke_all_device_tokens_security_review`) → every device re-logs in. Undo: `UPDATE device_tokens SET revoked_at = NULL WHERE revoked_at = '2026-09-24 10:15:00+00'`.
+  - Ops: admin password rotated 2026-09-24 (remote migration `rotate_admin_password_security_review` stores the bcrypt hash only) and admin tokens revoked again. The new value differs from `VITE_ADMIN_PASSWORD`.
+- **Verified live (Vercel sandbox → Supabase, 2026-09-24):** publish without token → 401, bogus token → 401, teacher token → 403 `admin_only`, CORS allows `x-device-token`, anon `rpc/verify_admin_password` → 42501, `admin-login` wrong password → 401, `get-attendance` bogus token → 401. The temporary teacher test token was deleted afterwards.
+- **Known, not fixed here (fixed in §20):** deployed publish logic writes to `schedule_versions`, which does not exist, so timetable publish has been failing with 400 since v1 (no data was ever written; `timetable_versions` has only the migration seed). Do **not** repoint it at `timetable_versions` until `submit-attendance` filters `daily_period_assignments` by the published `version_id` — its `maybeSingle()` lookup errors once two versions exist, which would block teacher submits.
+- **Evidence of prior abuse:** none found — `admin_credentials.updated_at` = 2026-09-03 (owner bootstrap); no rows from publish in any version table.
+- **Verify:** as `anon`, `SELECT verify_admin_password(...)` raises `insufficient_privilege`; advisors show no `anon_security_definer_function_executable`; `publish-import-batch` without token → 401, teacher token → 403.
+
+### 19) Student PII out of the public bundle (S2, Sep 2026)
+
+- **Symptom:** `dist/assets/index-*.js` shipped 355 student national ids plus guardian names/phones, nationality and birth dates to every visitor.
+- **Root cause:** `services/studentsGrade3..6.ts` carried the full official roster and are bundled as `INITIAL_STUDENTS`.
+- **Change:**
+  - Roster files keep only id, number, name, class, gender; sensitive fields are `''` / absent.
+  - New Edge Function `get-student-contacts` (x-device-token): admin → all sensitive fields; teacher → guardian name/phone/home phone for classes they teach in Period 2 (any day) or are homeroom for.
+  - `syncAdapter.pullStudentContacts()` runs on login (forced) and every 10 min; `AttendanceService.applyStudentContacts()` fills **only empty** fields and records them in `zbt_student_contacts_overlay_v1`; `scrubStudentContacts()` removes exactly those on logout / account switch (local admin edits survive).
+- **Why this design:** Supabase `students` already held the identical data (md5 fingerprint of id|national_id|parent_phone|parent_name matched the bundle on 2026-09-24), so the server becomes the single source for PII without a data migration.
+- **Caveat:** `scripts/seedSupabase.ts` can no longer seed PII from the repo — Supabase `students` is now the source of truth for those columns.
+- **Verify:** `grep -oE 'nationalId:"[0-9]{10}"' dist/assets/*.js | wc -l` → 0; `tests/studentContacts.test.ts`.
+
+### 20) Timetable publish works end-to-end, readers use the published version (Sep 2026)
+
+- **Symptom:** Excel timetable publish always failed (deployed v1 wrote to a non-existent `schedule_versions`; after §18 the client also never sent `x-device-token`, so it got 401). Latent: `submit-attendance` used `maybeSingle()` on `daily_period_assignments` without a version filter, so a second version would have errored every teacher submit.
+- **Change:**
+  - Migration `0011_single_published_timetable.sql`: partial unique index (one `published` per school) + `publish_timetable_version()` (service_role only) that archives the old version and publishes a draft in one transaction.
+  - `publish-import-batch` v3: admin token → validate rows (day, period, duplicates, ≤500) → draft version → insert assignments with version-prefixed ids (`v<8>_<class>_<day>_p<n>`; client ids repeat across imports) → publish RPC; on any failure the draft is deleted. Generic error bodies.
+  - `submit-attendance` v4 and `get-schedule` v3 read assignments of the published version only.
+  - Client `publishTimetable()` sends the device token (`tests/publishTimetable.test.ts`).
+- **Verify:** publish from the admin import screen → `timetable_versions` has exactly one `published`; previous one `archived`; teachers still submit (403 only for truly unassigned classes).
+
+### 21) Login hardening: no admin via phone, throttling, token expiry (S4/S5/S6, Sep 2026)
+
+- **Symptom (critical, found during this work):** `teacher-login` issued `role = admin` tokens when the phone number belonged to an admin row. `user-admin` and `user-vice` both have `phone_hash`, so knowing the principal's or vice-principal's phone gave full admin access with no password. 7 admin tokens with no device label (teacher client sends none) were issued 2026-09-03 → 09-16 — most likely the owner signing in by phone; all were already revoked on 2026-09-24.
+- **Other gaps:** `admin-login` bootstrapped the password on first call if none existed (S4); no throttling on either login (S4/S5); device tokens never expired (S6).
+- **Change:**
+  - `teacher-login` v3: excludes `role = 'admin'` rows and always issues `role: "teacher"`.
+  - Migration `0012_login_rate_limit_and_token_expiry.sql`: `login_failures` + `login_is_throttled()` / `record_login_failure()` (service_role only); `device_tokens.expires_at` default now()+120 days.
+  - `admin-login` v2: no bootstrap; failures throttled 10/IP and 50 global per 15 min → 429; tokens expire after 30 days; generic error bodies.
+  - `teacher-login`: failed lookups throttled 30/IP, 300 global per 15 min (only failures count, so a school NAT at 07:45 is fine).
+  - All token-checking functions reject expired tokens (401 → client re-login banner).
+  - Client: `throttled` outcome with a clear Arabic message instead of "connection error".
+- **Not done (needs a product decision):** a per-teacher PIN/OTP. Phone number alone still identifies a teacher (as before), now throttled.
+- **Verify:** phone of an admin row → 404; 11th wrong admin password from one IP in 15 min → 429; `select expires_at from device_tokens` populated.
+
+### 22) CI, code-splitting, xlsx exposure, roster count (D3/P1/S9, Sep 2026)
+
+- **CI:** `.github/workflows/ci.yml` runs `lint`, `test`, `build` on every PR/push (no secrets) and fails if student national ids or guardian phones reappear in `dist/`.
+- **Code-splitting:** `App.tsx` lazy-loads admin/import/report/AI/contacts screens. Initial JS 3.2 MB → 845 KB (gzip 831 KB → 195 KB); `xlsx`, `jspdf`, `recharts`, Firebase and `@google/genai` are no longer downloaded by teacher phones.
+- **xlsx (S9, not fixed):** npm only publishes the vulnerable 0.18.5 (prototype pollution + ReDoS, no npm fix). The fixed build lives at `cdn.sheetjs.com`, which the agent environment could not reach. Exposure is reduced (admin-only, lazy chunk, files come from school staff). **Next step:** vendor `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` into `vendor/` and depend on `file:vendor/xlsx-0.20.3.tgz` (SheetJS's documented install), then `npm install` to refresh the lockfile.
+- **CORS (Q2, deliberately unchanged):** functions keep `Access-Control-Allow-Origin: *`. Auth is a custom `x-device-token` header (never sent automatically by browsers), so a wildcard origin does not enable CSRF; pinning origins would break Vercel preview URLs.
+- **Roster count:** grade files and Supabase `students` both hold **356** students (fingerprint-matched). Docs said 364; the 8-student gap is unverified and should be checked against Noor, not invented.
+
 ---
 
 ## Critical files map

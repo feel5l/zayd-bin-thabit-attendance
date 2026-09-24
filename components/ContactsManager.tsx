@@ -445,7 +445,7 @@ export const ContactsManager: React.FC<ContactsManagerProps> = ({
             <button
               onClick={handleSyncFromRoster}
               className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-emerald-100 font-semibold text-xs rounded-xl border border-white/10 transition flex items-center gap-1.5 min-h-[44px]"
-              title="مزامنة تلقائية مع سجل 364 طالب و20 معلم"
+              title="مزامنة تلقائية مع سجل الطلاب والمعلمين الرسمي"
             >
               <RefreshCw className="w-4 h-4 text-emerald-300" />
               <span className="hidden sm:inline">مزامنة سجل المدرسة</span>

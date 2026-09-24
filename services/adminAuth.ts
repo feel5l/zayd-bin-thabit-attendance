@@ -13,6 +13,7 @@ const REQUEST_TIMEOUT_MS = 8_000;
 export type AdminLoginOutcome =
   | { status: 'ok'; user: User; bootstrapped?: boolean; source: 'server' }
   | { status: 'invalid' }
+  | { status: 'throttled' }
   | { status: 'unavailable' };
 
 function toAdminUser(admin: Record<string, unknown>, fallback?: User): User {
@@ -30,7 +31,7 @@ function toAdminUser(admin: Record<string, unknown>, fallback?: User): User {
 /**
  * Authenticate the school admin against the server and store a device token.
  * Returns unavailable when Supabase is not configured or the network fails —
- * callers may fall back to the local VITE_ADMIN_PASSWORD check.
+ * there is no local fallback (security review S7).
  */
 export async function loginAdmin(
   password: string,
@@ -61,6 +62,7 @@ export async function loginAdmin(
     });
 
     if (res.status === 401) return { status: 'invalid' };
+    if (res.status === 429) return { status: 'throttled' };
     if (!res.ok) return { status: 'unavailable' };
 
     const data = await res.json();

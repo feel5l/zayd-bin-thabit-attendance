@@ -1,29 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { User, SchoolSettings } from './types';
 import { AttendanceService, SCHEDULE_CHANGE_EVENT } from './services/attendanceService';
 import { Navbar } from './components/Navbar';
 import { TimeSimulatorBar } from './components/TimeSimulatorBar';
-import { AdminDashboard } from './components/AdminDashboard';
 import { TeacherAttendanceSheet } from './components/TeacherAttendanceSheet';
-import { StudentDirectory } from './components/StudentDirectory';
 import { ExcuseManager } from './components/ExcuseManager';
-import { AIAdvisoryHub } from './components/AIAdvisoryHub';
 import { ClassHistoryViewer } from './components/ClassHistoryViewer';
 import { LoginModal } from './components/LoginModal';
 import { SchoolSettingsModal } from './components/SchoolSettingsModal';
-import { PrintableDailyReport } from './components/PrintableDailyReport';
 import { ToastNotificationContainer } from './components/ToastNotificationContainer';
-import { PdfReportsExportModal } from './components/PdfReportsExportModal';
-import { DataArchivingModal } from './components/DataArchivingModal';
-import { TeacherAndClassManagerModal } from './components/TeacherAndClassManagerModal';
 import { TeacherReminderModal } from './components/TeacherReminderModal';
-import { GoogleSheetsExportModal } from './components/GoogleSheetsExportModal';
-import { StudentImportModal } from './components/StudentImportModal';
-import { ContactsManager } from './components/ContactsManager';
-import { ContactsManagerModal } from './components/ContactsManagerModal';
 import { PortalLinksModal } from './components/PortalLinksModal';
-import { StudentReferralsManager } from './components/StudentReferralsManager';
-import { StudentReferralModal } from './components/StudentReferralModal';
 import { useSessionTimeout } from './hooks/useSessionTimeout';
 import { GraduationCap, ShieldAlert, Sparkles, BookOpen, Clock, Heart, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { getTodayDateString } from './services/initialData';
@@ -31,6 +18,23 @@ import { startSync, syncTodayAttendance } from './services/syncAdapter';
 import { isSupabaseConfigured } from './services/supabaseClient';
 import { getDeviceToken } from './services/deviceAuth';
 import { isQaToolsEnabled } from './services/qaTools';
+
+// Heavy, role-specific screens load on demand so a teacher's phone only
+// downloads the attendance sheet (xlsx / jspdf / recharts / firebase stay out
+// of the initial bundle).
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then((m) => ({ default: m.AdminDashboard })));
+const StudentDirectory = lazy(() => import('./components/StudentDirectory').then((m) => ({ default: m.StudentDirectory })));
+const AIAdvisoryHub = lazy(() => import('./components/AIAdvisoryHub').then((m) => ({ default: m.AIAdvisoryHub })));
+const PrintableDailyReport = lazy(() => import('./components/PrintableDailyReport').then((m) => ({ default: m.PrintableDailyReport })));
+const PdfReportsExportModal = lazy(() => import('./components/PdfReportsExportModal').then((m) => ({ default: m.PdfReportsExportModal })));
+const DataArchivingModal = lazy(() => import('./components/DataArchivingModal').then((m) => ({ default: m.DataArchivingModal })));
+const TeacherAndClassManagerModal = lazy(() => import('./components/TeacherAndClassManagerModal').then((m) => ({ default: m.TeacherAndClassManagerModal })));
+const GoogleSheetsExportModal = lazy(() => import('./components/GoogleSheetsExportModal').then((m) => ({ default: m.GoogleSheetsExportModal })));
+const StudentImportModal = lazy(() => import('./components/StudentImportModal').then((m) => ({ default: m.StudentImportModal })));
+const ContactsManager = lazy(() => import('./components/ContactsManager').then((m) => ({ default: m.ContactsManager })));
+const ContactsManagerModal = lazy(() => import('./components/ContactsManagerModal').then((m) => ({ default: m.ContactsManagerModal })));
+const StudentReferralsManager = lazy(() => import('./components/StudentReferralsManager').then((m) => ({ default: m.StudentReferralsManager })));
+const StudentReferralModal = lazy(() => import('./components/StudentReferralModal').then((m) => ({ default: m.StudentReferralModal })));
 
 export const App: React.FC = () => {
   const qaToolsEnabled = isQaToolsEnabled();
@@ -196,6 +200,8 @@ export const App: React.FC = () => {
 
   const handleLogout = (isExpired = false) => {
     const wasTeacher = currentUser?.role === 'teacher';
+    // Guardian contacts / national ids are only kept while someone is signed in.
+    AttendanceService.scrubStudentContacts();
     AttendanceService.setCurrentUser(null);
     setCurrentUser(null);
     if (isExpired) {
@@ -301,6 +307,7 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <Suspense fallback={<div className="py-20 text-center text-sm font-bold text-slate-500">جاري التحميل…</div>}>
         {currentUser ? (
           <>
             {/* Admin Dashboard */}
@@ -413,6 +420,7 @@ export const App: React.FC = () => {
             </button>
           </div>
         )}
+        </Suspense>
       </main>
 
       {/* Footer */}
@@ -466,6 +474,7 @@ export const App: React.FC = () => {
         onSaveSettings={handleUpdateSettings}
       />
 
+      <Suspense fallback={null}>
       {/* Official PDF & Printable Reports Export Modal */}
       {pdfReportModal.isOpen && (
         <PdfReportsExportModal
@@ -573,6 +582,7 @@ export const App: React.FC = () => {
           onClose={() => setIsPrintReportOpen(false)}
         />
       )}
+      </Suspense>
     </div>
   );
 };

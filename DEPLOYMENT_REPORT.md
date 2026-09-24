@@ -15,7 +15,7 @@
 | **مشروع Vercel** | `aziz-5c78/zayd-bin-thabit-attendance` |
 | **مرجع الكود** | فرع `main` على GitHub / Origin mirror عند الحاجة |
 
-> GitHub Pages (`gh-pages`) استُخدم سابقاً كمسار نشر. **لا تعتمد عليه كإنتاج أساسي** ما لم يُطلب صراحة.
+> أُلغي النشر التلقائي على GitHub Pages وFirebase Hosting (حُذف الـ workflow الخاص بكل منهما). **Vercel هو منصة الإنتاج الوحيدة.** تعطيل المواقع القديمة المنشورة مسبقًا خطوة يدوية على المالك، انظر `ENGINEERING_HISTORY.md` §17.
 
 ---
 
@@ -34,7 +34,7 @@
 
 | الاسم | الغرض |
 |-------|--------|
-| `VITE_ADMIN_PASSWORD` | دخول المدير |
+| ~~`VITE_ADMIN_PASSWORD`~~ | أُلغي — كلمة مرور المدير تُتحقق على الخادم فقط (`admin-login`). احذفه من Vercel |
 | `VITE_SUPABASE_URL` | عنوان المشروع |
 | `VITE_SUPABASE_ANON_KEY` | مفتاح anon العام فقط |
 

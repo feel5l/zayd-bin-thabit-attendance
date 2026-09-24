@@ -47,7 +47,7 @@
 
 ### أسرار Vercel (مضبوطة على المشروع)
 
-- `VITE_ADMIN_PASSWORD`
+- ~~`VITE_ADMIN_PASSWORD`~~ — removed (S7). Admin password is verified by `admin-login`; delete this env var from Vercel.
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 

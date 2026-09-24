@@ -5,6 +5,7 @@ import { lookupTeacher } from '../services/teacherAuth';
 import { loginAdmin } from '../services/adminAuth';
 import { clearDeviceToken, getDeviceToken } from '../services/deviceAuth';
 import { isSupabaseConfigured } from '../services/supabaseClient';
+import { pullStudentContacts } from '../services/syncAdapter';
 import { 
   GraduationCap, 
   Lock, 
@@ -71,7 +72,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const teachersList = users.filter(u => u.role === 'teacher');
 
   const completeLogin = (user: User) => {
+    // Drop the previous account's guardian contacts, then fetch this account's scope.
+    AttendanceService.scrubStudentContacts();
     AttendanceService.setCurrentUser(user);
+    void pullStudentContacts(true);
     onLoginSuccess(user);
     setSessionWarning(null);
     onClose();
@@ -98,6 +102,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
       if (outcome.status === 'ambiguous') {
         setError('هذا الرقم مسجّل لأكثر من معلم. يرجى مراجعة إدارة المدرسة.');
+        setLoading(false);
+        return;
+      }
+
+      if (outcome.status === 'throttled') {
+        setError('محاولات دخول غير صحيحة كثيرة من هذه الشبكة. انتظر ١٥ دقيقة ثم حاول مرة أخرى.');
         setLoading(false);
         return;
       }
@@ -160,27 +170,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         completeLogin(merged);
         return;
       }
+      if (remote.status === 'throttled') {
+        setError('محاولات دخول غير صحيحة كثيرة. انتظر ١٥ دقيقة ثم حاول مرة أخرى.');
+        return;
+      }
       if (remote.status === 'invalid') {
         setError('بيانات دخول الإدارة غير صحيحة. يرجى التأكد من اسم المستخدم وكلمة المرور الخاصة بالإدارة.');
         return;
       }
 
-      // Server unavailable: fall back to local password (no cross-device sync token).
-      const envAdminPassword = import.meta.env.VITE_ADMIN_PASSWORD || '';
-      let isValid = false;
-      if (user) {
-        isValid = Boolean(
-          (user.password && enteredPass === user.password) ||
-          (envAdminPassword && enteredPass === envAdminPassword)
-        );
-      }
-
-      if (user && isValid) {
-        clearDeviceToken();
-        completeLogin(user);
-      } else {
-        setError('بيانات دخول الإدارة غير صحيحة. يرجى التأكد من اسم المستخدم وكلمة المرور الخاصة بالإدارة.');
-      }
+      // Server unavailable. There is deliberately no local password fallback:
+      // any VITE_* value is inlined into the public bundle (security review S7).
+      clearDeviceToken();
+      setError('تعذّر الاتصال بالخادم للتحقق من كلمة مرور الإدارة. تأكد من اتصال الإنترنت ثم أعد المحاولة.');
     } catch {
       setError('حدث خطأ غير متوقع أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.');
     } finally {

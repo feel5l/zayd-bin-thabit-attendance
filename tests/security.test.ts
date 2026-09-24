@@ -17,7 +17,8 @@ describe('security hardening', () => {
       const content = readFileSync(join(ROOT, relativePath), 'utf8');
       expect(content).not.toContain(LEGACY_ADMIN_PASSWORD);
       expect(content).not.toContain(LEGACY_ALT_PASSWORD);
-      expect(content).toContain('VITE_ADMIN_PASSWORD');
+      // Admin password is verified server-side only; no VITE_* secret in the bundle.
+      expect(content).not.toContain('VITE_ADMIN_PASSWORD');
     });
   });
 

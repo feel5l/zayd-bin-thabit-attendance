@@ -92,6 +92,7 @@ export type TeacherLookupOutcome =
   | { status: 'found'; user: User; source: 'server' | 'device' }
   | { status: 'not_found' }
   | { status: 'ambiguous' }
+  | { status: 'throttled' }
   | { status: 'unavailable' };
 
 /**
@@ -130,6 +131,7 @@ export async function lookupTeacher(identifier: string): Promise<TeacherLookupOu
 
       if (res.status === 404) return { status: 'not_found' };
       if (res.status === 409) return { status: 'ambiguous' };
+      if (res.status === 429) return { status: 'throttled' };
 
       if (res.ok) {
         const data = await res.json();

@@ -1,13 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-// submit-attendance
-// Teacher device pushes one class attendance sheet. Requires x-device-token.
-// Assignment rules mirror the client:
-//   - daily_period_assignments match, OR
-//   - teacher.assigned_class_id (homeroom), OR
-//   - classes.homeroom_teacher_id when no daily row exists for that class/day
-
 const SCHOOL_ID = "zbt-primary";
 
 const CORS = {
@@ -17,7 +10,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const json = (body: unknown, status = 200) =>
+const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -27,7 +20,7 @@ const json = (body: unknown, status = 200) =>
     },
   });
 
-async function sha256Hex(value: string): Promise<string> {
+async function sha256Hex(value) {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(value),
@@ -48,7 +41,7 @@ const DAY_KEYS = [
 ];
 const VALID_STATUS = new Set(["present", "absent", "late", "excused"]);
 
-Deno.serve(async (req: Request) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -57,18 +50,18 @@ Deno.serve(async (req: Request) => {
     if (!token) return json({ error: "missing_device_token" }, 401);
 
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      Deno.env.get("SUPABASE_URL"),
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
     );
 
     const { data: device, error: deviceError } = await supabase
       .from("device_tokens")
-      .select("teacher_id, role, revoked_at")
+      .select("teacher_id, role, revoked_at, expires_at")
       .eq("token_hash", await sha256Hex(token))
       .eq("school_id", SCHOOL_ID)
       .maybeSingle();
     if (deviceError) return json({ error: deviceError.message }, 500);
-    if (!device || device.revoked_at) {
+    if (!device || device.revoked_at || new Date(device.expires_at).getTime() <= Date.now()) {
       return json({ error: "invalid_device_token" }, 401);
     }
 
@@ -87,15 +80,25 @@ Deno.serve(async (req: Request) => {
 
     if (device.role !== "admin") {
       const dayKey = DAY_KEYS[new Date(`${s.date}T12:00:00+03:00`).getUTCDay()];
+      // Only the published timetable counts; archived versions keep their rows
+      // and would otherwise make maybeSingle() fail once a second version exists.
+      const { data: published, error: versionError } = await supabase
+        .from("timetable_versions")
+        .select("id")
+        .eq("school_id", SCHOOL_ID)
+        .eq("status", "published")
+        .maybeSingle();
+      if (versionError) return json({ error: "version_lookup_failed" }, 500);
+      let assignedQuery = supabase
+        .from("daily_period_assignments")
+        .select("teacher_id")
+        .eq("school_id", SCHOOL_ID)
+        .eq("class_id", s.classId)
+        .eq("day_of_week", dayKey)
+        .eq("period_number", periodNumber);
+      if (published?.id) assignedQuery = assignedQuery.eq("version_id", published.id);
       const [assigned, homeroom, classRow] = await Promise.all([
-        supabase
-          .from("daily_period_assignments")
-          .select("teacher_id")
-          .eq("school_id", SCHOOL_ID)
-          .eq("class_id", s.classId)
-          .eq("day_of_week", dayKey)
-          .eq("period_number", periodNumber)
-          .maybeSingle(),
+        assignedQuery.maybeSingle(),
         supabase
           .from("teachers")
           .select("assigned_class_id")
@@ -121,7 +124,6 @@ Deno.serve(async (req: Request) => {
 
     const nowIso = new Date().toISOString();
 
-    // Resolve stable submission id: reuse existing row for (class,date,period) to avoid FK conflicts
     const { data: existingRow } = await supabase
       .from("attendance_submissions")
       .select("id")
@@ -172,10 +174,8 @@ Deno.serve(async (req: Request) => {
       .eq("submission_id", submissionId);
 
     const rows = items
-      .filter((it: Record<string, unknown>) =>
-        it && it.studentId && VALID_STATUS.has(String(it.status))
-      )
-      .map((it: Record<string, unknown>) => ({
+      .filter((it) => it && it.studentId && VALID_STATUS.has(String(it.status)))
+      .map((it) => ({
         submission_id: submissionId,
         student_id: it.studentId,
         student_name: it.studentName ?? "",
