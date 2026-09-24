@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User, SchoolClass, DayPeriodAssignment, WeekDayKey, TeacherTimetableRecord, TimetableEntry } from '../types';
 import { AttendanceService, WEEKDAYS_LIST } from '../services/attendanceService';
 import { TimetableImportModal } from './TimetableImportModal';
+import { adminManage, adminManageErrorMessage } from '../services/syncAdapter';
 import { 
   Calendar, 
   Clock, 
@@ -113,12 +114,40 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
     setSaveSuccess(false);
   };
 
-  const handleSaveAll = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  /**
+   * Push Period-2 rows that differ from the server-synced list to admin-manage.
+   * The local table is only committed after the server accepts, otherwise the
+   * next get-schedule pull would silently revert the change and the newly
+   * assigned teacher would get 403 on submit.
+   */
+  const pushAssignments = async (next: DayPeriodAssignment[], previous: DayPeriodAssignment[]): Promise<boolean> => {
+    const key = (a: DayPeriodAssignment) => `${a.classId}|${a.day}|${a.periodNumber || 2}`;
+    const before = new Map(previous.map((a) => [key(a), a.teacherId]));
+    const changed = next.filter((a) => a.teacherId && before.get(key(a)) !== a.teacherId);
+    if (changed.length === 0) return true;
+    const result = await adminManage('assignment.setMany', {
+      assignments: changed.map((a) => ({ classId: a.classId, day: a.day, periodNumber: a.periodNumber || 2, teacherId: a.teacherId })),
+    });
+    if (!result.ok) {
+      onShowNotification?.(adminManageErrorMessage(result.error), 'error');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSaveAll = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    const ok = await pushAssignments(assignments, AttendanceService.getPeriodAssignments());
+    setIsSaving(false);
+    if (!ok) return;
     AttendanceService.saveAllPeriodAssignments(assignments, currentUser);
     setHasChanges(false);
     setSaveSuccess(true);
     if (onShowNotification) {
-      onShowNotification('تم حفظ جدول إسناد الحصة الثانية بنجاح وتحديث صلاحيات المعلمين اليومية', 'success');
+      onShowNotification('تم حفظ جدول إسناد الحصة الثانية على الخادم وتحديث صلاحيات المعلمين في جميع الأجهزة', 'success');
     }
     if (onAssignmentsUpdated) {
       onAssignmentsUpdated();
@@ -126,10 +155,16 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
-  const handleLoadOfficialTimetable = () => {
+  const handleLoadOfficialTimetable = async () => {
     if (confirm('هل تريد تثبيت وتطبيق جدول الحصة الثانية المعتمد رسمياً من الجدول المدرسي العام للمدرسة؟')) {
+      const previous = AttendanceService.getPeriodAssignments();
       AttendanceService.reseedPeriodAssignmentsFromOfficialTimetable(currentUser);
       const fresh = AttendanceService.getPeriodAssignments();
+      if (!(await pushAssignments(fresh, previous))) {
+        AttendanceService.saveAllPeriodAssignments(previous);
+        setAssignments(previous);
+        return;
+      }
       setAssignments(fresh);
       setHasChanges(false);
       setSaveSuccess(true);
@@ -143,10 +178,16 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
     }
   };
 
-  const handleResetToDefaults = () => {
+  const handleResetToDefaults = async () => {
     if (confirm('هل أنت متأكد من إعادة ضبط جدول توزيع الحصة الثانية إلى التوزيع المعتمد؟')) {
+      const previous = AttendanceService.getPeriodAssignments();
       AttendanceService.initDefaultPeriodAssignments();
       const fresh = AttendanceService.getPeriodAssignments();
+      if (!(await pushAssignments(fresh, previous))) {
+        AttendanceService.saveAllPeriodAssignments(previous);
+        setAssignments(previous);
+        return;
+      }
       setAssignments(fresh);
       setHasChanges(false);
       setSaveSuccess(true);
@@ -301,7 +342,7 @@ export const Period2AssignmentScheduleTable: React.FC<Period2AssignmentScheduleT
               <button
                 type="button"
                 onClick={handleSaveAll}
-                disabled={!hasChanges && !saveSuccess}
+                disabled={isSaving || (!hasChanges && !saveSuccess)}
                 className={`px-5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 shadow-md ${
                   hasChanges
                     ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30 active:scale-95'

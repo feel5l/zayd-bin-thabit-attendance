@@ -10,6 +10,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //   teacher → guardian name/phone/home phone only, and only for classes the
 //             teacher teaches in Period 2 (any day) or is homeroom for.
 // The bundle keeps only id, number, name, class and gender.
+// Both roles also get `roster`: every ACTIVE student's non-sensitive fields, so
+// adds / transfers / removals made in the admin dashboard reach every device.
 
 const SCHOOL_ID = "zbt-primary";
 
@@ -52,6 +54,14 @@ Deno.serve(async (req: Request) => {
     if (deviceError) return json({ error: "device_lookup_failed" }, 500);
     if (!device || device.revoked_at || new Date(device.expires_at).getTime() <= Date.now()) return json({ error: "invalid_device_token" }, 401);
 
+    const { data: roster, error: rosterError } = await supabase
+      .from("students")
+      .select("id, student_number, name, class_id, class_name, grade_level, gender")
+      .eq("school_id", SCHOOL_ID)
+      .eq("is_active", true)
+      .order("id");
+    if (rosterError) return json({ error: "query_failed" }, 500);
+
     if (device.role === "admin") {
       const { data, error } = await supabase
         .from("students")
@@ -59,12 +69,16 @@ Deno.serve(async (req: Request) => {
         .eq("school_id", SCHOOL_ID)
         .eq("is_active", true);
       if (error) return json({ error: "query_failed" }, 500);
-      return json({ scope: "admin", students: data ?? [] });
+      return json({ scope: "admin", roster: roster ?? [], students: data ?? [] });
     }
 
+    const { data: published } = await supabase.from("timetable_versions").select("id")
+      .eq("school_id", SCHOOL_ID).eq("status", "published").maybeSingle();
+    let assignedQuery = supabase.from("daily_period_assignments").select("class_id")
+      .eq("school_id", SCHOOL_ID).eq("teacher_id", device.teacher_id);
+    if (published?.id) assignedQuery = assignedQuery.eq("version_id", published.id);
     const [assigned, teacher, homeroomClasses] = await Promise.all([
-      supabase.from("daily_period_assignments").select("class_id")
-        .eq("school_id", SCHOOL_ID).eq("teacher_id", device.teacher_id),
+      assignedQuery,
       supabase.from("teachers").select("assigned_class_id").eq("id", device.teacher_id).maybeSingle(),
       supabase.from("classes").select("id").eq("school_id", SCHOOL_ID).eq("homeroom_teacher_id", device.teacher_id),
     ]);
@@ -75,7 +89,7 @@ Deno.serve(async (req: Request) => {
     for (const row of homeroomClasses.data ?? []) if (row.id) classIds.add(row.id);
     if (teacher.data?.assigned_class_id) classIds.add(teacher.data.assigned_class_id);
 
-    if (classIds.size === 0) return json({ scope: "teacher", classIds: [], students: [] });
+    if (classIds.size === 0) return json({ scope: "teacher", classIds: [], roster: roster ?? [], students: [] });
 
     const { data, error } = await supabase
       .from("students")
@@ -89,7 +103,7 @@ Deno.serve(async (req: Request) => {
       .update({ last_seen_at: new Date().toISOString() })
       .eq("token_hash", await sha256Hex(token));
 
-    return json({ scope: "teacher", classIds: [...classIds], students: data ?? [] });
+    return json({ scope: "teacher", classIds: [...classIds], roster: roster ?? [], students: data ?? [] });
   } catch {
     return json({ error: "internal_error" }, 500);
   }

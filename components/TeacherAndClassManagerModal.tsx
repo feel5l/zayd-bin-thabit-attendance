@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { User, SchoolClass, SchoolSettings } from '../types';
 import { AttendanceService } from '../services/attendanceService';
+import { adminManage, adminManageErrorMessage } from '../services/syncAdapter';
+import { isSupabaseConfigured } from '../services/supabaseClient';
 import { StudentImportModal } from './StudentImportModal';
 import { Period2AssignmentScheduleTable } from './Period2AssignmentScheduleTable';
 import { 
@@ -132,7 +134,7 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
     setIsAddingTeacher(false);
   };
 
-  const handleSaveTeacher = (e: React.FormEvent) => {
+  const handleSaveTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!teacherFormData.name.trim()) {
       showNotification('يرجى إدخال اسم المعلم الرباعي', 'error');
@@ -152,12 +154,31 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
       assignedClassId: teacherFormData.assignedClassId || undefined,
       assignedClassName: assignedCls ? `${assignedCls.gradeLevel} (${assignedCls.section})` : undefined,
       phone: teacherFormData.phone.trim(),
-      // Admin passwords live only on the server (admin-login); never store one locally.
-      password: teacherFormData.role === 'admin'
-        ? ''
-        : (teacherFormData.nationalId?.trim() || teacherFormData.phone.trim() || '123456'),
+      // Login is by phone via teacher-login; admin passwords live on the server.
+      // Never keep a local password.
+      password: '',
       subject: teacherFormData.subject.trim()
     };
+
+    if (updatedTeacher.role === 'admin') {
+      showNotification('حسابات الإدارة لا تُضاف أو تُعدّل من هذه الشاشة.', 'error');
+      return;
+    }
+
+    // Server first: phone/national id are hashed there so the teacher can log
+    // in from any device. Only mirror locally once the server accepts.
+    const result = await adminManage('teacher.save', {
+      id: updatedTeacher.id,
+      name: updatedTeacher.name,
+      subject: updatedTeacher.subject,
+      phone: updatedTeacher.phone,
+      nationalId: updatedTeacher.nationalId,
+      assignedClassId: updatedTeacher.assignedClassId,
+    });
+    if (!result.ok) {
+      showNotification(adminManageErrorMessage(result.error), 'error');
+      return;
+    }
 
     AttendanceService.saveUser(updatedTeacher, currentUser);
     showNotification(isAddingTeacher ? 'تمت إضافة المعلم بنجاح وتحديث السجلات' : 'تم تعديل بيانات المعلم بنجاح');
@@ -167,12 +188,17 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
     refreshData();
   };
 
-  const handleDeleteTeacher = (teacher: User) => {
+  const handleDeleteTeacher = async (teacher: User) => {
     if (teacher.id === currentUser.id) {
       showNotification('لا يمكن حذف حسابك الحالي المستخدم في النظام', 'error');
       return;
     }
-    if (confirm(`هل أنت متأكد من حذف المعلم "${teacher.name}"؟`)) {
+    if (confirm(`هل أنت متأكد من إيقاف حساب المعلم "${teacher.name}"؟\nلن يتمكن من تسجيل الدخول، وتبقى سجلات الغياب السابقة محفوظة.`)) {
+      const result = await adminManage('teacher.deactivate', { id: teacher.id });
+      if (!result.ok) {
+        showNotification(adminManageErrorMessage(result.error), 'error');
+        return;
+      }
       AttendanceService.deleteUser(teacher.id, currentUser);
       showNotification('تم حذف المعلم بنجاح');
       refreshData();
@@ -211,7 +237,7 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
     setIsAddingClass(false);
   };
 
-  const handleSaveClass = (e: React.FormEvent) => {
+  const handleSaveClass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!classFormData.name.trim() || !classFormData.shortName.trim()) {
       showNotification('يرجى ملء اسم الشعبة والاسم المختصر', 'error');
@@ -233,6 +259,22 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
       color: classFormData.color
     };
 
+    const existingClass = classes.find(c => c.id === updatedClass.id);
+    if (isSupabaseConfigured()) {
+      if (!existingClass) {
+        showNotification('إضافة شعبة جديدة تتطلب تحديث قاعدة البيانات؛ تواصل مع الدعم الفني.', 'error');
+        return;
+      }
+      // Homeroom (مربي الفصل) is what the server uses for submit permissions.
+      if ((existingClass.teacherId || '') !== (updatedClass.teacherId || '')) {
+        const result = await adminManage('class.setHomeroom', { classId: updatedClass.id, teacherId: updatedClass.teacherId || null });
+        if (!result.ok) {
+          showNotification(adminManageErrorMessage(result.error), 'error');
+          return;
+        }
+      }
+    }
+
     AttendanceService.saveClass(updatedClass, currentUser);
     showNotification(isAddingClass ? 'تمت إضافة الشعبة بنجاح' : 'تم تعديل بيانات الشعبة بنجاح');
     setIsAddingClass(false);
@@ -242,6 +284,10 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
   };
 
   const handleDeleteClass = (cls: SchoolClass) => {
+    if (isSupabaseConfigured()) {
+      showNotification('حذف الشعب غير متاح لأن سجلات الغياب مرتبطة بها. انقل الطلاب بدلاً من ذلك.', 'error');
+      return;
+    }
     const studentsInClass = AttendanceService.getStudents(cls.id);
     if (studentsInClass.length > 0) {
       if (!confirm(`تنبيه: هذه الشعبة تحتوي على (${studentsInClass.length}) طالباً مسجلاً. هل أنت متأكد من حذف الشعبة؟ سيحتاج الطلاب لنقلهم لشعب أخرى.`)) {
@@ -663,9 +709,16 @@ export const TeacherAndClassManagerModal: React.FC<TeacherAndClassManagerModalPr
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">رقم الجوال للتواصل</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    رقم الجوال (رقم الدخول)
+                    <span className="block font-normal text-[10px] text-slate-500">
+                      {isAddingTeacher ? 'مطلوب للمعلم الجديد.' : 'اتركه فارغاً للإبقاء على الرقم الحالي، أو اكتب رقماً جديداً لتغييره.'}
+                    </span>
+                  </label>
                   <input
                     type="tel"
+                    inputMode="numeric"
+                    required={isAddingTeacher}
                     value={teacherFormData.phone}
                     onChange={(e) => setTeacherFormData({ ...teacherFormData, phone: e.target.value })}
                     placeholder="05xxxxxxxx"

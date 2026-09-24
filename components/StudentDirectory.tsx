@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Student, User, SchoolSettings, SchoolClass } from '../types';
 import { AttendanceService } from '../services/attendanceService';
 import { generateAbsenceWarningLetter } from '../services/geminiService';
+import { adminManage, adminManageErrorMessage } from '../services/syncAdapter';
 import { StudentImportModal } from './StudentImportModal';
 import { 
   Users, 
@@ -180,7 +181,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
     setIsTransferModalOpen(true);
   };
 
-  const handleSaveTransfer = (e: React.FormEvent) => {
+  const handleSaveTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!transferringStudent || !targetTransferClassId) return;
 
@@ -189,6 +190,11 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
       return;
     }
 
+    const result = await adminManage('student.transfer', { id: transferringStudent.id, classId: targetTransferClassId });
+    if (!result.ok) {
+      showFeedback(adminManageErrorMessage(result.error), 'error');
+      return;
+    }
     const updated = AttendanceService.transferStudent(transferringStudent.id, targetTransferClassId, currentUser);
     if (updated) {
       showFeedback(`تم نقل الطالب ${transferringStudent.name} إلى شعبة (${updated.className}) بنجاح`);
@@ -198,7 +204,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
     }
   };
 
-  const handleSaveStudent = (e: React.FormEvent) => {
+  const handleSaveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentFormData.name.trim() || !studentFormData.parentName.trim() || !studentFormData.parentPhone.trim()) {
       showFeedback('يرجى تعبئة الحقول الأساسية: اسم الطالب، اسم ولي الأمر، ورقم الجوال', 'error');
@@ -223,6 +229,24 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
       gender: 'male'
     };
 
+    const result = await adminManage('student.save', {
+      id: studentToSave.id,
+      name: studentToSave.name,
+      studentNumber: studentToSave.studentNumber,
+      classId: studentToSave.classId,
+      gender: studentToSave.gender,
+      nationalId: studentToSave.nationalId,
+      parentName: studentToSave.parentName,
+      parentPhone: studentToSave.parentPhone,
+      homePhone: studentToSave.homePhone,
+      nationality: studentToSave.nationality,
+      birthDate: studentToSave.birthDate,
+    });
+    if (!result.ok) {
+      showFeedback(adminManageErrorMessage(result.error), 'error');
+      return;
+    }
+
     AttendanceService.saveStudent(studentToSave, currentUser);
     showFeedback(isAddModalOpen ? 'تمت إضافة الطالب بنجاح وتحديث الكشوفات' : 'تم تعديل بيانات الطالب بنجاح');
     setIsAddModalOpen(false);
@@ -231,8 +255,13 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
     refreshData();
   };
 
-  const handleDeleteStudent = (student: Student) => {
-    if (confirm(`هل أنت متأكد من حذف الطالب "${student.name}" من السجلات وقوائم الحضور نهائياً؟`)) {
+  const handleDeleteStudent = async (student: Student) => {
+    if (confirm(`هل أنت متأكد من إزالة الطالب "${student.name}" من قوائم الحضور؟\nتبقى سجلات غيابه السابقة محفوظة في الأرشيف.`)) {
+      const result = await adminManage('student.remove', { id: student.id });
+      if (!result.ok) {
+        showFeedback(adminManageErrorMessage(result.error), 'error');
+        return;
+      }
       AttendanceService.deleteStudent(student.id, currentUser);
       showFeedback(`تم حذف الطالب "${student.name}" بنجاح`);
       if (selectedStudent?.id === student.id) {
