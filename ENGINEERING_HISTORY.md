@@ -193,6 +193,14 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Why this design:** A new agent should start at AGENTS → ENGINEERING_HISTORY → lint/test without rediscovering silent-push bugs.
 - **Verify:** Doc links resolve; production URL is Vercel; Firebase is documented as non-primary only.
 
+### 17) Remove Firebase Hosting deploy (Sep 2026)
+
+- **Symptom:** Every push to `main` also deployed the bundle to Firebase Hosting (`nizam-tracker-d8cdc`) — a second, non-canonical public copy of the app carrying the same embedded roster data.
+- **Root cause:** Legacy `deploy-firebase.yml` + `firebase.json` left over after Vercel became canonical.
+- **Change:** Delete `.github/workflows/deploy-firebase.yml` and `firebase.json`. Firebase **Auth** (`firebase-applet-config.json`, Google Sheets/Contacts export) is untouched.
+- **Why this design:** One production host (Vercel) reduces exposure surface. Removing the workflow stops new deploys only; the already-live Firebase site must be taken down by the owner (`npx firebase-tools hosting:disable --project nizam-tracker-d8cdc` or Firebase console → Hosting).
+- **Verify:** `ls .github/workflows` has no Firebase workflow; Google export sign-in still works; Firebase site returns “Site Not Found” after `hosting:disable`.
+
 ---
 
 ## Critical files map
