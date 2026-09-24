@@ -14,6 +14,27 @@ import {
 } from './initialData';
 import { OFFICIAL_TIMETABLE_RECORDS, extractPeriod2AssignmentsFromTimetable, mapLegacyTimetableTeacherId, isUnmappedTimetableTeacherId } from './timetableData';
 
+/** Sensitive roster fields served only by get-student-contacts (security review S2). */
+export const STUDENT_CONTACT_FIELDS = ['nationalId', 'parentName', 'parentPhone', 'homePhone', 'nationality', 'birthDate'] as const;
+export type StudentContactField = typeof STUDENT_CONTACT_FIELDS[number];
+export type StudentContactRecord = { id: string } & Partial<Record<StudentContactField, string>>;
+
+const CONTACT_OVERLAY_KEY = 'zbt_student_contacts_overlay_v1';
+
+function readContactOverlay(): Record<string, string[]> {
+  try {
+    const raw = localStorage.getItem(CONTACT_OVERLAY_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeContactOverlay(overlay: Record<string, string[]>): void {
+  try { localStorage.setItem(CONTACT_OVERLAY_KEY, JSON.stringify(overlay)); } catch (e) {}
+}
+
 const STORAGE_KEYS = {
   USERS: 'zbt_users_prod_v4',
   CLASSES: 'zbt_classes_prod_v4',
@@ -1240,6 +1261,68 @@ export class AttendanceService {
     }
 
     return student;
+  }
+
+  /**
+   * Fill sensitive roster fields (guardian contact, national id, …) from the
+   * authenticated get-student-contacts endpoint. The public bundle no longer
+   * carries them (security review S2). Only empty local fields are filled, so
+   * admin edits made on this device are never overwritten, and every field
+   * filled here is remembered so scrubStudentContacts() can remove exactly it.
+   */
+  static applyStudentContacts(records: StudentContactRecord[]): number {
+    const students = [...this.getStudents()];
+    const byId = new Map(students.map((s, i) => [s.id, i]));
+    const overlay = readContactOverlay();
+    let changed = 0;
+
+    for (const rec of records) {
+      const idx = byId.get(rec.id);
+      if (idx === undefined) continue;
+      const next: Student = { ...students[idx] };
+      const filled = new Set(overlay[rec.id] ?? []);
+      for (const field of STUDENT_CONTACT_FIELDS) {
+        const value = rec[field];
+        if (typeof value === 'string' && value.trim() && !next[field]) {
+          next[field] = value.trim();
+          filled.add(field);
+        }
+      }
+      if (filled.size > (overlay[rec.id]?.length ?? 0)) {
+        students[idx] = next;
+        overlay[rec.id] = [...filled];
+        changed++;
+      }
+    }
+
+    if (changed > 0) {
+      this._cacheStudents = students;
+      try { localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students)); } catch (e) {}
+      writeContactOverlay(overlay);
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event(ATTENDANCE_UPDATE_EVENT));
+    }
+    return changed;
+  }
+
+  /** Remove every field applyStudentContacts() filled (called on logout). */
+  static scrubStudentContacts(): void {
+    const overlay = readContactOverlay();
+    const ids = Object.keys(overlay);
+    if (ids.length === 0) return;
+    const students = this.getStudents().map((s) => {
+      const fields = overlay[s.id];
+      if (!fields) return s;
+      const next: Student = { ...s };
+      for (const field of fields as StudentContactField[]) {
+        if (field === 'nationalId' || field === 'parentName' || field === 'parentPhone') next[field] = '';
+        else delete next[field];
+      }
+      return next;
+    });
+    this._cacheStudents = students;
+    try { localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students)); } catch (e) {}
+    try { localStorage.removeItem(CONTACT_OVERLAY_KEY); } catch (e) {}
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(ATTENDANCE_UPDATE_EVENT));
   }
 
   static deleteStudent(studentId: string, performedBy?: User): void {

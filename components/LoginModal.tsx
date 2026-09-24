@@ -5,6 +5,7 @@ import { lookupTeacher } from '../services/teacherAuth';
 import { loginAdmin } from '../services/adminAuth';
 import { clearDeviceToken, getDeviceToken } from '../services/deviceAuth';
 import { isSupabaseConfigured } from '../services/supabaseClient';
+import { pullStudentContacts } from '../services/syncAdapter';
 import { 
   GraduationCap, 
   Lock, 
@@ -71,7 +72,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const teachersList = users.filter(u => u.role === 'teacher');
 
   const completeLogin = (user: User) => {
+    // Drop the previous account's guardian contacts, then fetch this account's scope.
+    AttendanceService.scrubStudentContacts();
     AttendanceService.setCurrentUser(user);
+    void pullStudentContacts(true);
     onLoginSuccess(user);
     setSessionWarning(null);
     onClose();

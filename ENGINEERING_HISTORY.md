@@ -216,6 +216,18 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Evidence of prior abuse:** none found — `admin_credentials.updated_at` = 2026-09-03 (owner bootstrap); no rows from publish in any version table.
 - **Verify:** as `anon`, `SELECT verify_admin_password(...)` raises `insufficient_privilege`; advisors show no `anon_security_definer_function_executable`; `publish-import-batch` without token → 401, teacher token → 403.
 
+### 19) Student PII out of the public bundle (S2, Sep 2026)
+
+- **Symptom:** `dist/assets/index-*.js` shipped 355 student national ids plus guardian names/phones, nationality and birth dates to every visitor.
+- **Root cause:** `services/studentsGrade3..6.ts` carried the full official roster and are bundled as `INITIAL_STUDENTS`.
+- **Change:**
+  - Roster files keep only id, number, name, class, gender; sensitive fields are `''` / absent.
+  - New Edge Function `get-student-contacts` (x-device-token): admin → all sensitive fields; teacher → guardian name/phone/home phone for classes they teach in Period 2 (any day) or are homeroom for.
+  - `syncAdapter.pullStudentContacts()` runs on login (forced) and every 10 min; `AttendanceService.applyStudentContacts()` fills **only empty** fields and records them in `zbt_student_contacts_overlay_v1`; `scrubStudentContacts()` removes exactly those on logout / account switch (local admin edits survive).
+- **Why this design:** Supabase `students` already held the identical data (md5 fingerprint of id|national_id|parent_phone|parent_name matched the bundle on 2026-09-24), so the server becomes the single source for PII without a data migration.
+- **Caveat:** `scripts/seedSupabase.ts` can no longer seed PII from the repo — Supabase `students` is now the source of truth for those columns.
+- **Verify:** `grep -oE 'nationalId:"[0-9]{10}"' dist/assets/*.js | wc -l` → 0; `tests/studentContacts.test.ts`.
+
 ---
 
 ## Critical files map

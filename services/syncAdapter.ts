@@ -18,7 +18,7 @@
  */
 
 import { isSupabaseConfigured, getSupabaseFunctionsUrl, getAnonKey, getSupabaseClient } from './supabaseClient';
-import { AttendanceService, SCHEDULE_CHANGE_EVENT } from './attendanceService';
+import { AttendanceService, SCHEDULE_CHANGE_EVENT, type StudentContactRecord } from './attendanceService';
 import { getDeviceToken } from './deviceAuth';
 import type { ClassAttendanceSubmission, StudentAttendanceItem, DayPeriodAssignment, SchoolSettings, AttendanceStatus } from '../types';
 import { getTodayDateString } from './initialData';
@@ -338,6 +338,55 @@ export async function pullTodaySubmissions(date?: string): Promise<ClassAttendan
   }
 }
 
+// ─── Student contacts (sensitive roster fields, role-scoped on the server) ───
+
+const CONTACTS_REFRESH_MS = 10 * 60_000;
+let _contactsPulledFor: string | null = null;
+let _contactsPulledAt = 0;
+
+function mapContactRecord(raw: Record<string, unknown>): StudentContactRecord | null {
+  const id = typeof raw.id === 'string' ? raw.id : '';
+  if (!id) return null;
+  const pick = (k: string) => (typeof raw[k] === 'string' ? (raw[k] as string) : undefined);
+  return {
+    id,
+    nationalId: pick('national_id'),
+    parentName: pick('parent_name'),
+    parentPhone: pick('parent_phone'),
+    homePhone: pick('home_phone'),
+    nationality: pick('nationality'),
+    birthDate: pick('birth_date'),
+  };
+}
+
+/**
+ * Fetch guardian contacts / national ids for the signed-in device and merge
+ * them into AttendanceService. Runs once per token and every 10 minutes.
+ */
+export async function pullStudentContacts(force = false): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const token = getDeviceToken();
+  if (!token) return 0;
+  if (!force && _contactsPulledFor === token && Date.now() - _contactsPulledAt < CONTACTS_REFRESH_MS) return 0;
+
+  try {
+    const res = await fetchWithTimeout(`${getSupabaseFunctionsUrl()}/get-student-contacts`, {
+      method: 'GET',
+      headers: fetchHeaders(true),
+    });
+    if (!res.ok) return 0;
+    const data = await res.json();
+    const records = ((data?.students ?? []) as Record<string, unknown>[])
+      .map(mapContactRecord)
+      .filter((r): r is StudentContactRecord => r !== null);
+    _contactsPulledFor = token;
+    _contactsPulledAt = Date.now();
+    return AttendanceService.applyStudentContacts(records);
+  } catch {
+    return 0;
+  }
+}
+
 /** Pull today's sheets from the server and merge into AttendanceService. */
 export async function syncTodayAttendance(date?: string): Promise<boolean> {
   if (!isSupabaseConfigured() || !getDeviceToken()) return false;
@@ -458,10 +507,15 @@ export function startSync(): () => void {
   void pullSchedule();
   void syncTodayAttendance();
   void flushOfflineQueue();
+  void pullStudentContacts();
 
   // Polling fallback (Realtime is primary but polling ensures resilience)
   _pollTimer = setInterval(() => { void pullSchedule(); }, POLL_INTERVAL_MS);
-  _attendancePollTimer = setInterval(() => { void syncTodayAttendance(); }, ATTENDANCE_POLL_MS);
+  _attendancePollTimer = setInterval(() => {
+    void syncTodayAttendance();
+    // No-op until a device token exists; picks up a fresh login within one tick.
+    void pullStudentContacts();
+  }, ATTENDANCE_POLL_MS);
 
   // Realtime
   startRealtime();

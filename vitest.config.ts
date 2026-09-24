@@ -10,6 +10,7 @@ export default defineConfig({
       ['tests/applyServerSubmissions.test.ts', 'happy-dom'],
       ['tests/deviceAuth.test.ts', 'happy-dom'],
       ['tests/pushSubmission.test.ts', 'happy-dom'],
+      ['tests/studentContacts.test.ts', 'happy-dom'],
     ],
   },
   resolve: {

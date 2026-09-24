@@ -196,6 +196,8 @@ export const App: React.FC = () => {
 
   const handleLogout = (isExpired = false) => {
     const wasTeacher = currentUser?.role === 'teacher';
+    // Guardian contacts / national ids are only kept while someone is signed in.
+    AttendanceService.scrubStudentContacts();
     AttendanceService.setCurrentUser(null);
     setCurrentUser(null);
     if (isExpired) {
