@@ -56,12 +56,12 @@ Deno.serve(async (req) => {
 
     const { data: device, error: deviceError } = await supabase
       .from("device_tokens")
-      .select("teacher_id, role, revoked_at")
+      .select("teacher_id, role, revoked_at, expires_at")
       .eq("token_hash", await sha256Hex(token))
       .eq("school_id", SCHOOL_ID)
       .maybeSingle();
     if (deviceError) return json({ error: deviceError.message }, 500);
-    if (!device || device.revoked_at) {
+    if (!device || device.revoked_at || new Date(device.expires_at).getTime() <= Date.now()) {
       return json({ error: "invalid_device_token" }, 401);
     }
 

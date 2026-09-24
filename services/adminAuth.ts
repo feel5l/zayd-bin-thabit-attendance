@@ -13,6 +13,7 @@ const REQUEST_TIMEOUT_MS = 8_000;
 export type AdminLoginOutcome =
   | { status: 'ok'; user: User; bootstrapped?: boolean; source: 'server' }
   | { status: 'invalid' }
+  | { status: 'throttled' }
   | { status: 'unavailable' };
 
 function toAdminUser(admin: Record<string, unknown>, fallback?: User): User {
@@ -61,6 +62,7 @@ export async function loginAdmin(
     });
 
     if (res.status === 401) return { status: 'invalid' };
+    if (res.status === 429) return { status: 'throttled' };
     if (!res.ok) return { status: 'unavailable' };
 
     const data = await res.json();

@@ -12,9 +12,15 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //
 // This is not a password check. It reproduces the trust level the app already
 // had (knowing the number identifies you) while removing the data leak and
-// giving each device a revocable credential.
+// giving each device a revocable credential. Admin accounts are excluded: a
+// phone number must never yield an admin token (security review, Sep 2026).
 
 const SCHOOL_ID = "zbt-primary";
+// Only failed lookups are counted, so many teachers behind one school IP can
+// still sign in at 07:45 while enumerating phone numbers is throttled.
+const WINDOW_SECONDS = 15 * 60;
+const MAX_FAILURES_PER_IP = 30;
+const MAX_FAILURES_GLOBAL = 300;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -61,6 +67,15 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
+    const buckets = [`teacher:ip:${ip}`, "teacher:global"];
+    const [perIp, global] = await Promise.all([
+      supabase.rpc("login_is_throttled", { p_bucket: buckets[0], p_max: MAX_FAILURES_PER_IP, p_window_seconds: WINDOW_SECONDS }),
+      supabase.rpc("login_is_throttled", { p_bucket: buckets[1], p_max: MAX_FAILURES_GLOBAL, p_window_seconds: WINDOW_SECONDS }),
+    ]);
+    if (perIp.error || global.error) return json({ error: "throttle_check_failed" }, 500);
+    if (perIp.data === true || global.data === true) return json({ error: "too_many_attempts" }, 429);
+
     const publicColumns =
       "id, display_name, subject, assigned_class_id, avatar, role, is_active, sequence_number, username";
 
@@ -75,7 +90,7 @@ Deno.serve(async (req: Request) => {
     if (candidates.length > 0) {
       const { data, error } = await supabase
         .from("teachers").select(publicColumns)
-        .eq("school_id", SCHOOL_ID).eq("is_active", true)
+        .eq("school_id", SCHOOL_ID).eq("is_active", true).neq("role", "admin")
         .in("phone_hash", candidates).limit(2);
       if (error) return json({ error: error.message }, 500);
       if (data && data.length > 1) return json({ error: "ambiguous_identifier" }, 409);
@@ -86,14 +101,17 @@ Deno.serve(async (req: Request) => {
       const idHash = await sha256Hex(raw);
       const { data, error } = await supabase
         .from("teachers").select(publicColumns)
-        .eq("school_id", SCHOOL_ID).eq("is_active", true)
+        .eq("school_id", SCHOOL_ID).eq("is_active", true).neq("role", "admin")
         .eq("national_id_hash", idHash).limit(2);
       if (error) return json({ error: error.message }, 500);
       if (data && data.length > 1) return json({ error: "ambiguous_identifier" }, 409);
       match = data && data.length === 1 ? data[0] : null;
     }
 
-    if (!match) return json({ found: false }, 404);
+    if (!match) {
+      await supabase.rpc("record_login_failure", { p_buckets: buckets });
+      return json({ found: false }, 404);
+    }
 
     // Issue this device a token so it can submit attendance later. Only the
     // hash is stored; the plaintext is returned once and never again.
@@ -103,7 +121,9 @@ Deno.serve(async (req: Request) => {
       token_hash: tokenHash,
       school_id: SCHOOL_ID,
       teacher_id: match.id as string,
-      role: (match.role as string) === "admin" ? "admin" : "teacher",
+      // Never admin: admin accounts must use admin-login (password). Admin rows
+      // are excluded above; this is a second guard.
+      role: "teacher",
       label: typeof deviceLabel === "string" ? deviceLabel.slice(0, 120) : null,
       last_seen_at: new Date().toISOString(),
     });
@@ -111,6 +131,7 @@ Deno.serve(async (req: Request) => {
 
     return json({ found: true, teacher: match, deviceToken: token });
   } catch (err) {
-    return json({ error: String(err) }, 500);
+    console.error("[teacher-login]", err instanceof Error ? err.message : err);
+    return json({ error: "internal_error" }, 500);
   }
 });

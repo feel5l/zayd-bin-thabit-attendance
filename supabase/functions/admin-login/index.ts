@@ -10,11 +10,15 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // Vite, so it was never really secret. Checking here means the real password
 // never reaches a browser.
 //
-// Bootstrap: while no password is set for the school, the FIRST call sets it.
-// After that the endpoint only verifies. The owner is told to do this straight
-// after deploying, because until they do, whoever calls first sets it.
+// No bootstrap: if no password is stored the endpoint refuses (security review
+// S4). Set or rotate it with SQL: select public.set_admin_password(...).
+// Failed attempts are throttled per IP and globally (login_failures).
 
 const SCHOOL_ID = "zbt-primary";
+const WINDOW_SECONDS = 15 * 60;
+const MAX_FAILURES_PER_IP = 10;
+const MAX_FAILURES_GLOBAL = 50;
+const TOKEN_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -49,14 +53,25 @@ Deno.serve(async (req: Request) => {
     const username = String(body?.username ?? "admin").trim().toLowerCase();
     const deviceLabel = typeof body?.deviceLabel === "string" ? body.deviceLabel.slice(0, 120) : null;
 
-    if (password.length < 8) {
-      return json({ error: "weak_password", message: "كلمة المرور يجب ألا تقل عن ٨ خانات." }, 400);
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
+    const buckets = [`admin:ip:${ip}`, "admin:global"];
+    const [perIp, global] = await Promise.all([
+      supabase.rpc("login_is_throttled", { p_bucket: buckets[0], p_max: MAX_FAILURES_PER_IP, p_window_seconds: WINDOW_SECONDS }),
+      supabase.rpc("login_is_throttled", { p_bucket: buckets[1], p_max: MAX_FAILURES_GLOBAL, p_window_seconds: WINDOW_SECONDS }),
+    ]);
+    if (perIp.error || global.error) return json({ error: "throttle_check_failed" }, 500);
+    if (perIp.data === true || global.data === true) {
+      return json({ ok: false, reason: "too_many_attempts", message: "محاولات كثيرة غير صحيحة. حاول بعد ١٥ دقيقة." }, 429);
+    }
+    const fail = async () => {
+      await supabase.rpc("record_login_failure", { p_buckets: buckets });
+      return json({ ok: false, reason: "invalid_credentials" }, 401);
+    };
 
     const { data: adminUser, error: userError } = await supabase
       .from("teachers")
@@ -65,31 +80,16 @@ Deno.serve(async (req: Request) => {
       .eq("role", "admin")
       .eq("username", username)
       .maybeSingle();
-    if (userError) return json({ error: userError.message }, 500);
-    if (!adminUser) return json({ ok: false, reason: "invalid_credentials" }, 401);
+    if (password.length < 8 || password.length > 200) return await fail();
+    if (userError) return json({ error: "user_lookup_failed" }, 500);
+    if (!adminUser) return await fail();
 
-    const { data: cred, error: credError } = await supabase
-      .from("admin_credentials").select("school_id").eq("school_id", SCHOOL_ID).maybeSingle();
-    if (credError) return json({ error: credError.message }, 500);
-
-    let bootstrapped = false;
-
-    if (!cred) {
-      // First ever call: this password becomes the school's admin password.
-      const { error: setError } = await supabase.rpc("set_admin_password", {
-        p_school_id: SCHOOL_ID,
-        p_password: password,
-      });
-      if (setError) return json({ error: setError.message }, 500);
-      bootstrapped = true;
-    } else {
-      const { data: ok, error: verifyError } = await supabase.rpc("verify_admin_password", {
-        p_school_id: SCHOOL_ID,
-        p_password: password,
-      });
-      if (verifyError) return json({ error: verifyError.message }, 500);
-      if (ok !== true) return json({ ok: false, reason: "invalid_credentials" }, 401);
-    }
+    const { data: ok, error: verifyError } = await supabase.rpc("verify_admin_password", {
+      p_school_id: SCHOOL_ID,
+      p_password: password,
+    });
+    if (verifyError) return json({ error: "verify_failed" }, 500);
+    if (ok !== true) return await fail();
 
     const token = newToken();
     const { error: tokenError } = await supabase.from("device_tokens").insert({
@@ -99,11 +99,13 @@ Deno.serve(async (req: Request) => {
       role: "admin",
       label: deviceLabel,
       last_seen_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + TOKEN_LIFETIME_MS).toISOString(),
     });
-    if (tokenError) return json({ error: tokenError.message }, 500);
+    if (tokenError) return json({ error: "token_issue_failed" }, 500);
 
-    return json({ ok: true, bootstrapped, admin: adminUser, deviceToken: token });
+    return json({ ok: true, bootstrapped: false, admin: adminUser, deviceToken: token });
   } catch (err) {
-    return json({ error: String(err) }, 500);
+    console.error("[admin-login]", err instanceof Error ? err.message : err);
+    return json({ error: "internal_error" }, 500);
   }
 });

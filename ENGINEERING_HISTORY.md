@@ -238,6 +238,20 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
   - Client `publishTimetable()` sends the device token (`tests/publishTimetable.test.ts`).
 - **Verify:** publish from the admin import screen → `timetable_versions` has exactly one `published`; previous one `archived`; teachers still submit (403 only for truly unassigned classes).
 
+### 21) Login hardening: no admin via phone, throttling, token expiry (S4/S5/S6, Sep 2026)
+
+- **Symptom (critical, found during this work):** `teacher-login` issued `role = admin` tokens when the phone number belonged to an admin row. `user-admin` and `user-vice` both have `phone_hash`, so knowing the principal's or vice-principal's phone gave full admin access with no password. 7 admin tokens with no device label (teacher client sends none) were issued 2026-09-03 → 09-16 — most likely the owner signing in by phone; all were already revoked on 2026-09-24.
+- **Other gaps:** `admin-login` bootstrapped the password on first call if none existed (S4); no throttling on either login (S4/S5); device tokens never expired (S6).
+- **Change:**
+  - `teacher-login` v3: excludes `role = 'admin'` rows and always issues `role: "teacher"`.
+  - Migration `0012_login_rate_limit_and_token_expiry.sql`: `login_failures` + `login_is_throttled()` / `record_login_failure()` (service_role only); `device_tokens.expires_at` default now()+120 days.
+  - `admin-login` v2: no bootstrap; failures throttled 10/IP and 50 global per 15 min → 429; tokens expire after 30 days; generic error bodies.
+  - `teacher-login`: failed lookups throttled 30/IP, 300 global per 15 min (only failures count, so a school NAT at 07:45 is fine).
+  - All token-checking functions reject expired tokens (401 → client re-login banner).
+  - Client: `throttled` outcome with a clear Arabic message instead of "connection error".
+- **Not done (needs a product decision):** a per-teacher PIN/OTP. Phone number alone still identifies a teacher (as before), now throttled.
+- **Verify:** phone of an admin row → 404; 11th wrong admin password from one IP in 15 min → 429; `select expires_at from device_tokens` populated.
+
 ---
 
 ## Critical files map

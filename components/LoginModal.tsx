@@ -106,6 +106,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         return;
       }
 
+      if (outcome.status === 'throttled') {
+        setError('محاولات دخول غير صحيحة كثيرة من هذه الشبكة. انتظر ١٥ دقيقة ثم حاول مرة أخرى.');
+        setLoading(false);
+        return;
+      }
+
       if (outcome.status === 'unavailable') {
         setError('تعذّر الاتصال بالخادم للتحقق من الرقم. تأكد من الاتصال بالإنترنت وحاول مرة أخرى.');
         setLoading(false);
@@ -162,6 +168,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           ? { ...user, ...remote.user, password: '', role: 'admin' as const }
           : remote.user;
         completeLogin(merged);
+        return;
+      }
+      if (remote.status === 'throttled') {
+        setError('محاولات دخول غير صحيحة كثيرة. انتظر ١٥ دقيقة ثم حاول مرة أخرى.');
         return;
       }
       if (remote.status === 'invalid') {
