@@ -212,7 +212,7 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
   - Ops: all 234 device tokens revoked at `2026-09-24 10:15:00+00` (remote migration `revoke_all_device_tokens_security_review`) → every device re-logs in. Undo: `UPDATE device_tokens SET revoked_at = NULL WHERE revoked_at = '2026-09-24 10:15:00+00'`.
   - Ops: admin password rotated 2026-09-24 (remote migration `rotate_admin_password_security_review` stores the bcrypt hash only) and admin tokens revoked again. The new value differs from `VITE_ADMIN_PASSWORD`.
 - **Verified live (Vercel sandbox → Supabase, 2026-09-24):** publish without token → 401, bogus token → 401, teacher token → 403 `admin_only`, CORS allows `x-device-token`, anon `rpc/verify_admin_password` → 42501, `admin-login` wrong password → 401, `get-attendance` bogus token → 401. The temporary teacher test token was deleted afterwards.
-- **Known, not fixed here:** deployed publish logic writes to `schedule_versions`, which does not exist, so timetable publish has been failing with 400 since v1 (no data was ever written; `timetable_versions` has only the migration seed). Do **not** repoint it at `timetable_versions` until `submit-attendance` filters `daily_period_assignments` by the published `version_id` — its `maybeSingle()` lookup errors once two versions exist, which would block teacher submits.
+- **Known, not fixed here (fixed in §20):** deployed publish logic writes to `schedule_versions`, which does not exist, so timetable publish has been failing with 400 since v1 (no data was ever written; `timetable_versions` has only the migration seed). Do **not** repoint it at `timetable_versions` until `submit-attendance` filters `daily_period_assignments` by the published `version_id` — its `maybeSingle()` lookup errors once two versions exist, which would block teacher submits.
 - **Evidence of prior abuse:** none found — `admin_credentials.updated_at` = 2026-09-03 (owner bootstrap); no rows from publish in any version table.
 - **Verify:** as `anon`, `SELECT verify_admin_password(...)` raises `insufficient_privilege`; advisors show no `anon_security_definer_function_executable`; `publish-import-batch` without token → 401, teacher token → 403.
 
@@ -227,6 +227,16 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **Why this design:** Supabase `students` already held the identical data (md5 fingerprint of id|national_id|parent_phone|parent_name matched the bundle on 2026-09-24), so the server becomes the single source for PII without a data migration.
 - **Caveat:** `scripts/seedSupabase.ts` can no longer seed PII from the repo — Supabase `students` is now the source of truth for those columns.
 - **Verify:** `grep -oE 'nationalId:"[0-9]{10}"' dist/assets/*.js | wc -l` → 0; `tests/studentContacts.test.ts`.
+
+### 20) Timetable publish works end-to-end, readers use the published version (Sep 2026)
+
+- **Symptom:** Excel timetable publish always failed (deployed v1 wrote to a non-existent `schedule_versions`; after §18 the client also never sent `x-device-token`, so it got 401). Latent: `submit-attendance` used `maybeSingle()` on `daily_period_assignments` without a version filter, so a second version would have errored every teacher submit.
+- **Change:**
+  - Migration `0011_single_published_timetable.sql`: partial unique index (one `published` per school) + `publish_timetable_version()` (service_role only) that archives the old version and publishes a draft in one transaction.
+  - `publish-import-batch` v3: admin token → validate rows (day, period, duplicates, ≤500) → draft version → insert assignments with version-prefixed ids (`v<8>_<class>_<day>_p<n>`; client ids repeat across imports) → publish RPC; on any failure the draft is deleted. Generic error bodies.
+  - `submit-attendance` v4 and `get-schedule` v3 read assignments of the published version only.
+  - Client `publishTimetable()` sends the device token (`tests/publishTimetable.test.ts`).
+- **Verify:** publish from the admin import screen → `timetable_versions` has exactly one `published`; previous one `archived`; teachers still submit (403 only for truly unassigned classes).
 
 ---
 

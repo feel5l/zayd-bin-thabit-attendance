@@ -80,15 +80,25 @@ Deno.serve(async (req) => {
 
     if (device.role !== "admin") {
       const dayKey = DAY_KEYS[new Date(`${s.date}T12:00:00+03:00`).getUTCDay()];
+      // Only the published timetable counts; archived versions keep their rows
+      // and would otherwise make maybeSingle() fail once a second version exists.
+      const { data: published, error: versionError } = await supabase
+        .from("timetable_versions")
+        .select("id")
+        .eq("school_id", SCHOOL_ID)
+        .eq("status", "published")
+        .maybeSingle();
+      if (versionError) return json({ error: "version_lookup_failed" }, 500);
+      let assignedQuery = supabase
+        .from("daily_period_assignments")
+        .select("teacher_id")
+        .eq("school_id", SCHOOL_ID)
+        .eq("class_id", s.classId)
+        .eq("day_of_week", dayKey)
+        .eq("period_number", periodNumber);
+      if (published?.id) assignedQuery = assignedQuery.eq("version_id", published.id);
       const [assigned, homeroom, classRow] = await Promise.all([
-        supabase
-          .from("daily_period_assignments")
-          .select("teacher_id")
-          .eq("school_id", SCHOOL_ID)
-          .eq("class_id", s.classId)
-          .eq("day_of_week", dayKey)
-          .eq("period_number", periodNumber)
-          .maybeSingle(),
+        assignedQuery.maybeSingle(),
         supabase
           .from("teachers")
           .select("assigned_class_id")

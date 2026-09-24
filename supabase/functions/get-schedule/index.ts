@@ -33,13 +33,18 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const [settings, periods, classes, assignments, teachers, version] = await Promise.all([
+    const version = await supabase.from("timetable_versions").select("id, label, status, published_at").eq("school_id", SCHOOL_ID).eq("status", "published").order("published_at", { ascending: false }).limit(1).maybeSingle();
+
+    // Only the published version's assignments; archived ones stay for history.
+    let assignmentsQuery = supabase.from("daily_period_assignments").select("id, class_id, class_name, day_of_week, day_arabic, teacher_id, teacher_name, period_number, subject, notes, updated_at").eq("school_id", SCHOOL_ID);
+    if (version.data?.id) assignmentsQuery = assignmentsQuery.eq("version_id", version.data.id);
+
+    const [settings, periods, classes, assignments, teachers] = await Promise.all([
       supabase.from("school_settings").select("settings_json, version, updated_at").eq("school_id", SCHOOL_ID).maybeSingle(),
       supabase.from("period_schedules").select("period_number, name, start_time, end_time, is_attendance_period").eq("school_id", SCHOOL_ID).order("period_number"),
       supabase.from("classes").select("id, name, short_name, grade_level, section, homeroom_teacher_id, attendance_period").eq("school_id", SCHOOL_ID).order("id"),
-      supabase.from("daily_period_assignments").select("id, class_id, class_name, day_of_week, day_arabic, teacher_id, teacher_name, period_number, subject, notes, updated_at").eq("school_id", SCHOOL_ID),
+      assignmentsQuery,
       supabase.from("teachers").select("id, display_name, subject, assigned_class_id, avatar, role, is_active, sequence_number").eq("school_id", SCHOOL_ID).order("sequence_number"),
-      supabase.from("timetable_versions").select("id, label, status, published_at").eq("school_id", SCHOOL_ID).eq("status", "published").order("published_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     const firstError = settings.error || periods.error || classes.error || assignments.error || teachers.error || version.error;

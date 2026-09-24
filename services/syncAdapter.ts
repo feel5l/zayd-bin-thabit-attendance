@@ -441,9 +441,10 @@ export async function publishTimetable(params: {
   if (!isSupabaseConfigured()) return { ok: false };
   const baseUrl = getSupabaseFunctionsUrl();
   try {
+    // Admin-only endpoint: the device token is required (401 without it).
     const res = await fetchWithTimeout(`${baseUrl}/publish-import-batch`, {
       method: 'POST',
-      headers: fetchHeaders(),
+      headers: fetchHeaders(true),
       body: JSON.stringify({
         period2Assignments: params.period2Assignments,
         label: params.label,

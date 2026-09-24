@@ -2,34 +2,24 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // publish-import-batch
 // ---------------------------------------------------------------------------
-// Admin-only. Requires x-device-token issued by admin-login (role = admin).
-// verify_jwt alone is not enough: the public anon key is itself a valid JWT.
+// Admin-only (x-device-token with role = admin). Publishes a Period-2
+// timetable imported from Excel so every device picks it up via get-schedule.
 //
-// NOTE (security review S3, Sep 2026): this file mirrors the version that was
-// actually deployed (v1), plus the admin token gate. That version writes to
-// `schedule_versions`, which does not exist, so publishing still fails with
-// 400 for admins. Do not "fix" it by pointing at timetable_versions until
-// submit-attendance filters daily_period_assignments by the published
-// version — its maybeSingle() lookup errors once a second version exists.
+// Flow: create a DRAFT timetable_versions row → insert its
+// daily_period_assignments → publish_timetable_version() archives the old
+// published version and publishes the draft in one transaction. Any failure
+// before that deletes the draft, so the live timetable is never half-written.
+// Readers (get-schedule, submit-attendance) filter by the published version.
 
 const SCHOOL_ID = 'zbt-primary';
+const VALID_DAYS = new Set(['sunday', 'monday', 'tuesday', 'wednesday', 'thursday']);
+const MAX_ASSIGNMENTS = 500;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-device-token',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
-
-interface TimetableEntry {
-  teacherId: string;
-  teacherName: string;
-  classId: string;
-  className: string;
-  dayOfWeek: string;
-  dayArabic: string;
-  periodNumber: number;
-  subject: string;
-}
 
 interface Period2Assignment {
   id: string;
@@ -39,176 +29,121 @@ interface Period2Assignment {
   dayArabic: string;
   teacherId: string;
   teacherName: string;
-  periodNumber: number;
-  subject: string;
+  periodNumber?: number;
+  subject?: string;
   notes?: string;
 }
 
-interface ImportBatchPayload {
-  schoolId?: string;
-  version: number;
-  publishedAt: string;
-  publishedBy: string;
-  timetableEntries: TimetableEntry[];
-  period2Assignments: Period2Assignment[];
-}
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  });
 
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+const str = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceRoleKey) return json({ error: 'server_configuration_error' }, 500);
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  let draftId: string | null = null;
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: 'Server configuration error' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
     const token = req.headers.get('x-device-token') || '';
-    if (!token) {
-      return new Response(JSON.stringify({ error: 'missing_device_token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    if (!token) return json({ error: 'missing_device_token' }, 401);
 
     const { data: device, error: deviceError } = await supabase
       .from('device_tokens')
-      .select('role, revoked_at')
+      .select('teacher_id, role, revoked_at')
       .eq('token_hash', await sha256Hex(token))
       .eq('school_id', SCHOOL_ID)
       .maybeSingle();
+    if (deviceError) return json({ error: 'device_lookup_failed' }, 500);
+    if (!device || device.revoked_at) return json({ error: 'invalid_device_token' }, 401);
+    if (device.role !== 'admin') return json({ error: 'admin_only' }, 403);
 
-    if (deviceError) {
-      return new Response(JSON.stringify({ error: 'device_lookup_failed' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const body = await req.json().catch(() => null);
+    const input = Array.isArray(body?.period2Assignments) ? (body.period2Assignments as Period2Assignment[]) : [];
+    if (input.length === 0) return json({ error: 'period2Assignments_required' }, 400);
+    if (input.length > MAX_ASSIGNMENTS) return json({ error: 'too_many_assignments' }, 400);
+
+    const seen = new Set<string>();
+    const rows: Record<string, unknown>[] = [];
+    for (const a of input) {
+      const classId = str(a?.classId, 64);
+      const day = str(a?.day, 16);
+      const teacherId = str(a?.teacherId, 64);
+      const periodNumber = Number(a?.periodNumber ?? 2);
+      if (!classId || !teacherId || !VALID_DAYS.has(day) || !Number.isInteger(periodNumber) || periodNumber < 1 || periodNumber > 8) {
+        return json({ error: 'invalid_assignment', assignment: { classId, day, teacherId } }, 400);
+      }
+      const key = `${classId}|${day}|${periodNumber}`;
+      if (seen.has(key)) return json({ error: 'duplicate_assignment', key }, 400);
+      seen.add(key);
+      rows.push({
+        class_id: classId,
+        class_name: str(a.className) || classId,
+        day_of_week: day,
+        day_arabic: str(a.dayArabic, 32) || day,
+        teacher_id: teacherId,
+        teacher_name: str(a.teacherName) || teacherId,
+        period_number: periodNumber,
+        subject: str(a.subject) || null,
+        notes: str(a.notes, 500) || null,
       });
     }
-    if (!device || device.revoked_at) {
-      return new Response(JSON.stringify({ error: 'invalid_device_token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    if (device.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'admin_only' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
-    const payload = (await req.json()) as ImportBatchPayload;
-    // Single-school deployment: never trust a client-supplied schoolId.
-    const schoolId = SCHOOL_ID;
-
-    const { data: versionRow, error: versionError } = await supabase
-      .from('schedule_versions')
+    const { data: draft, error: draftError } = await supabase
+      .from('timetable_versions')
       .insert({
-        school_id: schoolId,
-        version: payload.version,
-        published_at: payload.publishedAt,
-        published_by: payload.publishedBy,
-        source: 'excel-import',
+        school_id: SCHOOL_ID,
+        label: str(body?.label, 120) || `import-${new Date().toISOString().slice(0, 10)}`,
+        status: 'draft',
+        source: str(body?.source, 40) || 'excel_import',
+        imported_by: device.teacher_id,
       })
       .select('id')
       .single();
+    if (draftError || !draft) return json({ error: 'create_version_failed' }, 500);
+    draftId = draft.id as string;
 
-    if (versionError) {
-      return new Response(JSON.stringify({ error: versionError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const versionId = versionRow.id as string;
-
-    if (payload.timetableEntries.length > 0) {
-      const { error: timetableError } = await supabase.from('timetable_entries').insert(
-        payload.timetableEntries.map((entry) => ({
-          school_id: schoolId,
-          version_id: versionId,
-          teacher_id: entry.teacherId,
-          teacher_name: entry.teacherName,
-          class_id: entry.classId,
-          class_name: entry.className,
-          day_of_week: entry.dayOfWeek,
-          day_arabic: entry.dayArabic,
-          period_number: entry.periodNumber,
-          subject: entry.subject,
-        }))
-      );
-
-      if (timetableError) {
-        return new Response(JSON.stringify({ error: timetableError.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
-    if (payload.period2Assignments.length > 0) {
-      const { error: assignmentError } = await supabase.from('daily_period_assignments').insert(
-        payload.period2Assignments.map((assignment) => ({
-          school_id: schoolId,
-          version_id: versionId,
-          assignment_id: assignment.id,
-          class_id: assignment.classId,
-          class_name: assignment.className,
-          day: assignment.day,
-          day_arabic: assignment.dayArabic,
-          teacher_id: assignment.teacherId,
-          teacher_name: assignment.teacherName,
-          period_number: assignment.periodNumber,
-          subject: assignment.subject,
-          notes: assignment.notes ?? null,
-        }))
-      );
-
-      if (assignmentError) {
-        return new Response(JSON.stringify({ error: assignmentError.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        versionId,
-        timetableCount: payload.timetableEntries.length,
-        assignmentCount: payload.period2Assignments.length,
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+    // Assignment ids are client-generated as assign_<class>_<day>, identical
+    // across imports, so prefix them with the version to keep the PK unique.
+    const prefix = draftId.slice(0, 8);
+    const { error: insertError } = await supabase.from('daily_period_assignments').insert(
+      rows.map((r) => ({
+        ...r,
+        id: `v${prefix}_${r.class_id}_${r.day_of_week}_p${r.period_number}`,
+        school_id: SCHOOL_ID,
+        version_id: draftId,
+      })),
     );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    if (insertError) throw new Error(`assignments: ${insertError.message}`);
+
+    const { error: publishError } = await supabase.rpc('publish_timetable_version', {
+      p_school_id: SCHOOL_ID,
+      p_version_id: draftId,
     });
+    if (publishError) throw new Error(`publish: ${publishError.message}`);
+
+    const published = draftId;
+    draftId = null;
+    return json({ status: 'published', versionId: published, assignmentsCount: rows.length });
+  } catch (err) {
+    console.error('[publish-import-batch]', err instanceof Error ? err.message : err);
+    if (draftId) {
+      await supabase.from('daily_period_assignments').delete().eq('version_id', draftId);
+      await supabase.from('timetable_versions').delete().eq('id', draftId).eq('status', 'draft');
+    }
+    return json({ error: 'publish_failed' }, 500);
   }
 });
