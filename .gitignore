@@ -22,7 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.claude/
+.claude/*
+!.claude/skills/
 .vercel
 .env
 .env.*
