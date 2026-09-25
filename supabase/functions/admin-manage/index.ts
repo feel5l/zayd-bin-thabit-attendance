@@ -67,7 +67,7 @@ const id = (v: unknown, code: string) => {
 
 async function classRow(db: SupabaseClient, classId: string) {
   const { data, error } = await db.from("classes")
-    .select("id, name, short_name, grade_level").eq("school_id", SCHOOL_ID).eq("id", classId).maybeSingle();
+    .select("id, name, short_name, grade_level, homeroom_teacher_id").eq("school_id", SCHOOL_ID).eq("id", classId).maybeSingle();
   if (error) throw new HttpError(500, "class_lookup_failed");
   if (!data) throw bad("unknown_class");
   return data;
@@ -75,7 +75,7 @@ async function classRow(db: SupabaseClient, classId: string) {
 
 async function teacherRow(db: SupabaseClient, teacherId: string) {
   const { data, error } = await db.from("teachers")
-    .select("id, role, display_name, is_active").eq("school_id", SCHOOL_ID).eq("id", teacherId).maybeSingle();
+    .select("id, role, display_name, is_active, assigned_class_id").eq("school_id", SCHOOL_ID).eq("id", teacherId).maybeSingle();
   if (error) throw new HttpError(500, "teacher_lookup_failed");
   return data;
 }
@@ -98,8 +98,9 @@ async function teacherSave(db: SupabaseClient, b: Record<string, unknown>) {
   };
 
   const assignedClassId = str(b.assignedClassId, 64);
+  let assignedClass: { homeroom_teacher_id: string | null } | null = null;
   if (assignedClassId) {
-    await classRow(db, assignedClassId);
+    assignedClass = await classRow(db, assignedClassId);
     patch.assigned_class_id = assignedClassId;
   } else {
     patch.assigned_class_id = null;
@@ -145,7 +146,15 @@ async function teacherSave(db: SupabaseClient, b: Record<string, unknown>) {
   }
 
   // Homeroom mirrors the client: a teacher's assigned class points back at them.
-  if (assignedClassId) {
+  // Only when the class assignment actually changed (or the class has no
+  // homeroom yet) — some classes have two linked teachers, and editing the
+  // second one's phone must not silently take the homeroom from the first.
+  const classChanged = assignedClassId !== (existing?.assigned_class_id ?? "");
+  if (classChanged && existing?.assigned_class_id) {
+    await db.from("classes").update({ homeroom_teacher_id: null, updated_at: new Date().toISOString() })
+      .eq("school_id", SCHOOL_ID).eq("id", existing.assigned_class_id).eq("homeroom_teacher_id", teacherId);
+  }
+  if (assignedClassId && (classChanged || !assignedClass?.homeroom_teacher_id)) {
     await db.from("classes").update({ homeroom_teacher_id: teacherId, updated_at: new Date().toISOString() })
       .eq("school_id", SCHOOL_ID).eq("id", assignedClassId);
   }
