@@ -19,6 +19,31 @@ export const STUDENT_CONTACT_FIELDS = ['nationalId', 'parentName', 'parentPhone'
 export type StudentContactField = typeof STUDENT_CONTACT_FIELDS[number];
 export type StudentContactRecord = { id: string } & Partial<Record<StudentContactField, string>>;
 
+/** Row shapes returned by get-schedule / get-student-contacts (snake_case, as stored). */
+export interface ServerTeacherRow {
+  id: string;
+  display_name: string;
+  subject?: string | null;
+  assigned_class_id?: string | null;
+  avatar?: string | null;
+  role: string;
+  is_active: boolean;
+  sequence_number?: number | null;
+}
+export interface ServerClassRow {
+  id: string;
+  homeroom_teacher_id?: string | null;
+}
+export interface ServerRosterRow {
+  id: string;
+  student_number?: string | null;
+  name: string;
+  class_id: string;
+  class_name: string;
+  grade_level: string;
+  gender?: string | null;
+}
+
 const CONTACT_OVERLAY_KEY = 'zbt_student_contacts_overlay_v1';
 
 function readContactOverlay(): Record<string, string[]> {
@@ -378,6 +403,109 @@ export class AttendanceService {
       this.dispatchScheduleChange('assignments');
     }
     return changed;
+  }
+
+  /**
+   * Apply the teacher directory and class homerooms from get-schedule.
+   * Server is the source of truth for teachers (admin-manage writes there):
+   * new teachers appear, edits are mirrored, deactivated teachers disappear.
+   * Local-only fields (phone, national id) are kept for the admin's own view.
+   */
+  static applyServerDirectory(payload: {
+    teachers?: ServerTeacherRow[];
+    classes?: ServerClassRow[];
+  }): boolean {
+    this.initStorage();
+    let changed = false;
+    const classes = [...this.getClasses()];
+    const classById = new Map(classes.map((c) => [c.id, c]));
+
+    if (payload.teachers && payload.teachers.length > 0) {
+      const users = [...this.getUsers()];
+      const currentId = this.getCurrentUser()?.id;
+      const next: User[] = users.filter((u) => u.role === 'admin');
+      const localById = new Map(users.map((u) => [u.id, u]));
+      for (const row of payload.teachers) {
+        if (row.role !== 'teacher') continue;
+        if (!row.is_active && row.id !== currentId) continue;
+        const local = localById.get(row.id);
+        const assignedClassId = row.assigned_class_id || undefined;
+        const cls = assignedClassId ? classById.get(assignedClassId) : undefined;
+        next.push({
+          ...(local ?? { username: row.id, password: '' }),
+          id: row.id,
+          name: row.display_name,
+          role: 'teacher',
+          subject: row.subject || undefined,
+          avatar: row.avatar || local?.avatar,
+          sequenceNumber: row.sequence_number ?? local?.sequenceNumber,
+          assignedClassId,
+          assignedClassName: cls ? `${cls.gradeLevel} (${cls.section})` : undefined,
+        } as User);
+      }
+      if (JSON.stringify(next) !== JSON.stringify(users)) {
+        this._cacheUsers = next;
+        try { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(next)); } catch (e) {}
+        changed = true;
+      }
+    }
+
+    if (payload.classes && payload.classes.length > 0) {
+      const users = this.getUsers();
+      let classesChanged = false;
+      for (const row of payload.classes) {
+        const cls = classById.get(row.id);
+        if (!cls) continue;
+        const teacherId = row.homeroom_teacher_id || '';
+        const teacherName = teacherId
+          ? users.find((u) => u.id === teacherId)?.name || cls.teacherName
+          : 'لم يُحدد مربي الفصل';
+        if (cls.teacherId !== teacherId || cls.teacherName !== teacherName) {
+          Object.assign(cls, { teacherId, teacherName });
+          classesChanged = true;
+        }
+      }
+      if (classesChanged) {
+        this._cacheClasses = classes;
+        try { localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(classes)); } catch (e) {}
+        changed = true;
+      }
+    }
+
+    if (changed) this.dispatchScheduleChange('users');
+    return changed;
+  }
+
+  /**
+   * Replace the local student list with the server roster (active students
+   * only). Sensitive fields already on this device are carried over by id;
+   * get-student-contacts fills the rest. Ignored when the roster is empty so a
+   * failed pull never wipes the class lists.
+   */
+  static applyServerRoster(roster: ServerRosterRow[]): boolean {
+    this.initStorage();
+    if (!roster || roster.length === 0) return false;
+    const current = this.getStudents();
+    const localById = new Map(current.map((s) => [s.id, s]));
+    const next: Student[] = roster.map((r) => {
+      const local = localById.get(r.id);
+      return {
+        ...(local ?? { nationalId: '', parentName: '', parentPhone: '' }),
+        id: r.id,
+        name: r.name,
+        studentNumber: r.student_number || local?.studentNumber || '',
+        classId: r.class_id,
+        className: r.class_name,
+        gradeLevel: r.grade_level,
+        gender: r.gender === 'female' ? 'female' : 'male',
+      } as Student;
+    });
+    if (JSON.stringify(next) === JSON.stringify(current)) return false;
+    this._cacheStudents = next;
+    try { localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(next)); } catch (e) {}
+    this.recalculateAllClassCounts();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(ATTENDANCE_UPDATE_EVENT));
+    return true;
   }
 
   /**
@@ -1266,9 +1394,10 @@ export class AttendanceService {
   /**
    * Fill sensitive roster fields (guardian contact, national id, …) from the
    * authenticated get-student-contacts endpoint. The public bundle no longer
-   * carries them (security review S2). Only empty local fields are filled, so
-   * admin edits made on this device are never overwritten, and every field
-   * filled here is remembered so scrubStudentContacts() can remove exactly it.
+   * carries them (security review S2). The server is the source of truth
+   * (admin edits go through admin-manage first), so a differing server value
+   * replaces the local one. Every field set here is remembered so
+   * scrubStudentContacts() can remove exactly it on logout.
    */
   static applyStudentContacts(records: StudentContactRecord[]): number {
     const students = [...this.getStudents()];
@@ -1281,14 +1410,16 @@ export class AttendanceService {
       if (idx === undefined) continue;
       const next: Student = { ...students[idx] };
       const filled = new Set(overlay[rec.id] ?? []);
+      let touched = false;
       for (const field of STUDENT_CONTACT_FIELDS) {
         const value = rec[field];
-        if (typeof value === 'string' && value.trim() && !next[field]) {
+        if (typeof value === 'string' && value.trim() && next[field] !== value.trim()) {
           next[field] = value.trim();
           filled.add(field);
+          touched = true;
         }
       }
-      if (filled.size > (overlay[rec.id]?.length ?? 0)) {
+      if (touched) {
         students[idx] = next;
         overlay[rec.id] = [...filled];
         changed++;

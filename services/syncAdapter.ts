@@ -18,7 +18,7 @@
  */
 
 import { isSupabaseConfigured, getSupabaseFunctionsUrl, getAnonKey, getSupabaseClient } from './supabaseClient';
-import { AttendanceService, SCHEDULE_CHANGE_EVENT, type StudentContactRecord } from './attendanceService';
+import { AttendanceService, SCHEDULE_CHANGE_EVENT, type StudentContactRecord, type ServerTeacherRow, type ServerClassRow, type ServerRosterRow } from './attendanceService';
 import { getDeviceToken } from './deviceAuth';
 import type { ClassAttendanceSubmission, StudentAttendanceItem, DayPeriodAssignment, SchoolSettings, AttendanceStatus } from '../types';
 import { getTodayDateString } from './initialData';
@@ -182,8 +182,12 @@ export async function pullSchedule(): Promise<boolean> {
     }
 
     const changed = AttendanceService.applyServerSchedule({ assignments, settingsPatch });
+    const directoryChanged = AttendanceService.applyServerDirectory({
+      teachers: Array.isArray(data.teachers) ? (data.teachers as ServerTeacherRow[]) : undefined,
+      classes: Array.isArray(data.classes) ? (data.classes as ServerClassRow[]) : undefined,
+    });
     setStatus('synced');
-    return changed;
+    return changed || directoryChanged;
   } catch {
     setStatus('offline');
     return false;
@@ -340,7 +344,7 @@ export async function pullTodaySubmissions(date?: string): Promise<ClassAttendan
 
 // ─── Student contacts (sensitive roster fields, role-scoped on the server) ───
 
-const CONTACTS_REFRESH_MS = 10 * 60_000;
+const CONTACTS_REFRESH_MS = 60_000;
 let _contactsPulledFor: string | null = null;
 let _contactsPulledAt = 0;
 
@@ -376,6 +380,8 @@ export async function pullStudentContacts(force = false): Promise<number> {
     });
     if (!res.ok) return 0;
     const data = await res.json();
+    // Roster first (adds / transfers / removals), then sensitive fields on top.
+    if (Array.isArray(data?.roster)) AttendanceService.applyServerRoster(data.roster as ServerRosterRow[]);
     const records = ((data?.students ?? []) as Record<string, unknown>[])
       .map(mapContactRecord)
       .filter((r): r is StudentContactRecord => r !== null);
@@ -384,6 +390,75 @@ export async function pullStudentContacts(force = false): Promise<number> {
     return AttendanceService.applyStudentContacts(records);
   } catch {
     return 0;
+  }
+}
+
+// ─── Admin roster / timetable writes ───
+
+export type AdminManageAction =
+  | 'teacher.save'
+  | 'teacher.deactivate'
+  | 'student.save'
+  | 'student.transfer'
+  | 'student.remove'
+  | 'assignment.setMany'
+  | 'class.setHomeroom';
+
+// Flat shape (the project is not strictNullChecks, so union narrowing on `ok` is unreliable).
+export interface AdminManageResult {
+  ok: boolean;
+  localOnly?: boolean;
+  error?: string;
+  needsAuth?: boolean;
+}
+
+/** Arabic message for an admin-manage error code (shown in the admin UI). */
+export function adminManageErrorMessage(error: string = 'unknown'): string {
+  const map: Record<string, string> = {
+    needs_auth: 'انتهت جلسة الإدارة. سجّل الدخول مرة أخرى ثم أعد المحاولة.',
+    admin_only: 'هذه العملية متاحة لحساب الإدارة فقط.',
+    network: 'تعذّر الاتصال بالخادم. لم يُحفظ التغيير — تأكد من الإنترنت وأعد المحاولة.',
+    phone_required: 'رقم جوال المعلم مطلوب ليتمكن من تسجيل الدخول.',
+    invalid_phone: 'رقم الجوال غير صحيح. الصيغة المطلوبة: 05xxxxxxxx',
+    phone_in_use: 'رقم الجوال مسجّل لمعلم آخر.',
+    invalid_national_id: 'رقم الهوية/الإقامة يجب أن يكون 10 أرقام يبدأ بـ 1 أو 2.',
+    national_id_in_use: 'رقم الهوية مسجّل لشخص آخر.',
+    invalid_parent_phone: 'جوال ولي الأمر غير صحيح. الصيغة المطلوبة: 05xxxxxxxx',
+    unknown_class: 'الشعبة غير موجودة على الخادم.',
+    unknown_student: 'الطالب غير موجود على الخادم.',
+    unknown_teacher: 'المعلم غير موجود على الخادم.',
+    cannot_edit_admin_here: 'حسابات الإدارة لا تُعدَّل من هذه الشاشة.',
+    invalid_assignment_teacher: 'المعلم المختار غير نشط أو غير موجود على الخادم.',
+    no_published_timetable: 'لا يوجد جدول منشور على الخادم.',
+    name_required: 'الاسم مطلوب.',
+  };
+  return map[error] || `تعذّر حفظ التغيير على الخادم (${error}).`;
+}
+
+/**
+ * Send one admin roster/timetable change to admin-manage. Callers apply the
+ * change locally ONLY after ok: true, so the dashboard never shows an edit the
+ * other devices will not receive. Without Supabase (offline build) it returns
+ * ok + localOnly and the app keeps its local-only behaviour.
+ */
+export async function adminManage(action: AdminManageAction, payload: Record<string, unknown>): Promise<AdminManageResult> {
+  if (!isSupabaseConfigured()) return { ok: true, localOnly: true };
+  if (!getDeviceToken()) return { ok: false, error: 'needs_auth', needsAuth: true };
+  try {
+    const res = await fetchWithTimeout(`${getSupabaseFunctionsUrl()}/admin-manage`, {
+      method: 'POST',
+      headers: fetchHeaders(true),
+      body: JSON.stringify({ ...payload, action }),
+    });
+    if (res.status === 401) return { ok: false, error: 'needs_auth', needsAuth: true };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) return { ok: false, error: String(data?.error || `http_${res.status}`) };
+    // Refresh this device from the server so it matches what others will see.
+    void pullSchedule();
+    void pullStudentContacts(true);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'network' };
   }
 }
 

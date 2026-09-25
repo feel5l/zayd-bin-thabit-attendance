@@ -260,6 +260,24 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
 - **CORS (Q2, deliberately unchanged):** functions keep `Access-Control-Allow-Origin: *`. Auth is a custom `x-device-token` header (never sent automatically by browsers), so a wildcard origin does not enable CSRF; pinning origins would break Vercel preview URLs.
 - **Roster count:** grade files and Supabase `students` both hold **356** students (fingerprint-matched). Docs said 364; the 8-student gap is unverified and should be checked against Noor, not invented.
 
+### 23) Admin edits reach the server: `admin-manage` (Sep 2026)
+
+- **Audit (teacher phones):** all 20 active teachers' `phone_hash` / `national_id_hash` match the official list; client and server normalise phones identically. The only duplicate hash is between two admin rows (`user-admin`, `user-vice`), which phone login ignores.
+- **Bug:** every add/edit in the admin dashboard (teachers, students, Period-2 table, homeroom) lived only in the admin's `localStorage`:
+  - new teachers and phone changes could not log in;
+  - a new student made the whole class's `submit-attendance` fail (FK `attendance_student_items.student_id → students`);
+  - Period-2 edits were overwritten by the next `get-schedule` pull, and the newly assigned teacher got 403;
+  - transfers and removals never reached other devices.
+- **Fix:**
+  - New Edge Function `admin-manage` (admin token only; teacher token → 403). Actions: `teacher.save` / `teacher.deactivate`, `student.save` / `student.transfer` / `student.remove`, `assignment.setMany` (writes into the **published** timetable version), `class.setHomeroom`.
+  - Phones and teacher national ids are hashed server-side. Duplicate phone → 409 `phone_in_use`. New teacher requires a phone.
+  - Deletions are soft (`is_active=false`), so attendance history is kept. Deactivating a teacher revokes their tokens and clears their homeroom.
+  - Migration `0013` adds partial unique indexes on active teachers' `phone_hash` / `national_id_hash`.
+  - `get-student-contacts` now also returns `roster` (non-sensitive fields of active students). The client applies it (`applyServerRoster`) plus the teacher directory from `get-schedule` (`applyServerDirectory`), so adds, transfers and removals reach every device.
+  - UI calls the server first and only mirrors locally on success; errors show Arabic messages (`adminManageErrorMessage`). Import "replace" mode and class add/delete are blocked when Supabase is configured.
+  - `teacher.save` only moves `classes.homeroom_teacher_id` when the teacher's class actually changed (or the class has none). Several classes have two linked teachers, and editing the second one must not take the homeroom from the first.
+- **Verify:** live API E2E (30/30) plus a homeroom E2E (7/7) ran from a Vercel sandbox with fake phones `05990001xx` / `05990002xx`, and all test rows were deleted afterwards. Covered: add teacher → phone login → change phone (old rejected) → duplicate / invalid / missing phone refused → teacher token 403 → add student → duplicate national id refused → reassign Period 2 → new teacher submits including the new student → admin `get-attendance` sees it → transfer → remove (history kept) → revert → deactivate (login 404, token 401).
+
 ---
 
 ## Critical files map

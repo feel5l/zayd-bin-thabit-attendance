@@ -25,9 +25,9 @@ describe('applyStudentContacts / scrubStudentContacts', () => {
     AttendanceService.resetToDefault();
   });
 
-  it('fills empty fields from the server and scrubs exactly those on logout', () => {
+  it('applies server values (server is source of truth) and scrubs exactly those on logout', () => {
     const [first, second] = AttendanceService.getStudents();
-    AttendanceService.saveStudent({ ...second, parentPhone: '0500000001' }); // local admin edit
+    AttendanceService.saveStudent({ ...second, parentPhone: '0500000001' }); // stale local value
 
     const changed = AttendanceService.applyStudentContacts([
       { id: first.id, parentName: 'ولي أمر', parentPhone: '0555555555', nationalId: '1000000001' },
@@ -38,15 +38,12 @@ describe('applyStudentContacts / scrubStudentContacts', () => {
 
     const afterApply = AttendanceService.getStudents();
     expect(afterApply.find((s) => s.id === first.id)).toMatchObject({ parentPhone: '0555555555', nationalId: '1000000001' });
-    // Local edit wins over the server value.
-    expect(afterApply.find((s) => s.id === second.id)?.parentPhone).toBe('0500000001');
+    expect(afterApply.find((s) => s.id === second.id)?.parentPhone).toBe('0599999999');
 
     AttendanceService.scrubStudentContacts();
     const afterScrub = AttendanceService.getStudents();
     expect(afterScrub.find((s) => s.id === first.id)).toMatchObject({ parentPhone: '', nationalId: '', parentName: '' });
-    // Only server-filled fields are removed; the local edit survives.
-    expect(afterScrub.find((s) => s.id === second.id)?.parentPhone).toBe('0500000001');
-    expect(afterScrub.find((s) => s.id === second.id)?.parentName).toBe('');
+    expect(afterScrub.find((s) => s.id === second.id)).toMatchObject({ parentPhone: '', parentName: '' });
   });
 
   it('is idempotent', () => {

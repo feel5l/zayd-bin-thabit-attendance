@@ -3,6 +3,8 @@ import * as XLSX from 'xlsx';
 import confetti from 'canvas-confetti';
 import { User, SchoolClass, Student } from '../types';
 import { AttendanceService } from '../services/attendanceService';
+import { adminManage, adminManageErrorMessage } from '../services/syncAdapter';
+import { isSupabaseConfigured } from '../services/supabaseClient';
 import {
   FileSpreadsheet,
   Upload,
@@ -92,7 +94,9 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
     skipped: number;
     total: number;
     classesBreakdown: Record<string, number>;
+    failed?: { name: string; reason: string }[];
   } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -587,8 +591,9 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
   };
 
   // Final Commit & Save
-  const handleConfirmImport = () => {
-    const finalStudentRecords: Student[] = processedStudents.map(st => ({
+  const handleConfirmImport = async () => {
+    if (isImporting) return;
+    let finalStudentRecords: Student[] = processedStudents.map(st => ({
       id: `s_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
       name: st.name.trim(),
       nationalId: st.nationalId.trim(),
@@ -602,6 +607,38 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
       homePhone: st.homePhone || '',
       nationality: 'سعودي'
     }));
+
+    // With the server configured every student goes through admin-manage first
+    // (national id + guardian phone are validated there); only accepted rows
+    // are mirrored locally, and failures are listed instead of silently lost.
+    const failed: { name: string; reason: string }[] = [];
+    let serverSkipped = 0;
+    if (isSupabaseConfigured()) {
+      if (duplicateHandling === 'replace') {
+        setFileError('خيار «استبدال الكل» غير متاح مع المزامنة السحابية؛ استخدم الدمج أو تخطي المكرر، وأزل الطلاب يدوياً عند الحاجة.');
+        return;
+      }
+      setIsImporting(true);
+      const existing = AttendanceService.getStudents();
+      const accepted: Student[] = [];
+      for (const rec of finalStudentRecords) {
+        const match = existing.find(s =>
+          (rec.nationalId && s.nationalId === rec.nationalId) ||
+          (rec.studentNumber && s.studentNumber === rec.studentNumber)
+        );
+        if (match && duplicateHandling === 'skip_duplicates') { serverSkipped++; continue; }
+        const target = match ? { ...rec, id: match.id } : rec;
+        const r = await adminManage('student.save', {
+          id: target.id, name: target.name, studentNumber: target.studentNumber, classId: target.classId,
+          gender: target.gender, nationalId: target.nationalId, parentName: target.parentName,
+          parentPhone: target.parentPhone, homePhone: target.homePhone, nationality: target.nationality,
+        });
+        if (r.ok) accepted.push(target);
+        else failed.push({ name: rec.name, reason: adminManageErrorMessage(r.error) });
+      }
+      setIsImporting(false);
+      finalStudentRecords = accepted;
+    }
 
     const result = AttendanceService.saveStudentsBatch(
       finalStudentRecords,
@@ -619,9 +656,10 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
     setImportStats({
       added: result.added,
       updated: result.updated,
-      skipped: result.skipped,
+      skipped: result.skipped + serverSkipped,
       total: result.total,
-      classesBreakdown: breakdown
+      classesBreakdown: breakdown,
+      failed
     });
 
     setIsSuccessFinished(true);
@@ -732,6 +770,17 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                   تم حفظ بيانات الطلاب في سجلات المدرسة وتوزيعهم بدقة على الشعب وتحديث كشوفات المعلمين.
                 </p>
               </div>
+
+              {importStats.failed && importStats.failed.length > 0 && (
+                <div className="max-w-2xl mx-auto p-4 bg-rose-50 border border-rose-200 rounded-2xl text-right space-y-1">
+                  <div className="text-xs font-black text-rose-800">لم يُحفظ {importStats.failed.length} طالباً على الخادم:</div>
+                  <ul className="text-[11px] text-rose-700 space-y-0.5 max-h-40 overflow-y-auto">
+                    {importStats.failed.map((f, i) => (
+                      <li key={i}>• {f.name}: {f.reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
@@ -1233,10 +1282,11 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                     </button>
                     <button
                       onClick={handleConfirmImport}
-                      className="px-8 py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-black shadow-lg shadow-emerald-700/20 transition flex items-center gap-2"
+                      disabled={isImporting}
+                      className="px-8 py-3 disabled:opacity-60 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl text-xs font-black shadow-lg shadow-emerald-700/20 transition flex items-center gap-2"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>تأكيد اعتماد استيراد وتوزيع {processedStudents.length} طالباً</span>
+                      <span>{isImporting ? 'جاري الحفظ على الخادم…' : `تأكيد اعتماد استيراد وتوزيع ${processedStudents.length} طالباً`}</span>
                     </button>
                   </div>
                 </div>

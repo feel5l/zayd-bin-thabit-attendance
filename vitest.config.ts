@@ -12,6 +12,7 @@ export default defineConfig({
       ['tests/pushSubmission.test.ts', 'happy-dom'],
       ['tests/studentContacts.test.ts', 'happy-dom'],
       ['tests/publishTimetable.test.ts', 'happy-dom'],
+      ['tests/adminSync.test.ts', 'happy-dom'],
     ],
   },
   resolve: {
