@@ -21,7 +21,10 @@ const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').trim().replace(/\
 const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
 const TRUST_KEY = 'zbt_device_known_teachers_v1';
-const REQUEST_TIMEOUT_MS = 8_000;
+// Login is a one-off wait behind a spinner. Under the 07:45 burst (many
+// logins at once) admin-login has taken up to ~7.6s server-side (bcrypt cost
+// 12), so 8s aborted real logins and showed a false "connection error".
+const REQUEST_TIMEOUT_MS = 20_000;
 
 export const isTeacherAuthRemote = (): boolean => Boolean(SUPABASE_URL);
 
