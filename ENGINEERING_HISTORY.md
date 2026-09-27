@@ -278,6 +278,24 @@ Offline-first: without `VITE_SUPABASE_URL` the app still runs locally; cloud syn
   - `teacher.save` only moves `classes.homeroom_teacher_id` when the teacher's class actually changed (or the class has none). Several classes have two linked teachers, and editing the second one must not take the homeroom from the first.
 - **Verify:** live API E2E (30/30) plus a homeroom E2E (7/7) ran from a Vercel sandbox with fake phones `05990001xx` / `05990002xx`, and all test rows were deleted afterwards. Covered: add teacher → phone login → change phone (old rejected) → duplicate / invalid / missing phone refused → teacher token 403 → add student → duplicate national id refused → reassign Period 2 → new teacher submits including the new student → admin `get-attendance` sees it → transfer → remove (history kept) → revert → deactivate (login 404, token 401).
 
+### 24) TestSprite run triage; login timeout raised to 20s (Sep 2026)
+
+TestSprite ran 27 frontend tests against production on 2026-09-27: 20 passed, 1 failed, 6 blocked. It wrote no server data: no rows in students, teachers, assignments, classes or attendance were changed that day. Excuses live only in browser storage.
+
+- **Real (fixed):** false "تعذّر الاتصال بالخادم" (server connection error) on admin and teacher login.
+  - Edge logs showed `admin-login` taking 1.3–7.6s under a burst of parallel logins (bcrypt cost 12).
+  - One admin request and one teacher request never completed. A teacher failure row landed 21s after its request.
+  - The client aborted at 8s, so real logins looked like network failures. The 07:45 burst is exactly this pattern.
+  - `REQUEST_TIMEOUT_MS` is now 20s in `services/adminAuth.ts` and `services/teacherAuth.ts`.
+- **Not defects (test assumptions):**
+  - "Copy administration link": the test looked in the admin login modal. The copy button «نسخ رابط الإدارة» is in `PortalLinksModal`.
+  - Admin "mobile number" login: admins log in with username and password by design.
+  - Teacher placeholder number `0550000001` rejected: correct, it is not registered.
+  - One admin 401: TestSprite submitted a wrong password.
+  - Excuse "auto-approved": an excuse created by the administration is approved at creation by design (`ExcuseManager`, status `approved`).
+  - Transfer forms blocked: they require login.
+- **Verify:** time a burst of about 10 parallel `admin-login` calls. All should return 200 and none should show the connection error in the UI.
+
 ---
 
 ## Critical files map
