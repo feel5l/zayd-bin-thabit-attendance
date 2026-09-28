@@ -296,6 +296,18 @@ TestSprite ran 27 frontend tests against production on 2026-09-27: 20 passed, 1 
   - Transfer forms blocked: they require login.
 - **Verify:** time a burst of about 10 parallel `admin-login` calls. All should return 200 and none should show the connection error in the UI.
 
+### 25) Period 2 assignments replaced by the approved 1448 timetable (Sep 2026)
+
+- **Found:** the published Period 2 assignments did not match the school's approved 1448 timetable (Numbers file). Only 7 of 55 slots matched: 35 had a different teacher and 13 were missing. No period of the file lined up with the old data, so it was an older timetable, not a parsing error.
+- **Name mapping (from the 1448 staff list):**
+  - «محمد القحطاني» is `teacher-7` (same national id and phone; renamed from «آل جحيش»).
+  - «عبدالله الخالدي» in the timetable is `teacher-16` (the only الخالدي, math).
+  - `teacher-10` subject is now دراسات إسلامية.
+  - All 20 teachers' phone and national-id hashes match the staff list.
+- **Change:** migration `0014_timetable_1448_period2.sql` upserts all 55 Period 2 slots into the published version. It was applied on 2026-09-28 at 08:30 Riyadh, after the recording window closed; no attendance had been submitted that day.
+- **Verify:** re-read `daily_period_assignments` for the published version, period 2, and compare with the file (expect 55/55; confirmed).
+- **Not changed:** `timetable_entries` (full timetable, not read by the app) still holds the old timetable.
+
 ---
 
 ## Critical files map
