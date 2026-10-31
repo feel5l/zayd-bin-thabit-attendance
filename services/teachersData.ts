@@ -35,7 +35,7 @@ export const OFFICIAL_TEACHERS_LIST: User[] = [
     id: 'teacher-7',
     sequenceNumber: 7,
     username: 'mohammed_aljahaish',
-    name: 'أ. محمد فهد عائض آل جحيش',
+    name: 'أ. محمد فهد عائض القحطاني',
     nationalId: '1034056687',
     phone: '0590580707',
     email: 'Abo-fahad-7676@hotmail.com',
