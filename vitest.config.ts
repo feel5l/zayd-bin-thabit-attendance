@@ -13,6 +13,7 @@ export default defineConfig({
       ['tests/studentContacts.test.ts', 'happy-dom'],
       ['tests/publishTimetable.test.ts', 'happy-dom'],
       ['tests/adminSync.test.ts', 'happy-dom'],
+      ['tests/sessionLogout.test.ts', 'happy-dom'],
     ],
   },
   resolve: {

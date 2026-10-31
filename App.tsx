@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { User, SchoolSettings } from './types';
 import { AttendanceService, SCHEDULE_CHANGE_EVENT } from './services/attendanceService';
 import { Navbar } from './components/Navbar';
@@ -16,7 +16,7 @@ import { GraduationCap, ShieldAlert, Sparkles, BookOpen, Clock, Heart, ShieldChe
 import { getTodayDateString } from './services/initialData';
 import { startSync, syncTodayAttendance } from './services/syncAdapter';
 import { isSupabaseConfigured } from './services/supabaseClient';
-import { getDeviceToken } from './services/deviceAuth';
+import { getDeviceToken, SESSION_REVOKED_EVENT } from './services/deviceAuth';
 import { isQaToolsEnabled } from './services/qaTools';
 
 // Heavy, role-specific screens load on demand so a teacher's phone only
@@ -210,6 +210,19 @@ export const App: React.FC = () => {
     setLoginInitialRole(wasTeacher ? 'teacher' : 'admin');
     setIsLoginModalOpen(true);
   };
+
+  // The server decides whether a session is still valid. When it rejects our
+  // device token (ended by a logout, revoked by the school, or expired) the
+  // signed-in state is dropped and the login screen is shown again.
+  const handleLogoutRef = useRef(handleLogout);
+  handleLogoutRef.current = handleLogout;
+  useEffect(() => {
+    const onSessionRevoked = () => {
+      if (AttendanceService.getCurrentUser()) handleLogoutRef.current(true);
+    };
+    window.addEventListener(SESSION_REVOKED_EVENT, onSessionRevoked);
+    return () => window.removeEventListener(SESSION_REVOKED_EVENT, onSessionRevoked);
+  }, []);
 
 
   const handleUpdateSettings = (newSettings: SchoolSettings) => {

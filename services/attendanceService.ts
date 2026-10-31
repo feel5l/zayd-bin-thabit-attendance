@@ -1,3 +1,4 @@
+import { getDeviceToken, clearDeviceToken, clearDeviceTrust, revokeDeviceToken } from './deviceAuth';
 import { 
   User, SchoolClass, Student, ClassAttendanceSubmission, 
   SchoolSettings, AuditLog, AbsenceExcuseRequest, 
@@ -1211,8 +1212,14 @@ export class AttendanceService {
       });
     } else {
       try { localStorage.removeItem(STORAGE_KEYS.CURRENT_USER); } catch (e) {}
-      // Drop device token so the next login issues a fresh credential.
-      import('./deviceAuth').then(({ clearDeviceToken }) => clearDeviceToken()).catch(() => {});
+      // Logout ends the session on the server too (a copied token must stop
+      // working), then forgets every local credential and any device trust, so
+      // the next entry always needs a fresh login. The token is read
+      // synchronously so a quick re-login cannot race the revocation.
+      const endedToken = getDeviceToken();
+      clearDeviceToken();
+      clearDeviceTrust();
+      if (endedToken) revokeDeviceToken(endedToken);
     }
   }
 
