@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User, SchoolSettings, ClassAttendanceSubmission, SchoolClass } from '../types';
 import { AttendanceService, NOTIFICATION_EVENT, ATTENDANCE_UPDATE_EVENT, SCHEDULE_CHANGE_EVENT } from '../services/attendanceService';
-import { getTodayDateString, getPastDateString } from '../services/initialData';
+import { getTodayDateString } from '../services/initialData';
+import { rateOf, buildTrend, averageRate, buildReasonBreakdown } from '../services/dashboardStats';
 import { TeacherReminderModal } from './TeacherReminderModal';
 import { TeacherLiveSimulationWidget } from './TeacherLiveSimulationWidget';
 import { 
@@ -129,14 +130,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Send single teacher reminder
   const handleSendReminder = (teacherName: string, className: string, teacherId: string) => {
     setRemindedTeachers(prev => ({ ...prev, [teacherId]: true }));
-    setToastMessage(`تم إرسال إشعار تذكير عاجل للمعلم (${teacherName}) لرصد غياب الحصة الثانية لفصل (${className})`);
+    setToastMessage(`سُجّل تذكير للمعلم (${teacherName}) لفصل (${className}) في سجلّك فقط — لا يصله إشعار تلقائي. استخدم «تنبيه المعلمين» لإرساله عبر واتساب.`);
     
     AttendanceService.logAudit({
       userId: currentUser.id,
       userName: currentUser.name,
       role: 'admin',
-      action: 'إرسال تذكير لمعلم',
-      details: `تم إرسال تذكير لرصد الحصة الثانية للأستاذ: ${teacherName} (${className})`,
+      action: 'تسجيل تذكير لمعلم (لم يُرسل تلقائيًا)',
+      details: `سُجّل تذكير لرصد الحصة الثانية للأستاذ: ${teacherName} (${className}) — لم يُرسل أي إشعار تلقائي`,
       type: 'sms_sent',
       targetClass: className
     });
@@ -159,7 +160,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       updated[c.teacherId] = true;
     });
     setRemindedTeachers(updated);
-    setToastMessage(`تم إرسال تنبيه جماعي إلى ${pendingClasses.length} معلمين لاستكمال رصد الحصة الثانية.`);
+    setToastMessage(`سُجّل تنبيه جماعي لـ ${pendingClasses.length} معلمين في سجلّك فقط — لا يصل للمعلمين تلقائيًا. استخدم «تنبيه المعلمين» لإرساله عبر واتساب.`);
     
     setTimeout(() => setToastMessage(''), 4000);
   };
@@ -189,29 +190,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     document.body.removeChild(link);
   };
 
-  // Historical Chart Data preparation (past 5 days)
-  const trendData = [
-    { day: 'الأحد', attendance: 96, absence: 4, date: getPastDateString(4) },
-    { day: 'الإثنين', attendance: 94, absence: 6, date: getPastDateString(3) },
-    { day: 'الثلاثاء', attendance: 97, absence: 3, date: getPastDateString(2) },
-    { day: 'الأربعاء', attendance: 95, absence: 5, date: getPastDateString(1) },
-    { day: 'اليوم (الخميس)', attendance: stats.attendanceRate || 95, absence: 100 - (stats.attendanceRate || 95), date: selectedDate }
-  ];
-
-  // Grade comparison data
-  const gradeComparisonData = [
-    { grade: 'الصف الرابع', present: 39, absent: 3, total: 42 },
-    { grade: 'الصف الخامس', present: 41, absent: 4, total: 45 },
-    { grade: 'الصف السادس', present: 43, absent: 2, total: 45 }
-  ];
-
-  // Reasons Breakdown
-  const reasonData = [
-    { name: 'مرض بعذر طبي', value: stats.excusedCount > 0 ? stats.excusedCount : 3, color: '#3B82F6' },
-    { name: 'بدون عذر', value: stats.absentCount > 0 ? stats.absentCount : 2, color: '#EF4444' },
-    { name: 'ظرف عائلي طارئ', value: 2, color: '#10B981' },
-    { name: 'تأخر وسيلة نقل', value: stats.lateCount > 0 ? stats.lateCount : 1, color: '#F59E0B' }
-  ];
+  // Everything below is computed from stored submissions: no placeholder numbers.
+  const dayRate = stats.submittedCount > 0 ? rateOf(stats.presentCount, stats.absentCount) : null;
+  const trendData = buildTrend(selectedDate, (date) => AttendanceService.getSubmissions(date));
+  const trendAverage = averageRate(trendData);
+  const reasonData = buildReasonBreakdown(stats);
 
   // Pending & Submitted class lists
   const pendingClassesList = stats.classStatuses.filter(c => !c.isSubmitted);
@@ -486,13 +469,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-black font-brand">{stats.attendanceRate || 95}%</span>
-            <span className="text-xs text-emerald-200">من إجمالي الطلاب</span>
+            <span className="text-3xl font-black font-brand">{dayRate === null ? '—' : `${dayRate}%`}</span>
+            <span className="text-xs text-emerald-200">{dayRate === null ? 'لم يُرصد أي فصل بعد' : 'من طلاب الفصول المرصودة'}</span>
           </div>
           <div className="mt-3 bg-white/10 rounded-full h-1.5 overflow-hidden">
             <div 
               className="bg-emerald-300 h-full rounded-full transition-all duration-500" 
-              style={{ width: `${stats.attendanceRate || 95}%` }}
+              style={{ width: `${dayRate ?? 0}%` }}
             />
           </div>
         </div>
@@ -565,7 +548,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
           <div className="mt-2 text-xs font-semibold text-emerald-600 flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>{stats.presentCount || (stats.totalStudents - stats.absentCount)} طالب حاضر الآن</span>
+            <span>{stats.submittedCount > 0 ? `${stats.presentCount} طالب حاضر (في الفصول المرصودة)` : 'لم يُرصد أي فصل بعد'}</span>
           </div>
         </div>
       </div>
@@ -1163,10 +1146,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <p className="text-xs text-slate-400">معدل التزام طلاب المدرسة خلال أيام الأسبوع</p>
             </div>
             <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-100">
-              المعدل العام: 95.4%
+              {trendAverage === null ? 'لا بيانات مرصودة بعد' : `المعدل في الأيام المرصودة: ${trendAverage}%`}
             </span>
           </div>
 
+          {trendData.length < 2 ? (
+            <div className="h-64 w-full flex items-center justify-center text-center text-sm font-bold text-slate-400 px-6">
+              لا توجد بيانات كافية لرسم المسار بعد. تظهر هنا الأيام التي رُصد فيها غياب فقط.
+            </div>
+          ) : (
           <div className="h-64 w-full" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trendData}>
@@ -1178,7 +1166,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} />
-                <YAxis domain={[80, 100]} stroke="#94a3b8" fontSize={11} unit="%" />
+                <YAxis domain={[0, 100]} stroke="#94a3b8" fontSize={11} unit="%" />
                 <Tooltip 
                   formatter={(value: any) => [`${value}%`, 'نسبة الحضور']}
                   labelStyle={{ textAlign: 'right' }}
@@ -1194,14 +1182,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          )}
         </div>
 
         {/* Absence Reasons Distribution */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-black font-brand text-slate-900">توزيع أسباب الغياب المرصودة</h4>
-              <p className="text-xs text-slate-400">تصنيف الأعذار المقدمة والحالات المرضية</p>
+              <h4 className="text-sm font-black font-brand text-slate-900">توزيع حالات الغياب المرصودة</h4>
+              <p className="text-xs text-slate-400">حسب حالة الرصد في هذا اليوم (بعذر / بدون عذر / تأخر)</p>
             </div>
             <button 
               onClick={() => onNavigateToTab('ai-advisor')}
@@ -1212,6 +1201,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
           </div>
 
+          {reasonData.length === 0 ? (
+            <div className="h-64 w-full flex items-center justify-center text-center text-sm font-bold text-slate-400 px-6">
+              لا توجد حالات غياب أو تأخر مسجلة لهذا اليوم.
+            </div>
+          ) : (
           <div className="h-64 w-full" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -1237,6 +1231,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </PieChart>
             </ResponsiveContainer>
           </div>
+          )}
         </div>
       </div>
 

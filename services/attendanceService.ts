@@ -521,6 +521,7 @@ export class AttendanceService {
     const local = [...this.getSubmissions()];
     let changed = false;
     const newForNotify: ClassAttendanceSubmission[] = [];
+    const editedForNotify: ClassAttendanceSubmission[] = [];
 
     for (const remote of incoming) {
       if (!remote?.id || !remote.classId || !remote.date) continue;
@@ -560,6 +561,9 @@ export class AttendanceService {
         if (JSON.stringify(next) !== JSON.stringify(existing)) {
           local[idx] = next;
           changed = true;
+          // A teacher corrected a sheet we already announced: the announcement
+          // must follow, otherwise it keeps naming students who were fixed.
+          if (this.submissionSignature(next) !== this.submissionSignature(existing)) editedForNotify.push(next);
         }
       }
     }
@@ -575,41 +579,66 @@ export class AttendanceService {
 
     // Surface a toast for newly seen remote sheets (admin dashboard).
     for (const submission of newForNotify.slice(0, 5)) {
-      const absentStudents: AbsentStudentDetail[] = (submission.students || [])
-        .filter((st) => st.status === 'absent' || st.status === 'excused' || st.status === 'late')
-        .map((st) => ({
-          studentId: st.studentId,
-          studentName: st.studentName,
-          status: st.status as 'absent' | 'excused' | 'late',
-          reason: st.reason,
-          isExcused: st.status === 'excused',
-          notes: st.notes,
-          minutesLate: st.minutesLate,
-        }));
-
-      const notification: AttendanceNotification = {
-        id: `notif-sync-${submission.id}`,
-        submissionId: submission.id,
-        timestamp: new Date().toISOString(),
-        date: submission.date,
-        classId: submission.classId,
-        className: submission.className,
-        gradeLevel: submission.gradeLevel,
-        teacherId: submission.teacherId,
-        teacherName: submission.teacherName,
-        periodNumber: submission.periodNumber || 2,
-        presentCount: submission.presentCount,
-        absentCount: submission.absentCount,
-        excusedCount: submission.excusedCount,
-        lateCount: submission.lateCount,
-        totalStudents: submission.totalStudents,
-        absentStudents,
-        read: false,
-      };
-      this.saveNotification(notification);
+      this.saveNotification(this.buildSubmissionNotification(submission, `notif-sync-${submission.id}`));
+    }
+    // ...and bring the existing announcement of an edited sheet up to date.
+    for (const submission of editedForNotify.slice(0, 5)) {
+      this.refreshNotificationFor(submission);
     }
 
     return true;
+  }
+
+  /** What actually matters on a sheet: the counts and who is not present. */
+  private static submissionSignature(s: ClassAttendanceSubmission): string {
+    const flagged = (s.students || [])
+      .filter((st) => st.status !== 'present')
+      .map((st) => `${st.studentId}:${st.status}`)
+      .sort()
+      .join(',');
+    return `${s.presentCount}|${s.absentCount}|${s.lateCount}|${s.excusedCount}|${flagged}`;
+  }
+
+  private static buildSubmissionNotification(submission: ClassAttendanceSubmission, id: string): AttendanceNotification {
+    const absentStudents: AbsentStudentDetail[] = (submission.students || [])
+      .filter((st) => st.status === 'absent' || st.status === 'excused' || st.status === 'late')
+      .map((st) => ({
+        studentId: st.studentId,
+        studentName: st.studentName,
+        status: st.status as 'absent' | 'excused' | 'late',
+        reason: st.reason,
+        isExcused: st.status === 'excused',
+        notes: st.notes,
+        minutesLate: st.minutesLate,
+      }));
+    return {
+      id,
+      submissionId: submission.id,
+      timestamp: new Date().toISOString(),
+      date: submission.date,
+      classId: submission.classId,
+      className: submission.className,
+      gradeLevel: submission.gradeLevel,
+      teacherId: submission.teacherId,
+      teacherName: submission.teacherName,
+      periodNumber: submission.periodNumber || 2,
+      presentCount: submission.presentCount,
+      absentCount: submission.absentCount,
+      excusedCount: submission.excusedCount,
+      lateCount: submission.lateCount,
+      totalStudents: submission.totalStudents,
+      absentStudents,
+      read: false,
+    };
+  }
+
+  /** Replace the announcement of an edited sheet (unread again, moved to the top). */
+  private static refreshNotificationFor(submission: ClassAttendanceSubmission): void {
+    const list = this.getNotifications();
+    const previous = list.find((n) => n.submissionId === submission.id);
+    const fresh = this.buildSubmissionNotification(submission, previous?.id ?? `notif-sync-${submission.id}`);
+    this._cacheNotifications = list.filter((n) => n.submissionId !== submission.id);
+    this.saveNotification(fresh);
   }
 
   private static _crossTabStorageListenerRegistered = false;
@@ -1827,8 +1856,8 @@ export class AttendanceService {
         userId: performedBy.id,
         userName: performedBy.name,
         role: performedBy.role,
-        action: `إرسال تذكير (${channel === 'whatsapp' ? 'واتساب' : 'تنبيه فوري'}) للمعلم`,
-        details: `تم إرسال تذكير لرصد غياب الحصة الثانية للأستاذ: ${teacherName} (${className}) عبر ${channel === 'whatsapp' ? 'رابط الواتساب' : 'إشعار النظام الفوري'}`,
+        action: channel === 'whatsapp' ? 'فتح واتساب لتذكير المعلم' : 'تسجيل تذكير للمعلم (لم يُرسل تلقائيًا)',
+        details: `${channel === 'whatsapp' ? 'فُتح واتساب' : 'سُجّل في سجل المدير فقط (لم يُرسل أي إشعار تلقائي)'} — تذكير لرصد غياب الحصة الثانية للأستاذ: ${teacherName} (${className})`,
         targetClass: className,
         type: 'sms_sent'
       });
@@ -1864,8 +1893,8 @@ export class AttendanceService {
         userId: performedBy.id,
         userName: performedBy.name,
         role: performedBy.role,
-        action: 'تنبيه جماعي لجميع المعلمين المتأخرين',
-        details: `تم إرسال تذكير جماعي عاجل إلى (${pendingClasses.length}) معلمين لاستكمال رصد الحصة الثانية`,
+        action: 'تسجيل تنبيه جماعي للمعلمين المتأخرين (لم يُرسل تلقائيًا)',
+        details: `سُجّل تنبيه جماعي لـ (${pendingClasses.length}) معلمين لاستكمال رصد الحصة الثانية — لم يُرسل أي إشعار تلقائي`,
         type: 'sms_sent'
       });
     }

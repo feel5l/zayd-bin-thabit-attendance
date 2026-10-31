@@ -96,7 +96,7 @@ export const TeacherReminderModal: React.FC<TeacherReminderModalProps> = ({
   const handleSendSystemReminder = (cls: any) => {
     AttendanceService.sendTeacherReminder(cls.id, cls.teacherName, cls.name, 'system', currentUser);
     setReminderStatusMap(AttendanceService.getTeacherReminders());
-    showToast(`تم إرسال إشعار تذكير فوري في النظام للأستاذ ${cls.teacherName} (${cls.name})`);
+    showToast(`سُجّل تذكير للأستاذ ${cls.teacherName} (${cls.name}) في سجلّك فقط — لا يصله إشعار تلقائي. استخدم زر واتساب لإرساله.`);
   };
 
   // Handle single teacher reminder (WhatsApp link)
@@ -133,7 +133,7 @@ export const TeacherReminderModal: React.FC<TeacherReminderModalProps> = ({
 
     AttendanceService.sendBroadcastTeacherReminders(pendingClasses, currentUser);
     setReminderStatusMap(AttendanceService.getTeacherReminders());
-    showToast(`تم إرسال تنبيه عاجل وشامل لجميع المعلمين المتأخرين (${pendingClasses.length} فصول) 🔔`);
+    showToast(`سُجّل تنبيه جماعي لـ ${pendingClasses.length} فصول في سجلّك فقط — لا يصل للمعلمين تلقائيًا. استخدم واتساب لإرساله.`);
   };
 
   // Copy Group WhatsApp Text
@@ -331,7 +331,7 @@ export const TeacherReminderModal: React.FC<TeacherReminderModalProps> = ({
                         <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 text-[10px] text-slate-600 flex items-center justify-between">
                           <span className="text-emerald-700 font-bold flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3" />
-                            <span>تم إرسال تذكير ({reminderInfo.channel === 'whatsapp' ? 'واتساب' : 'نظام'})</span>
+                            <span>{reminderInfo.channel === 'whatsapp' ? 'فُتح واتساب لإرسال التذكير' : 'سُجّل تذكير (لم يُرسل للمعلم)'}</span>
                           </span>
                           <span className="text-slate-400 font-mono">
                             {new Date(reminderInfo.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}

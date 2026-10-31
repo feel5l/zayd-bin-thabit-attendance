@@ -14,6 +14,7 @@ export default defineConfig({
       ['tests/publishTimetable.test.ts', 'happy-dom'],
       ['tests/adminSync.test.ts', 'happy-dom'],
       ['tests/sessionLogout.test.ts', 'happy-dom'],
+      ['tests/notificationRefresh.test.ts', 'happy-dom'],
     ],
   },
   resolve: {
