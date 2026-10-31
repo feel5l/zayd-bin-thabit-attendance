@@ -381,7 +381,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="بحث بالاسم أو السجل المدني أو الهاتف..."
+              placeholder="بحث بالاسم أو الرقم الأكاديمي أو الهاتف..."
               className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none"
             />
             <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
@@ -1010,7 +1010,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                       <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
                         <span className="font-black text-slate-800 text-xs flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5 text-emerald-700" />
-                          بيانات السجل المدني وولي الأمر
+                          بيانات ولي الأمر
                         </span>
                         <div className="flex items-center gap-2">
                           {selectedStudent.nationality && (

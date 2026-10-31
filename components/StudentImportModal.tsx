@@ -247,7 +247,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
         lines.forEach((line, idx) => {
           rows.push({
             'اسم الطالب': line.trim(),
-            'السجل المدني': `10${Math.floor(10000000 + Math.random() * 90000000)}`,
             'الصف': 'الصف الرابع الابتدائي'
           });
         });
@@ -265,7 +264,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
     const sampleData = [
       {
         'اسم الطالب': 'عبدالرحمن محمد العتيبي',
-        'السجل المدني': '1098234561',
         'الرقم الأكاديمي': '40101',
         'الصف': 'الصف الرابع الابتدائي',
         'الشعبة': 'أ',
@@ -274,7 +272,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
       },
       {
         'اسم الطالب': 'فهد سلطان الدوسري',
-        'السجل المدني': '1098234562',
         'الرقم الأكاديمي': '40102',
         'الصف': 'الصف الرابع الابتدائي',
         'الشعبة': 'ب',
@@ -283,7 +280,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
       },
       {
         'اسم الطالب': 'خالد عبدالله القحطاني',
-        'السجل المدني': '1098234563',
         'الرقم الأكاديمي': '40103',
         'الصف': 'الصف الخامس الابتدائي',
         'الشعبة': 'أ',
@@ -292,7 +288,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
       },
       {
         'اسم الطالب': 'سعود خالد الحربي',
-        'السجل المدني': '1098234564',
         'الرقم الأكاديمي': '40104',
         'الصف': 'الصف الخامس الابتدائي',
         'الشعبة': 'ب',
@@ -301,7 +296,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
       },
       {
         'اسم الطالب': 'عمر أحمد الشمري',
-        'السجل المدني': '1098234565',
         'الرقم الأكاديمي': '40105',
         'الصف': 'الصف السادس الابتدائي',
         'الشعبة': 'أ',
@@ -937,7 +931,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                         rows={8}
                         value={pastedText}
                         onChange={(e) => setPastedText(e.target.value)}
-                        placeholder={`مثال:\nاسم الطالب\tالسجل المدني\tالصف\tالشعبة\tجوال ولي الأمر\nعبدالرحمن محمد العتيبي\t1098234561\tالصف الرابع الابتدائي\tأ\t0501234567\nفهد سلطان الدوسري\t1098234562\tالصف الرابع الابتدائي\tب\t0502345678`}
+                        placeholder={`مثال:\nاسم الطالب\tالصف\tالشعبة\tجوال ولي الأمر\nعبدالرحمن محمد العتيبي\tالصف الرابع الابتدائي\tأ\t0501234567\nفهد سلطان الدوسري\tالصف الرابع الابتدائي\tب\t0502345678`}
                         className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-mono text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none"
                       />
                       <button
@@ -1095,7 +1089,7 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 text-xs">
                     <label className="block font-black text-slate-800 flex items-center gap-1.5">
                       <Settings2 className="w-4 h-4 text-emerald-700" />
-                      <span>خيارات التعامل مع السجلات المكررة (مطابقة السجل المدني / الاسم):</span>
+                      <span>خيارات التعامل مع السجلات المكررة (مطابقة الرقم الأكاديمي / الاسم):</span>
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                       <label className="flex items-center gap-2 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
