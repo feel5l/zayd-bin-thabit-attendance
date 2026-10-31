@@ -28,6 +28,15 @@ jobs:
       - run: npm test
       - run: npm run build
 
+      - name: Guard against runtime CDN Tailwind (must be a build-time dependency)
+        run: |
+          if grep -rq "cdn.tailwindcss.com" dist/; then
+            echo "::error::cdn.tailwindcss.com found in dist/ - Tailwind must be compiled at build time"; exit 1
+          fi
+
+      - name: Validate vercel.json security headers
+        run: node -e "const h=JSON.parse(require('fs').readFileSync('vercel.json','utf8')).headers.flatMap(r=>r.headers.map(x=>x.key)); for (const k of ['Strict-Transport-Security','X-Content-Type-Options','X-Frame-Options','Referrer-Policy','Permissions-Policy','Content-Security-Policy']) if(!h.includes(k)){console.error('missing header '+k);process.exit(1)}"
+
       - name: Guard against student PII in the bundle
         run: |
           if grep -qE 'nationalId:"[0-9]{10}"|parentPhone:"05[0-9]{8}"' dist/assets/*.js; then

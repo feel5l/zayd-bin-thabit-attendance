@@ -21,6 +21,7 @@ import {
   Sparkles,
   Award
 } from 'lucide-react';
+import { MISSING_VALUE_LABEL } from '../services/studentValidation';
 
 interface PrintableDailyReportProps {
   settings: SchoolSettings;
@@ -82,7 +83,7 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
           index: counter++,
           studentId: st.studentId,
           studentName: st.studentName || studentInfo?.name || 'طالب غير محدد',
-          nationalId: studentInfo?.nationalId || `10${Math.floor(10000000 + Math.random() * 90000000)}`,
+          nationalId: studentInfo?.nationalId || MISSING_VALUE_LABEL,
           classId: sub.classId,
           className: sub.className,
           gradeLevel: sub.gradeLevel,
@@ -92,7 +93,7 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
           reason: st.reason || 'لم يسجل سبب',
           notes: st.notes || '-',
           behavioralNote: st.behavioralNote,
-          parentPhone: studentInfo?.parentPhone || '050xxxxxxx',
+          parentPhone: studentInfo?.parentPhone || MISSING_VALUE_LABEL,
           minutesLate: st.minutesLate
         });
       }

@@ -3,6 +3,7 @@ import { Student, User, SchoolSettings, SchoolClass } from '../types';
 import { AttendanceService } from '../services/attendanceService';
 import { generateAbsenceWarningLetter } from '../services/geminiService';
 import { adminManage, adminManageErrorMessage } from '../services/syncAdapter';
+import { validateStudentIdentity } from '../services/studentValidation';
 import { StudentImportModal } from './StudentImportModal';
 import { 
   Users, 
@@ -140,8 +141,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
     setStudentFormData({
       id: `s_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       name: '',
-      studentNumber: `1000${Math.floor(1000 + Math.random() * 9000)}`,
-      nationalId: `1${Math.floor(100000000 + Math.random() * 900000000)}`,
+      studentNumber: '',
+      nationalId: '',
       classId: defaultCls ? defaultCls.id : 'c_4_1',
       className: defaultCls ? defaultCls.shortName : 'رابع 1',
       gradeLevel: defaultCls ? defaultCls.gradeLevel : 'الصف الرابع الابتدائي',
@@ -211,18 +212,33 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
       return;
     }
 
+    const identity = validateStudentIdentity(
+      { nationalId: studentFormData.nationalId, parentPhone: studentFormData.parentPhone },
+      {
+        existing: students,
+        selfId: studentFormData.id,
+        original: editingStudent
+          ? { nationalId: editingStudent.nationalId || editingStudent.studentNumber, parentPhone: editingStudent.parentPhone }
+          : undefined,
+      },
+    );
+    if (!identity.ok) {
+      showFeedback(identity.message, 'error');
+      return;
+    }
+
     const targetCls = classes.find(c => c.id === studentFormData.classId);
 
     const studentToSave: Student = {
       id: studentFormData.id,
       name: studentFormData.name.trim(),
       studentNumber: studentFormData.studentNumber.trim(),
-      nationalId: studentFormData.nationalId.trim(),
+      nationalId: identity.nationalId,
       classId: studentFormData.classId,
       className: targetCls ? targetCls.shortName : studentFormData.className,
       gradeLevel: targetCls ? targetCls.gradeLevel : studentFormData.gradeLevel,
       parentName: studentFormData.parentName.trim(),
-      parentPhone: studentFormData.parentPhone.trim(),
+      parentPhone: identity.parentPhone,
       homePhone: studentFormData.homePhone ? studentFormData.homePhone.trim() : undefined,
       birthDate: studentFormData.birthDate.trim(),
       nationality: studentFormData.nationality.trim(),
