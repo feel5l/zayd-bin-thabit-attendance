@@ -2,23 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  validateStudentIdentity,
+  validateGuardianPhone,
   normalizeSaudiMobile,
-  normalizeNationalId,
-  IDENTITY_MESSAGES,
+  PHONE_MESSAGES,
   MISSING_VALUE_LABEL,
 } from '../services/studentValidation';
 
-const roster = [
-  { id: 's1', nationalId: '1098765432' },
-  { id: 's2', nationalId: '2087654321' },
-];
-
-describe('normalizers', () => {
-  it('converts Arabic-Indic digits and strips separators', () => {
-    expect(normalizeNationalId('١٠٩٨ ٧٦٥-٤٣٣')).toBe('1098765433');
-  });
-
+describe('normalizeSaudiMobile', () => {
   it.each([
     ['0512345678', '0512345678'],
     ['512345678', '0512345678'],
@@ -31,81 +21,61 @@ describe('normalizers', () => {
   });
 });
 
-describe('validateStudentIdentity (new student)', () => {
-  const ctx = { existing: roster, selfId: 's_new' };
-
-  it('accepts a valid citizen id and mobile', () => {
-    const r = validateStudentIdentity({ nationalId: '1011111111', parentPhone: '0555555555' }, ctx);
-    expect(r).toEqual({ ok: true, nationalId: '1011111111', parentPhone: '0555555555' });
+describe('validateGuardianPhone', () => {
+  it('accepts a valid mobile and returns it normalised', () => {
+    expect(validateGuardianPhone('+966555555555')).toEqual({ ok: true, parentPhone: '0555555555' });
   });
 
-  it('accepts a resident (iqama) id starting with 2', () => {
-    expect(validateStudentIdentity({ nationalId: '2011111111', parentPhone: '0555555555' }, ctx).ok).toBe(true);
+  it('rejects an empty value and the untouched "05" prefill', () => {
+    expect(validateGuardianPhone('')).toEqual({ ok: false, message: PHONE_MESSAGES.required });
+    expect(validateGuardianPhone('05')).toEqual({ ok: false, message: PHONE_MESSAGES.required });
   });
 
-  it('rejects an empty national id instead of generating one', () => {
-    const r = validateStudentIdentity({ nationalId: '', parentPhone: '0555555555' }, ctx);
-    expect(r).toEqual({ ok: false, field: 'nationalId', message: IDENTITY_MESSAGES.nationalIdRequired });
+  it.each(['0412345678', '051234567', '05123456789', '05abc45678'])('rejects malformed %s', (p) => {
+    expect(validateGuardianPhone(p)).toEqual({ ok: false, message: PHONE_MESSAGES.format });
   });
 
-  it.each(['123', '3011111111', '10111111111', '10111a1111'])('rejects malformed id %s', (id) => {
-    const r = validateStudentIdentity({ nationalId: id, parentPhone: '0555555555' }, ctx);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.field).toBe('nationalId');
+  it('does not block unrelated edits on a legacy record with a non-standard phone', () => {
+    expect(validateGuardianPhone('05123456789', '05123456789').ok).toBe(true);
   });
 
-  it('rejects a duplicate national id', () => {
-    const r = validateStudentIdentity({ nationalId: '1098765432', parentPhone: '0555555555' }, ctx);
-    expect(r).toEqual({ ok: false, field: 'nationalId', message: IDENTITY_MESSAGES.nationalIdDuplicate });
-  });
-
-  it('rejects the untouched "05" prefill and malformed phones', () => {
-    expect(validateStudentIdentity({ nationalId: '1011111111', parentPhone: '05' }, ctx).ok).toBe(false);
-    const bad = validateStudentIdentity({ nationalId: '1011111111', parentPhone: '0412345678' }, ctx);
-    expect(bad).toEqual({ ok: false, field: 'parentPhone', message: IDENTITY_MESSAGES.parentPhoneFormat });
+  it('validates a legacy phone once it is changed', () => {
+    expect(validateGuardianPhone('05123456780', '05123456789').ok).toBe(false);
   });
 });
 
-describe('validateStudentIdentity (edit)', () => {
-  it('does not flag the student against their own id', () => {
-    const r = validateStudentIdentity(
-      { nationalId: '1098765432', parentPhone: '0555555555' },
-      { existing: roster, selfId: 's1', original: { nationalId: '1098765432', parentPhone: '0555555555' } },
-    );
-    expect(r.ok).toBe(true);
-  });
-
-  it('does not block unrelated edits on a legacy record with a non-standard id', () => {
-    const r = validateStudentIdentity(
-      { nationalId: '4455667', parentPhone: '0555555555' },
-      { existing: roster, selfId: 's9', original: { nationalId: '4455667', parentPhone: '0555555555' } },
-    );
-    expect(r.ok).toBe(true);
-  });
-
-  it('validates a legacy id once it is changed', () => {
-    const r = validateStudentIdentity(
-      { nationalId: '4455668', parentPhone: '0555555555' },
-      { existing: roster, selfId: 's9', original: { nationalId: '4455667', parentPhone: '0555555555' } },
-    );
-    expect(r.ok).toBe(false);
-  });
-});
-
-describe('regression guard: no invented identity data in the UI', () => {
+describe('regression guard: student national ids are not collected, shown or invented', () => {
   const read = (rel: string) => readFileSync(resolve(__dirname, '..', rel), 'utf-8');
 
-  it('StudentDirectory never generates national ids or student numbers', () => {
-    const src = read('components/StudentDirectory.tsx');
-    expect(src).not.toMatch(/nationalId:\s*`[^`]*Math\.random/);
-    expect(src).not.toMatch(/studentNumber:\s*`[^`]*Math\.random/);
+  it.each([
+    'components/StudentDirectory.tsx',
+    'components/StudentImportModal.tsx',
+    'components/PrintableDailyReport.tsx',
+    'components/StudentReferralModal.tsx',
+  ])('%s has no national id handling', (file) => {
+    expect(read(file)).not.toMatch(/nationalId|national_id/);
   });
 
-  it('PrintableDailyReport never prints random ids or the 050xxxxxxx placeholder', () => {
-    const src = read('components/PrintableDailyReport.tsx');
-    expect(src).not.toMatch(/nationalId:[^\n]*Math\.random/);
-    expect(src).not.toContain('050xxxxxxx');
-    expect(src).toContain('MISSING_VALUE_LABEL');
+  it('no UI file generates random identity or phone placeholders', () => {
+    for (const file of ['components/StudentDirectory.tsx', 'components/StudentImportModal.tsx', 'components/PrintableDailyReport.tsx']) {
+      const src = read(file);
+      expect(src, file).not.toMatch(/studentNumber:\s*`[^`]*Math\.random/);
+      expect(src, file).not.toContain('050xxxxxxx');
+    }
+  });
+
+  it('the Student type and the Google Sheets student export carry no national id', () => {
+    const types = read('types.ts');
+    const student = types.slice(types.indexOf('export interface Student {'));
+    expect(student.slice(0, student.indexOf('}'))).not.toMatch(/nationalId/);
+    expect(read('services/googleSheetsService.ts')).not.toMatch(/st\.nationalId|رقم الهوية الوطنية/);
+  });
+
+  it('the edge functions never require, return or store a student national id', () => {
+    expect(read('supabase/functions/get-student-contacts/index.ts')).not.toMatch(/national_id/);
+    const admin = read('supabase/functions/admin-manage/index.ts');
+    const studentSave = admin.slice(admin.indexOf('async function studentSave'));
+    expect(studentSave.slice(0, studentSave.indexOf('\nasync function ', 10) > 0 ? studentSave.indexOf('\nasync function ', 10) : undefined)).not.toMatch(/national_id|nationalId/);
   });
 
   it('exposes a stable label for missing values', () => {

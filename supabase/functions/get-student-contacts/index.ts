@@ -5,7 +5,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // ---------------------------------------------------------------------------
 // Serves the sensitive roster fields that used to ship inside the public JS
 // bundle (security review S2). Requires x-device-token.
-//   admin   → every student: national id, guardian name/phone, home phone,
+//   admin   → every student: guardian name/phone, home phone,
 //             nationality, birth date.
 //   teacher → guardian name/phone/home phone only, and only for classes the
 //             teacher teaches in Period 2 (any day) or is homeroom for.
@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
     if (device.role === "admin") {
       const { data, error } = await supabase
         .from("students")
-        .select("id, national_id, parent_name, parent_phone, home_phone, nationality, birth_date")
+        .select("id, parent_name, parent_phone, home_phone, nationality, birth_date")
         .eq("school_id", SCHOOL_ID)
         .eq("is_active", true);
       if (error) return json({ error: "query_failed" }, 500);

@@ -354,7 +354,6 @@ function mapContactRecord(raw: Record<string, unknown>): StudentContactRecord | 
   const pick = (k: string) => (typeof raw[k] === 'string' ? (raw[k] as string) : undefined);
   return {
     id,
-    nationalId: pick('national_id'),
     parentName: pick('parent_name'),
     parentPhone: pick('parent_phone'),
     homePhone: pick('home_phone'),

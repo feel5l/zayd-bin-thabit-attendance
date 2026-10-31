@@ -168,8 +168,7 @@ export const StudentReferralModal: React.FC<StudentReferralModalProps> = ({
       return (
         s.name.toLowerCase().includes(q) ||
         s.className.toLowerCase().includes(q) ||
-        s.studentNumber.toLowerCase().includes(q) ||
-        s.nationalId.includes(q)
+        s.studentNumber.toLowerCase().includes(q)
       );
     }
     return true;

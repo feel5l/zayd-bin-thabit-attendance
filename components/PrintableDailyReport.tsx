@@ -53,7 +53,7 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
     index: number;
     studentId: string;
     studentName: string;
-    nationalId?: string;
+    studentNumber?: string;
     classId: string;
     className: string;
     gradeLevel: string;
@@ -83,7 +83,7 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
           index: counter++,
           studentId: st.studentId,
           studentName: st.studentName || studentInfo?.name || 'طالب غير محدد',
-          nationalId: studentInfo?.nationalId || MISSING_VALUE_LABEL,
+          studentNumber: studentInfo?.studentNumber || '',
           classId: sub.classId,
           className: sub.className,
           gradeLevel: sub.gradeLevel,
@@ -427,9 +427,11 @@ export const PrintableDailyReport: React.FC<PrintableDailyReportProps> = ({
                                   <div className="font-black text-[13px] text-slate-950 tracking-tight">
                                     {st.studentName}
                                   </div>
-                                  <div className="text-[10px] text-slate-500 flex items-center gap-2 font-mono">
-                                    <span>السجل: {st.nationalId}</span>
-                                  </div>
+                                  {st.studentNumber && (
+                                    <div className="text-[10px] text-slate-500 flex items-center gap-2 font-mono">
+                                      <span>الرقم الأكاديمي: {st.studentNumber}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>

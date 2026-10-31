@@ -3,7 +3,7 @@ import { Student, User, SchoolSettings, SchoolClass } from '../types';
 import { AttendanceService } from '../services/attendanceService';
 import { generateAbsenceWarningLetter } from '../services/geminiService';
 import { adminManage, adminManageErrorMessage } from '../services/syncAdapter';
-import { validateStudentIdentity } from '../services/studentValidation';
+import { validateGuardianPhone } from '../services/studentValidation';
 import { StudentImportModal } from './StudentImportModal';
 import { 
   Users, 
@@ -74,7 +74,6 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
     id: '',
     name: '',
     studentNumber: '',
-    nationalId: '',
     classId: '',
     className: '',
     gradeLevel: 'الصف الرابع الابتدائي',
@@ -117,7 +116,6 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
     const matchesSearch = 
       student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       student.studentNumber.includes(searchQuery) ||
-      (student.nationalId && student.nationalId.includes(searchQuery)) ||
       student.parentPhone.includes(searchQuery);
     
     if (!matchesSearch) return false;
@@ -142,7 +140,6 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
       id: `s_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       name: '',
       studentNumber: '',
-      nationalId: '',
       classId: defaultCls ? defaultCls.id : 'c_4_1',
       className: defaultCls ? defaultCls.shortName : 'رابع 1',
       gradeLevel: defaultCls ? defaultCls.gradeLevel : 'الصف الرابع الابتدائي',
@@ -162,7 +159,6 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
       id: student.id,
       name: student.name,
       studentNumber: student.studentNumber,
-      nationalId: student.nationalId || student.studentNumber,
       classId: student.classId,
       className: student.className,
       gradeLevel: student.gradeLevel,
@@ -212,18 +208,9 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
       return;
     }
 
-    const identity = validateStudentIdentity(
-      { nationalId: studentFormData.nationalId, parentPhone: studentFormData.parentPhone },
-      {
-        existing: students,
-        selfId: studentFormData.id,
-        original: editingStudent
-          ? { nationalId: editingStudent.nationalId || editingStudent.studentNumber, parentPhone: editingStudent.parentPhone }
-          : undefined,
-      },
-    );
-    if (!identity.ok) {
-      showFeedback(identity.message, 'error');
+    const phoneCheck = validateGuardianPhone(studentFormData.parentPhone, editingStudent?.parentPhone);
+    if (!phoneCheck.ok) {
+      showFeedback(phoneCheck.message, 'error');
       return;
     }
 
@@ -233,12 +220,11 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
       id: studentFormData.id,
       name: studentFormData.name.trim(),
       studentNumber: studentFormData.studentNumber.trim(),
-      nationalId: identity.nationalId,
       classId: studentFormData.classId,
       className: targetCls ? targetCls.shortName : studentFormData.className,
       gradeLevel: targetCls ? targetCls.gradeLevel : studentFormData.gradeLevel,
       parentName: studentFormData.parentName.trim(),
-      parentPhone: identity.parentPhone,
+      parentPhone: phoneCheck.parentPhone,
       homePhone: studentFormData.homePhone ? studentFormData.homePhone.trim() : undefined,
       birthDate: studentFormData.birthDate.trim(),
       nationality: studentFormData.nationality.trim(),
@@ -251,7 +237,6 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
       studentNumber: studentToSave.studentNumber,
       classId: studentToSave.classId,
       gender: studentToSave.gender,
-      nationalId: studentToSave.nationalId,
       parentName: studentToSave.parentName,
       parentPhone: studentToSave.parentPhone,
       homePhone: studentToSave.homePhone,
@@ -476,9 +461,11 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-400 font-mono">
-                              هوية: {student.nationalId || student.studentNumber}
-                            </div>
+                            {student.studentNumber && (
+                              <div className="text-[11px] text-slate-400 font-mono">
+                                الرقم الأكاديمي: {student.studentNumber}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -650,18 +637,6 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">رقم الهوية الوطنية / الإقامة *</label>
-                  <input
-                    type="text"
-                    required
-                    value={studentFormData.nationalId}
-                    onChange={(e) => setStudentFormData({ ...studentFormData, nationalId: e.target.value })}
-                    placeholder="10 أرقام"
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-medium outline-none"
-                  />
-                </div>
-
-                <div>
                   <label className="block font-bold text-slate-700 mb-1">الرقم الأكاديمي</label>
                   <input
                     type="text"
@@ -809,17 +784,6 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">رقم الهوية الوطنية / الإقامة</label>
-                  <input
-                    type="text"
-                    required
-                    value={studentFormData.nationalId}
-                    onChange={(e) => setStudentFormData({ ...studentFormData, nationalId: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-medium outline-none"
-                  />
-                </div>
-
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">الرقم الأكاديمي</label>
                   <input
@@ -1066,9 +1030,9 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-[11px]">
                         <div>
-                          <span className="text-slate-400 block">رقم الهوية / الإقامة</span>
+                          <span className="text-slate-400 block">الرقم الأكاديمي</span>
                           <span className="font-mono font-bold text-slate-800 text-xs select-all">
-                            {selectedStudent.nationalId || selectedStudent.studentNumber}
+                            {selectedStudent.studentNumber || '—'}
                           </span>
                         </div>
 

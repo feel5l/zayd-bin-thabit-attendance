@@ -27,7 +27,6 @@ export interface AbsenceReason {
 
 export interface Student {
   id: string;
-  nationalId: string;
   studentNumber: string;
   name: string;
   gradeLevel: string; // e.g. "الصف الثالث", "الصف الرابع", "الصف الخامس", "الصف السادس"

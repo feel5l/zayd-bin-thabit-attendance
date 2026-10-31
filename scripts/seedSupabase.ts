@@ -73,10 +73,10 @@ lines.push('');
 const STUDENT_BATCH = 100;
 for (let i = 0; i < OFFICIAL_STUDENTS_LIST.length; i += STUDENT_BATCH) {
   const batch = OFFICIAL_STUDENTS_LIST.slice(i, i + STUDENT_BATCH);
-  lines.push('INSERT INTO students (id, school_id, class_id, national_id, student_number, name, grade_level, class_name, parent_name, parent_phone, gender, nationality, birth_date, home_phone, chronic_condition, notes) VALUES');
+  lines.push('INSERT INTO students (id, school_id, class_id, student_number, name, grade_level, class_name, parent_name, parent_phone, gender, nationality, birth_date, home_phone, chronic_condition, notes) VALUES');
   lines.push(
     batch.map(s =>
-      `  (${esc(s.id)}, ${esc(SCHOOL_ID)}, ${esc(s.classId)}, ${esc(s.nationalId)}, ${esc(s.studentNumber)}, ${esc(s.name)}, ${esc(s.gradeLevel)}, ${esc(s.className)}, ${esc(s.parentName)}, ${esc(s.parentPhone)}, ${esc(s.gender)}, ${esc(s.nationality || 'سعودي')}, ${s.birthDate ? esc(s.birthDate) : 'NULL'}, ${esc(s.homePhone)}, ${boolLit(s.chronicCondition)}, ${esc(s.notes)})`
+      `  (${esc(s.id)}, ${esc(SCHOOL_ID)}, ${esc(s.classId)}, ${esc(s.studentNumber)}, ${esc(s.name)}, ${esc(s.gradeLevel)}, ${esc(s.className)}, ${esc(s.parentName)}, ${esc(s.parentPhone)}, ${esc(s.gender)}, ${esc(s.nationality || 'سعودي')}, ${s.birthDate ? esc(s.birthDate) : 'NULL'}, ${esc(s.homePhone)}, ${boolLit(s.chronicCondition)}, ${esc(s.notes)})`
     ).join(',\n') + ';'
   );
   lines.push('');

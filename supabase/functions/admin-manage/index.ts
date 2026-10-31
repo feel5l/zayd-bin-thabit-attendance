@@ -11,7 +11,7 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 // Requires x-device-token with role = admin. Actions (POST { action, ... }):
 //   teacher.save        { id, name, subject?, phone?, nationalId?, assignedClassId? }
 //   teacher.deactivate  { id }
-//   student.save        { id, name, studentNumber?, classId, gender?, nationalId,
+//   student.save        { id, name, studentNumber?, classId, gender?,
 //                         parentName?, parentPhone?, homePhone?, nationality?, birthDate? }
 //   student.transfer    { id, classId }
 //   student.remove      { id }            → soft delete (is_active = false); history kept
@@ -187,12 +187,7 @@ async function studentSave(db: SupabaseClient, b: Record<string, unknown>) {
   if (!name) throw bad("name_required");
   const cls = await classRow(db, id(b.classId, "invalid_class_id"));
 
-  const nationalId = str(b.nationalId, 20).replace(/[^0-9]/g, "");
-  if (!/^[12]\d{9}$/.test(nationalId)) throw bad("invalid_national_id");
-  const { data: clash, error: clashError } = await db.from("students").select("id")
-    .eq("school_id", SCHOOL_ID).eq("national_id", nationalId).neq("id", studentId).limit(1);
-  if (clashError) throw new HttpError(500, "nid_check_failed");
-  if (clash && clash.length > 0) throw new HttpError(409, "national_id_in_use");
+  // Student national ids are intentionally not collected or stored any more.
 
   const parentPhoneRaw = str(b.parentPhone, 32);
   const parentPhone = parentPhoneRaw ? normalisePhone(parentPhoneRaw) : "";
@@ -205,7 +200,6 @@ async function studentSave(db: SupabaseClient, b: Record<string, unknown>) {
     class_id: cls.id,
     class_name: cls.short_name,
     grade_level: cls.grade_level,
-    national_id: nationalId,
     student_number: str(b.studentNumber, 20) || null,
     name,
     parent_name: str(b.parentName, 160) || null,

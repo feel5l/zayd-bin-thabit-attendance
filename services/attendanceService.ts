@@ -15,7 +15,7 @@ import {
 import { OFFICIAL_TIMETABLE_RECORDS, extractPeriod2AssignmentsFromTimetable, mapLegacyTimetableTeacherId, isUnmappedTimetableTeacherId } from './timetableData';
 
 /** Sensitive roster fields served only by get-student-contacts (security review S2). */
-export const STUDENT_CONTACT_FIELDS = ['nationalId', 'parentName', 'parentPhone', 'homePhone', 'nationality', 'birthDate'] as const;
+export const STUDENT_CONTACT_FIELDS = ['parentName', 'parentPhone', 'homePhone', 'nationality', 'birthDate'] as const;
 export type StudentContactField = typeof STUDENT_CONTACT_FIELDS[number];
 export type StudentContactRecord = { id: string } & Partial<Record<StudentContactField, string>>;
 
@@ -490,7 +490,7 @@ export class AttendanceService {
     const next: Student[] = roster.map((r) => {
       const local = localById.get(r.id);
       return {
-        ...(local ?? { nationalId: '', parentName: '', parentPhone: '' }),
+        ...(local ?? { parentName: '', parentPhone: '' }),
         id: r.id,
         name: r.name,
         studentNumber: r.student_number || local?.studentNumber || '',
@@ -1351,7 +1351,7 @@ export class AttendanceService {
         userName: performedBy.name,
         role: performedBy.role,
         action: isNew ? 'إضافة طالب جديد' : 'تعديل بيانات طالب',
-        details: `${isNew ? 'تمت إضافة الطالب' : 'تم تعديل بيانات الطالب'}: ${student.name} - ${student.className} (هوية: ${student.nationalId || student.studentNumber})`,
+        details: `${isNew ? 'تمت إضافة الطالب' : 'تم تعديل بيانات الطالب'}: ${student.name} - ${student.className} (الرقم الأكاديمي: ${student.studentNumber || '-'})`,
         targetClass: student.className,
         type: 'settings_change'
       });
@@ -1445,7 +1445,7 @@ export class AttendanceService {
       if (!fields) return s;
       const next: Student = { ...s };
       for (const field of fields as StudentContactField[]) {
-        if (field === 'nationalId' || field === 'parentName' || field === 'parentPhone') next[field] = '';
+        if (field === 'parentName' || field === 'parentPhone') next[field] = '';
         else delete next[field];
       }
       return next;
@@ -1560,7 +1560,6 @@ export class AttendanceService {
       if (!student.name || student.name.trim() === '') continue;
 
       const existingIdx = currentStudents.findIndex(s => 
-        (student.nationalId && s.nationalId === student.nationalId) ||
         (student.studentNumber && s.studentNumber === student.studentNumber) ||
         (s.name.trim().toLowerCase() === student.name.trim().toLowerCase() && s.classId === student.classId)
       );
