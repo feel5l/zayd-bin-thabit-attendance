@@ -53,7 +53,7 @@ describe('regression guard: student national ids are not collected, shown or inv
     'components/PrintableDailyReport.tsx',
     'components/StudentReferralModal.tsx',
   ])('%s has no national id handling', (file) => {
-    expect(read(file)).not.toMatch(/nationalId|national_id/);
+    expect(read(file)).not.toMatch(/nationalId|national_id|السجل المدني/);
   });
 
   it('no UI file generates random identity or phone placeholders', () => {
