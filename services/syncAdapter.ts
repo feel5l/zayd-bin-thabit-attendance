@@ -19,7 +19,7 @@
 
 import { isSupabaseConfigured, getSupabaseFunctionsUrl, getAnonKey, getSupabaseClient } from './supabaseClient';
 import { AttendanceService, SCHEDULE_CHANGE_EVENT, type StudentContactRecord, type ServerTeacherRow, type ServerClassRow, type ServerRosterRow } from './attendanceService';
-import { getDeviceToken } from './deviceAuth';
+import { getDeviceToken, notifySessionRevoked } from './deviceAuth';
 import type { ClassAttendanceSubmission, StudentAttendanceItem, DayPeriodAssignment, SchoolSettings, AttendanceStatus } from '../types';
 import { getTodayDateString } from './initialData';
 
@@ -62,7 +62,16 @@ async function fetchWithTimeout(url: string, opts: RequestInit): Promise<Respons
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    return await fetch(url, { ...opts, signal: controller.signal });
+    const res = await fetch(url, { ...opts, signal: controller.signal });
+    // The server judges every session on every request. If it rejects the
+    // device token we sent (revoked by a logout elsewhere, expired, unknown),
+    // the app must leave the signed-in state and ask for a fresh login.
+    if (res.status === 401 && new Headers(opts.headers as HeadersInit | undefined).has('x-device-token')) {
+      res.clone().json().then((b) => {
+        if (b?.error === 'invalid_device_token') notifySessionRevoked();
+      }).catch(() => {});
+    }
+    return res;
   } finally {
     clearTimeout(timer);
   }

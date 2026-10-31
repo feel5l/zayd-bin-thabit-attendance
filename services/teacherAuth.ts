@@ -1,5 +1,5 @@
 import { User } from '../types';
-import { setDeviceToken } from './deviceAuth';
+import { setDeviceToken, TEACHER_TRUST_KEY } from './deviceAuth';
 
 /**
  * Server-side teacher identification.
@@ -20,7 +20,7 @@ import { setDeviceToken } from './deviceAuth';
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').trim().replace(/\/$/, '');
 const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
-const TRUST_KEY = 'zbt_device_known_teachers_v1';
+const TRUST_KEY = TEACHER_TRUST_KEY;
 // Login is a one-off wait behind a spinner. Under the 07:45 burst (many
 // logins at once) admin-login has taken up to ~7.6s server-side (bcrypt cost
 // 12), so 8s aborted real logins and showed a false "connection error".
@@ -140,7 +140,9 @@ export async function lookupTeacher(identifier: string): Promise<TeacherLookupOu
         const data = await res.json();
         if (data?.found && data.teacher) {
           const user = toUser(data.teacher as ServerTeacher);
-          if (identifierHash) rememberOnDevice(identifierHash, user);
+          // Never remember a login on the device while the server is in charge:
+          // every entry must be verified again (no implicit device trust).
+          if (identifierHash && !SUPABASE_URL) rememberOnDevice(identifierHash, user);
           // Persist device token so submit-attendance / get-attendance work
           if (typeof data.deviceToken === 'string' && data.deviceToken) {
             setDeviceToken(data.deviceToken, {
