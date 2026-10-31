@@ -43,7 +43,7 @@ export const OFFICIAL_CLASSES_LIST: SchoolClass[] = [
     studentCount: 0,
     color: '#06b6d4',
     teacherId: 'teacher-7',
-    teacherName: 'أ. محمد فهد عائض آل جحيش',
+    teacherName: 'أ. محمد فهد عائض القحطاني',
     attendancePeriod: 2,
     academicYear: '1447 - 1448 هـ'
   },

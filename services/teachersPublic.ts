@@ -43,7 +43,7 @@ export const PUBLIC_TEACHERS_LIST: User[] = [
     id: 'teacher-7',
     sequenceNumber: 7,
     username: 'mohammed_aljahaish',
-    name: 'أ. محمد فهد عائض آل جحيش',
+    name: 'أ. محمد فهد عائض القحطاني',
     role: 'teacher',
     password: '',
     subject: 'دراسات إسلامية',

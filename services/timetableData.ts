@@ -8,7 +8,7 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'الرياضيات',
     quota: 24,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-4-3', className: 'رابع 3', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-4-2', className: 'رابع 2', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-4-3', className: 'رابع 3', subject: 'الرياضيات' },
@@ -16,32 +16,31 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-5-2', className: 'خامس 2', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-4-3', className: 'رابع 3', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-5-2', className: 'خامس 2', subject: 'الرياضيات' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-5-1', className: 'خامس 1', subject: 'الرياضيات' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-4-2', className: 'رابع 2', subject: 'الرياضيات' },
+      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-5-2', className: 'خامس 2', subject: 'الرياضيات' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-5-1', className: 'خامس 1', subject: 'الرياضيات' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-4-2', className: 'رابع 2', subject: 'الرياضيات' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-5-1', className: 'خامس 1', subject: 'الرياضيات' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 6, classId: 'class-5-2', className: 'خامس 2', subject: 'الرياضيات' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-4-3', className: 'رابع 3', subject: 'الرياضيات' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-4-2', className: 'رابع 2', subject: 'الرياضيات' },
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-5-1', className: 'خامس 1', subject: 'الرياضيات' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-4-2', className: 'رابع 2', subject: 'الرياضيات' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-4-3', className: 'رابع 3', subject: 'الرياضيات' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 5, classId: 'class-5-2', className: 'خامس 2', subject: 'الرياضيات' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 6, classId: 'class-5-1', className: 'خامس 1', subject: 'الرياضيات' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-5-2', className: 'خامس 2', subject: 'الرياضيات' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-5-1', className: 'خامس 1', subject: 'الرياضيات' },
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 3, classId: 'class-4-3', className: 'رابع 3', subject: 'الرياضيات' },
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 4, classId: 'class-5-2', className: 'خامس 2', subject: 'الرياضيات' },
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 5, classId: 'class-4-2', className: 'رابع 2', subject: 'الرياضيات' },
-      // الخميس
+    // الخميس
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 1, classId: 'class-5-1', className: 'خامس 1', subject: 'الرياضيات' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'الرياضيات' },
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-5-1', className: 'خامس 1', subject: 'الرياضيات' },
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 3, classId: 'class-4-2', className: 'رابع 2', subject: 'الرياضيات' },
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 4, classId: 'class-5-1', className: 'خامس 1', subject: 'الرياضيات' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 5, classId: 'class-5-2', className: 'خامس 2', subject: 'الرياضيات' }
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 5, classId: 'class-5-2', className: 'خامس 2', subject: 'الرياضيات' },
     ]
   },
   {
@@ -51,29 +50,27 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'العلوم',
     quota: 19,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'العلوم' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-4-2', className: 'رابع 2', subject: 'العلوم' },
+      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-4-1', className: 'رابع 1', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-4-3', className: 'رابع 3', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-5-1', className: 'خامس 1', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-5-1', className: 'خامس 1', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-4-3', className: 'رابع 3', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-5-1', className: 'خامس 1', subject: 'نشاط' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'العلوم' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-4-2', className: 'رابع 2', subject: 'العلوم' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-4-1', className: 'رابع 1', subject: 'العلوم' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-5-1', className: 'خامس 1', subject: 'نشاط' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-4-2', className: 'رابع 2', subject: 'العلوم' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-5-1', className: 'خامس 1', subject: 'المهارات الحياتية' },
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-4-1', className: 'رابع 1', subject: 'العلوم' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-4-1', className: 'رابع 1', subject: 'العلوم' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-4-3', className: 'رابع 3', subject: 'العلوم' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 5, classId: 'class-5-1', className: 'خامس 1', subject: 'العلوم' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 6, classId: 'class-5-1', className: 'خامس 1', subject: 'العلوم' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-4-2', className: 'رابع 2', subject: 'العلوم' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'العلوم' }
     ]
   },
   {
@@ -83,32 +80,32 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'الدراسات الإسلامية',
     quota: 19,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-6-1', className: 'سادس 1', subject: 'الدراسات الإسلامية' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'الدراسات الإسلامية' },
+      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-6-1', className: 'سادس 1', subject: 'الدراسات الإسلامية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-4-2', className: 'رابع 2', subject: 'نشاط' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-4-1', className: 'رابع 1', subject: 'نشاط' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-4-1', className: 'رابع 1', subject: 'نشاط' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-6-1', className: 'سادس 1', subject: 'المهارات الحياتية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-4-3', className: 'رابع 3', subject: 'نشاط' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-6-1', className: 'سادس 1', subject: 'الدراسات الإسلامية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'الدراسات الإسلامية' },
+      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-6-1', className: 'سادس 1', subject: 'المهارات الحياتية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-6-1', className: 'سادس 1', subject: 'الدراسات الإسلامية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-6-2', className: 'سادس 2', subject: 'نشاط' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-6-2', className: 'سادس 2', subject: 'الدراسات الإسلامية' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-6-1', className: 'سادس 1', subject: 'الدراسات الإسلامية' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-4-2', className: 'رابع 2', subject: 'نشاط' },
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-6-1', className: 'سادس 1', subject: 'الدراسات الإسلامية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-6-2', className: 'سادس 2', subject: 'الدراسات الإسلامية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-6-2', className: 'سادس 2', subject: 'نشاط' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-6-2', className: 'سادس 2', subject: 'الدراسات الإسلامية' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'نشاط' },
+      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-6-1', className: 'سادس 1', subject: 'الدراسات الإسلامية' },
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 3, classId: 'class-6-1', className: 'سادس 1', subject: 'الدراسات الإسلامية' },
-      // الخميس
+    // الخميس
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 1, classId: 'class-6-1', className: 'سادس 1', subject: 'الدراسات الإسلامية' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'الدراسات الإسلامية' }
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'الدراسات الإسلامية' },
     ]
   },
   {
@@ -118,27 +115,27 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'لغتي الجميلة',
     quota: 18,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-3-1', className: 'ثالث 1', subject: 'لغتي الجميلة' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-3-2', className: 'ثالث 2', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-3-3', className: 'ثالث 3', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-3-1', className: 'ثالث 1', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-3-2', className: 'ثالث 2', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-3-3', className: 'ثالث 3', subject: 'لغتي الجميلة' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-3-2', className: 'ثالث 2', subject: 'لغتي الجميلة' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'لغتي الجميلة' },
+      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-3-1', className: 'ثالث 1', subject: 'لغتي الجميلة' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-3-2', className: 'ثالث 2', subject: 'لغتي الجميلة' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-3-1', className: 'ثالث 1', subject: 'لغتي الجميلة' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-3-1', className: 'ثالث 1', subject: 'لغتي الجميلة' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-3-3', className: 'ثالث 3', subject: 'لغتي الجميلة' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'لغتي الجميلة' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-3-1', className: 'ثالث 1', subject: 'لغتي الجميلة' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-3-1', className: 'ثالث 1', subject: 'لغتي الجميلة' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 5, classId: 'class-3-3', className: 'ثالث 3', subject: 'لغتي الجميلة' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 6, classId: 'class-3-2', className: 'ثالث 2', subject: 'لغتي الجميلة' }
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 6, classId: 'class-3-2', className: 'ثالث 2', subject: 'لغتي الجميلة' },
+    // الأربعاء
+      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'لغتي الجميلة' },
     ]
   },
   {
@@ -148,7 +145,7 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'التربية البدنية والدفاع عن النفس',
     quota: 23,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-3-2', className: 'ثالث 2', subject: 'التربية البدنية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'التربية البدنية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-3-3', className: 'ثالث 3', subject: 'التربية البدنية' },
@@ -156,30 +153,31 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-3-1', className: 'ثالث 1', subject: 'التربية البدنية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-4-1', className: 'رابع 1', subject: 'التربية البدنية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-6-1', className: 'سادس 1', subject: 'التربية البدنية' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-3-2', className: 'ثالث 2', subject: 'التربية البدنية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-3-1', className: 'ثالث 1', subject: 'التربية البدنية' },
+      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-4-1', className: 'رابع 1', subject: 'التربية البدنية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-3-3', className: 'ثالث 3', subject: 'التربية البدنية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-5-1', className: 'خامس 1', subject: 'التربية البدنية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-5-2', className: 'خامس 2', subject: 'التربية البدنية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 6, classId: 'class-4-2', className: 'رابع 2', subject: 'التربية البدنية' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-3-1', className: 'ثالث 1', subject: 'التربية البدنية' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'التربية البدنية' },
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-5-2', className: 'خامس 2', subject: 'التربية البدنية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-5-3', className: 'خامس 3', subject: 'التربية البدنية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-5-2', className: 'خامس 2', subject: 'التربية البدنية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 5, classId: 'class-6-1', className: 'سادس 1', subject: 'التربية البدنية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 6, classId: 'class-3-2', className: 'ثالث 2', subject: 'التربية البدنية' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-4-2', className: 'رابع 2', subject: 'التربية البدنية' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'التربية البدنية' },
+      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-5-2', className: 'خامس 2', subject: 'التربية البدنية' },
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 3, classId: 'class-5-1', className: 'خامس 1', subject: 'التربية البدنية' },
-      // الخميس
+    // الخميس
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'التربية البدنية' },
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'التربية البدنية' },
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 3, classId: 'class-4-3', className: 'رابع 3', subject: 'التربية البدنية' },
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 4, classId: 'class-4-2', className: 'رابع 2', subject: 'التربية البدنية' },
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 5, classId: 'class-5-3', className: 'خامس 3', subject: 'التربية البدنية' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 6, classId: 'class-3-1', className: 'ثالث 1', subject: 'التربية البدنية' }
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 6, classId: 'class-3-1', className: 'ثالث 1', subject: 'التربية البدنية' },
     ]
   },
   {
@@ -189,20 +187,18 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'التربية الفنية',
     quota: 12,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-5-3', className: 'خامس 3', subject: 'التربية الفنية' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-5-1', className: 'خامس 1', subject: 'التربية الفنية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-4-3', className: 'رابع 3', subject: 'التربية الفنية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-4-2', className: 'رابع 2', subject: 'التربية الفنية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-6-2', className: 'سادس 2', subject: 'التربية الفنية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-5-2', className: 'خامس 2', subject: 'التربية الفنية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-4-1', className: 'رابع 1', subject: 'التربية الفنية' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-3-2', className: 'ثالث 2', subject: 'التربية الفنية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'التربية الفنية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-3-3', className: 'ثالث 3', subject: 'التربية الفنية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-3-3', className: 'ثالث 3', subject: 'التربية الفنية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-6-1', className: 'سادس 1', subject: 'التربية الفنية' }
+      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-6-1', className: 'سادس 1', subject: 'التربية الفنية' },
     ]
   },
   {
@@ -212,29 +208,29 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'الدراسات الاجتماعية',
     quota: 19,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-6-2', className: 'سادس 2', subject: 'التربية البدنية' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-6-1', className: 'سادس 1', subject: 'الدراسات الاجتماعية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-5-2', className: 'خامس 2', subject: 'الدراسات الاجتماعية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-6-2', className: 'سادس 2', subject: 'المهارات الحياتية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-6-2', className: 'سادس 2', subject: 'الدراسات الاجتماعية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-5-2', className: 'خامس 2', subject: 'الدراسات الاجتماعية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-4-2', className: 'رابع 2', subject: 'الدراسات الاجتماعية' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-5-3', className: 'خامس 3', subject: 'الدراسات الاجتماعية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'الدراسات الاجتماعية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-4-3', className: 'رابع 3', subject: 'الدراسات الاجتماعية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-6-1', className: 'سادس 1', subject: 'الدراسات الاجتماعية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-6-2', className: 'سادس 2', subject: 'التربية البدنية' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'الدراسات الاجتماعية' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'الدراسات الاجتماعية' },
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'الدراسات الاجتماعية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-5-1', className: 'خامس 1', subject: 'الدراسات الاجتماعية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-4-2', className: 'رابع 2', subject: 'الدراسات الاجتماعية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 5, classId: 'class-4-1', className: 'رابع 1', subject: 'الدراسات الاجتماعية' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-5-3', className: 'خامس 3', subject: 'الدراسات الاجتماعية' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-5-1', className: 'خامس 1', subject: 'الدراسات الاجتماعية' }
+      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-5-1', className: 'خامس 1', subject: 'الدراسات الاجتماعية' },
+    // الخميس
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'الدراسات الاجتماعية' },
     ]
   },
   {
@@ -244,7 +240,7 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'لغتي الجميلة',
     quota: 20,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-5-3', className: 'خامس 3', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-5-2', className: 'خامس 2', subject: 'لغتي الجميلة' },
@@ -252,26 +248,24 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-6-1', className: 'سادس 1', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-6-2', className: 'سادس 2', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-5-3', className: 'خامس 3', subject: 'لغتي الجميلة' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-5-2', className: 'خامس 2', subject: 'لغتي الجميلة' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'لغتي الجميلة' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-5-3', className: 'خامس 3', subject: 'لغتي الجميلة' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-5-2', className: 'خامس 2', subject: 'لغتي الجميلة' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-6-1', className: 'سادس 1', subject: 'لغتي الجميلة' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-6-1', className: 'سادس 1', subject: 'لغتي الجميلة' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-5-2', className: 'خامس 2', subject: 'لغتي الجميلة' },
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'لغتي الجميلة' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-5-3', className: 'خامس 3', subject: 'لغتي الجميلة' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-6-2', className: 'سادس 2', subject: 'لغتي الجميلة' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 5, classId: 'class-5-2', className: 'خامس 2', subject: 'لغتي الجميلة' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-6-1', className: 'سادس 1', subject: 'لغتي الجميلة' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'لغتي الجميلة' },
-      // الخميس
+    // الخميس
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 1, classId: 'class-6-2', className: 'سادس 2', subject: 'لغتي الجميلة' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-5-2', className: 'خامس 2', subject: 'لغتي الجميلة' },
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 3, classId: 'class-6-1', className: 'سادس 1', subject: 'لغتي الجميلة' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 4, classId: 'class-5-3', className: 'خامس 3', subject: 'لغتي الجميلة' }
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 4, classId: 'class-5-3', className: 'خامس 3', subject: 'لغتي الجميلة' },
     ]
   },
   {
@@ -281,7 +275,7 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'العلوم',
     quota: 16,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-5-2', className: 'خامس 2', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-3-1', className: 'ثالث 1', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-3-3', className: 'ثالث 3', subject: 'العلوم' },
@@ -289,18 +283,17 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-3-2', className: 'ثالث 2', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-3-3', className: 'ثالث 3', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-3-1', className: 'ثالث 1', subject: 'العلوم' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-3-2', className: 'ثالث 2', subject: 'العلوم' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-5-2', className: 'خامس 2', subject: 'العلوم' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-3-3', className: 'ثالث 3', subject: 'العلوم' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-5-2', className: 'خامس 2', subject: 'العلوم' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-3-2', className: 'ثالث 2', subject: 'العلوم' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-3-1', className: 'ثالث 1', subject: 'العلوم' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-3-1', className: 'ثالث 1', subject: 'العلوم' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-5-2', className: 'خامس 2', subject: 'العلوم' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'العلوم' }
+    // الخميس
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-5-2', className: 'خامس 2', subject: 'العلوم' },
     ]
   },
   {
@@ -310,7 +303,7 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'لغتي الجميلة',
     quota: 20,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-5-1', className: 'خامس 1', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-4-1', className: 'رابع 1', subject: 'لغتي الجميلة' },
@@ -318,26 +311,25 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-4-2', className: 'رابع 2', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-4-1', className: 'رابع 1', subject: 'لغتي الجميلة' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-5-1', className: 'خامس 1', subject: 'لغتي الجميلة' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-4-3', className: 'رابع 3', subject: 'لغتي الجميلة' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'لغتي الجميلة' },
+      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-4-2', className: 'رابع 2', subject: 'لغتي الجميلة' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-4-2', className: 'رابع 2', subject: 'لغتي الجميلة' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-5-1', className: 'خامس 1', subject: 'لغتي الجميلة' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-4-1', className: 'رابع 1', subject: 'لغتي الجميلة' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'لغتي الجميلة' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'لغتي الجميلة' },
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-4-2', className: 'رابع 2', subject: 'لغتي الجميلة' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-5-1', className: 'خامس 1', subject: 'لغتي الجميلة' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-4-2', className: 'رابع 2', subject: 'لغتي الجميلة' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 5, classId: 'class-4-3', className: 'رابع 3', subject: 'لغتي الجميلة' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'لغتي الجميلة' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-4-2', className: 'رابع 2', subject: 'لغتي الجميلة' },
-      // الخميس
+      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'لغتي الجميلة' },
+    // الخميس
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 1, classId: 'class-5-1', className: 'خامس 1', subject: 'لغتي الجميلة' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-4-1', className: 'رابع 1', subject: 'لغتي الجميلة' },
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 3, classId: 'class-4-2', className: 'رابع 2', subject: 'لغتي الجميلة' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 4, classId: 'class-4-3', className: 'رابع 3', subject: 'لغتي الجميلة' }
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 4, classId: 'class-4-3', className: 'رابع 3', subject: 'لغتي الجميلة' },
     ]
   },
   {
@@ -347,7 +339,7 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'الدراسات الإسلامية',
     quota: 19,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-4-2', className: 'رابع 2', subject: 'الدراسات الإسلامية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-5-2', className: 'خامس 2', subject: 'نشاط' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-4-3', className: 'رابع 3', subject: 'الدراسات الإسلامية' },
@@ -355,21 +347,22 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-5-3', className: 'خامس 3', subject: 'المهارات الحياتية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-4-3', className: 'رابع 3', subject: 'الدراسات الإسلامية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-4-1', className: 'رابع 1', subject: 'الدراسات الإسلامية' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-4-2', className: 'رابع 2', subject: 'الدراسات الإسلامية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-4-1', className: 'رابع 1', subject: 'المهارات الحياتية' },
+      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'الدراسات الإسلامية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-4-1', className: 'رابع 1', subject: 'الدراسات الإسلامية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-4-2', className: 'رابع 2', subject: 'الدراسات الإسلامية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-5-2', className: 'خامس 2', subject: 'نشاط' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-4-3', className: 'رابع 3', subject: 'الدراسات الإسلامية' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'الدراسات الإسلامية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-4-2', className: 'رابع 2', subject: 'الدراسات الإسلامية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-4-1', className: 'رابع 1', subject: 'الدراسات الإسلامية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 5, classId: 'class-4-2', className: 'رابع 2', subject: 'الدراسات الإسلامية' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'الدراسات الإسلامية' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'الدراسات الإسلامية' }
+      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-4-2', className: 'رابع 2', subject: 'الدراسات الإسلامية' },
+    // الخميس
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-4-2', className: 'رابع 2', subject: 'الدراسات الإسلامية' },
     ]
   },
   {
@@ -379,28 +372,29 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'الدراسات الإسلامية والفنية',
     quota: 18,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-3-3', className: 'ثالث 3', subject: 'الدراسات الإسلامية' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'الدراسات الإسلامية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-3-1', className: 'ثالث 1', subject: 'الدراسات الإسلامية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-3-2', className: 'ثالث 2', subject: 'الدراسات الإسلامية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-3-3', className: 'ثالث 3', subject: 'الدراسات الإسلامية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-3-1', className: 'ثالث 1', subject: 'الدراسات الإسلامية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-3-1', className: 'ثالث 1', subject: 'الدراسات الإسلامية' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-3-2', className: 'ثالث 2', subject: 'الدراسات الإسلامية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'الدراسات الإسلامية' },
+      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'الدراسات الإسلامية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-3-3', className: 'ثالث 3', subject: 'الدراسات الإسلامية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-3-1', className: 'ثالث 1', subject: 'الدراسات الإسلامية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-4-3', className: 'رابع 3', subject: 'المهارات الحياتية' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-3-2', className: 'ثالث 2', subject: 'الدراسات الإسلامية' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'الدراسات الإسلامية' },
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-3-1', className: 'ثالث 1', subject: 'الدراسات الإسلامية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-3-1', className: 'ثالث 1', subject: 'الدراسات الإسلامية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-3-1', className: 'ثالث 1', subject: 'التربية الفنية' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-3-1', className: 'ثالث 1', subject: 'التربية الفنية' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'الدراسات الإسلامية' }
+      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-3-1', className: 'ثالث 1', subject: 'الدراسات الإسلامية' },
+    // الخميس
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-3-1', className: 'ثالث 1', subject: 'الدراسات الإسلامية' },
     ]
   },
   {
@@ -410,7 +404,7 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'الرياضيات',
     quota: 24,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-3-1', className: 'ثالث 1', subject: 'الرياضيات' },
@@ -418,27 +412,26 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-3-2', className: 'ثالث 2', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-3-3', className: 'ثالث 3', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-3-1', className: 'ثالث 1', subject: 'الرياضيات' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'الرياضيات' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'الرياضيات' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-3-1', className: 'ثالث 1', subject: 'الرياضيات' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-4-1', className: 'رابع 1', subject: 'الرياضيات' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-3-2', className: 'ثالث 2', subject: 'الرياضيات' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-3-1', className: 'ثالث 1', subject: 'الرياضيات' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-4-1', className: 'رابع 1', subject: 'الرياضيات' },
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'الرياضيات' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-3-3', className: 'ثالث 3', subject: 'الرياضيات' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-3-1', className: 'ثالث 1', subject: 'الرياضيات' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 5, classId: 'class-3-2', className: 'ثالث 2', subject: 'الرياضيات' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'الرياضيات' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'الرياضيات' },
+      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'الرياضيات' },
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 3, classId: 'class-3-3', className: 'ثالث 3', subject: 'الرياضيات' },
-      // الخميس
+    // الخميس
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'الرياضيات' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'الرياضيات' },
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-4-1', className: 'رابع 1', subject: 'الرياضيات' },
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 3, classId: 'class-3-2', className: 'ثالث 2', subject: 'الرياضيات' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 4, classId: 'class-3-1', className: 'ثالث 1', subject: 'الرياضيات' }
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 4, classId: 'class-3-1', className: 'ثالث 1', subject: 'الرياضيات' },
     ]
   },
   {
@@ -448,29 +441,25 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'المهارات الرقمية',
     quota: 18,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-5-1', className: 'خامس 1', subject: 'المهارات الرقمية' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-6-1', className: 'سادس 1', subject: 'نشاط' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-4-1', className: 'رابع 1', subject: 'المهارات الرقمية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-4-2', className: 'رابع 2', subject: 'المهارات الرقمية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-6-2', className: 'سادس 2', subject: 'المهارات الرقمية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-5-2', className: 'خامس 2', subject: 'المهارات الرقمية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-6-1', className: 'سادس 1', subject: 'نشاط' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-5-3', className: 'خامس 3', subject: 'المهارات الرقمية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'المهارات الرقمية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-6-1', className: 'سادس 1', subject: 'المهارات الرقمية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-5-3', className: 'خامس 3', subject: 'المهارات الرقمية' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-5-1', className: 'خامس 1', subject: 'المهارات الرقمية' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-6-1', className: 'سادس 1', subject: 'المهارات الرقمية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-4-2', className: 'رابع 2', subject: 'المهارات الرقمية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-4-3', className: 'رابع 3', subject: 'المهارات الرقمية' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-5-2', className: 'خامس 2', subject: 'المهارات الرقمية' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'المهارات الرقمية' },
-      // الخميس
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'المهارات الرقمية' }
+    // الخميس
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'المهارات الرقمية' },
     ]
   },
   {
@@ -480,7 +469,7 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'المهارات الحياتية والنشاط',
     quota: 12,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-3-1', className: 'ثالث 1', subject: 'نشاط' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'نشاط' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-3-2', className: 'ثالث 2', subject: 'نشاط' },
@@ -488,13 +477,16 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-3-3', className: 'ثالث 3', subject: 'نشاط' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-3-1', className: 'ثالث 1', subject: 'نشاط' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-3-3', className: 'ثالث 3', subject: 'نشاط' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-3-3', className: 'ثالث 3', subject: 'المهارات الحياتية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'نشاط' },
+      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'نشاط' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-3-1', className: 'ثالث 1', subject: 'المهارات الحياتية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-3-2', className: 'ثالث 2', subject: 'نشاط' },
-      // الثلاثاء
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-3-2', className: 'ثالث 2', subject: 'المهارات الحياتية' }
+    // الثلاثاء
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-3-2', className: 'ثالث 2', subject: 'المهارات الحياتية' },
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'نشاط' },
+    // الخميس
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'نشاط' },
     ]
   },
   {
@@ -504,30 +496,25 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'الدراسات الإسلامية',
     quota: 19,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-5-1', className: 'خامس 1', subject: 'الدراسات الإسلامية' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-5-2', className: 'خامس 2', subject: 'الدراسات الإسلامية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-5-3', className: 'خامس 3', subject: 'الدراسات الإسلامية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-5-3', className: 'خامس 3', subject: 'نشاط' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-5-2', className: 'خامس 2', subject: 'الدراسات الإسلامية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-5-2', className: 'خامس 2', subject: 'المهارات الحياتية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-5-3', className: 'خامس 3', subject: 'الدراسات الإسلامية' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-5-1', className: 'خامس 1', subject: 'الدراسات الإسلامية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'الدراسات الإسلامية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-5-1', className: 'خامس 1', subject: 'الدراسات الإسلامية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-4-2', className: 'رابع 2', subject: 'المهارات الحياتية' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-5-2', className: 'خامس 2', subject: 'الدراسات الإسلامية' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-5-1', className: 'خامس 1', subject: 'الدراسات الإسلامية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-5-3', className: 'خامس 3', subject: 'الدراسات الإسلامية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-5-2', className: 'خامس 2', subject: 'الدراسات الإسلامية' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-5-3', className: 'خامس 3', subject: 'الدراسات الإسلامية' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'نشاط' },
-      // الخميس
+    // الخميس
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 1, classId: 'class-5-1', className: 'خامس 1', subject: 'الدراسات الإسلامية' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-5-2', className: 'خامس 2', subject: 'الدراسات الإسلامية' }
     ]
   },
   {
@@ -537,21 +524,21 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'العلوم',
     quota: 12,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-6-1', className: 'سادس 1', subject: 'العلوم' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-6-2', className: 'سادس 2', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-6-2', className: 'سادس 2', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-5-3', className: 'خامس 3', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-6-1', className: 'سادس 1', subject: 'العلوم' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-6-1', className: 'سادس 1', subject: 'العلوم' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-6-2', className: 'سادس 2', subject: 'العلوم' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'العلوم' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-5-3', className: 'خامس 3', subject: 'العلوم' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-6-2', className: 'سادس 2', subject: 'العلوم' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-6-1', className: 'سادس 1', subject: 'العلوم' }
+      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'العلوم' },
+    // الأربعاء
+      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'العلوم' },
     ]
   },
   {
@@ -561,29 +548,27 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'الرياضيات',
     quota: 18,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-6-1', className: 'سادس 1', subject: 'الرياضيات' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-6-2', className: 'سادس 2', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-6-1', className: 'سادس 1', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-5-3', className: 'خامس 3', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-6-2', className: 'سادس 2', subject: 'الرياضيات' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-6-2', className: 'سادس 2', subject: 'الرياضيات' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-6-1', className: 'سادس 1', subject: 'الرياضيات' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'الرياضيات' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-6-1', className: 'سادس 1', subject: 'الرياضيات' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-6-2', className: 'سادس 2', subject: 'الرياضيات' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-5-3', className: 'خامس 3', subject: 'الرياضيات' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'الرياضيات' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-6-1', className: 'سادس 1', subject: 'الرياضيات' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-5-3', className: 'خامس 3', subject: 'الرياضيات' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'الرياضيات' },
-      // الخميس
+      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'الرياضيات' },
+    // الخميس
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 1, classId: 'class-6-1', className: 'سادس 1', subject: 'الرياضيات' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-6-2', className: 'سادس 2', subject: 'الرياضيات' }
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-6-1', className: 'سادس 1', subject: 'الرياضيات' },
     ]
   },
   {
@@ -593,18 +578,15 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'اللغة الإنجليزية',
     quota: 9,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-6-2', className: 'سادس 2', subject: 'اللغة الإنجليزية' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'اللغة الإنجليزية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-6-1', className: 'سادس 1', subject: 'اللغة الإنجليزية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-5-3', className: 'خامس 3', subject: 'اللغة الإنجليزية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-6-2', className: 'سادس 2', subject: 'اللغة الإنجليزية' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-6-1', className: 'سادس 1', subject: 'اللغة الإنجليزية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-6-1', className: 'سادس 1', subject: 'اللغة الإنجليزية' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-6-2', className: 'سادس 2', subject: 'اللغة الإنجليزية' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-5-3', className: 'خامس 3', subject: 'اللغة الإنجليزية' }
     ]
   },
   {
@@ -614,35 +596,34 @@ export const OFFICIAL_TIMETABLE_RECORDS: TeacherTimetableRecord[] = [
     mainSubject: 'اللغة الإنجليزية',
     quota: 24,
     entries: [
-      // الأحد
+    // الأحد
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 1, classId: 'class-5-1', className: 'خامس 1', subject: 'اللغة الإنجليزية' },
-      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-4-1', className: 'رابع 1', subject: 'اللغة الإنجليزية' },
+      { day: 'sunday', dayArabic: 'الأحد', periodNumber: 2, classId: 'class-5-1', className: 'خامس 1', subject: 'اللغة الإنجليزية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 3, classId: 'class-3-1', className: 'ثالث 1', subject: 'اللغة الإنجليزية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 4, classId: 'class-4-2', className: 'رابع 2', subject: 'اللغة الإنجليزية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 5, classId: 'class-5-2', className: 'خامس 2', subject: 'اللغة الإنجليزية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 6, classId: 'class-4-2', className: 'رابع 2', subject: 'اللغة الإنجليزية' },
       { day: 'sunday', dayArabic: 'الأحد', periodNumber: 7, classId: 'class-5-1', className: 'خامس 1', subject: 'اللغة الإنجليزية' },
-      // الإثنين
+    // الإثنين
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 1, classId: 'class-3-3', className: 'ثالث 3', subject: 'اللغة الإنجليزية' },
-      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-3-2', className: 'ثالث 2', subject: 'اللغة الإنجليزية' },
+      { day: 'monday', dayArabic: 'الإثنين', periodNumber: 2, classId: 'class-5-1', className: 'خامس 1', subject: 'اللغة الإنجليزية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 3, classId: 'class-4-3', className: 'رابع 3', subject: 'اللغة الإنجليزية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 4, classId: 'class-5-2', className: 'خامس 2', subject: 'اللغة الإنجليزية' },
       { day: 'monday', dayArabic: 'الإثنين', periodNumber: 5, classId: 'class-4-3', className: 'رابع 3', subject: 'اللغة الإنجليزية' },
-      // الثلاثاء
+    // الثلاثاء
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 1, classId: 'class-3-2', className: 'ثالث 2', subject: 'اللغة الإنجليزية' },
-      { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 2, classId: 'class-3-3', className: 'ثالث 3', subject: 'اللغة الإنجليزية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 3, classId: 'class-3-1', className: 'ثالث 1', subject: 'اللغة الإنجليزية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 4, classId: 'class-5-1', className: 'خامس 1', subject: 'اللغة الإنجليزية' },
       { day: 'tuesday', dayArabic: 'الثلاثاء', periodNumber: 5, classId: 'class-4-1', className: 'رابع 1', subject: 'اللغة الإنجليزية' },
-      // الأربعاء
+    // الأربعاء
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 1, classId: 'class-3-3', className: 'ثالث 3', subject: 'اللغة الإنجليزية' },
-      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-5-2', className: 'خامس 2', subject: 'اللغة الإنجليزية' },
+      { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 2, classId: 'class-4-1', className: 'رابع 1', subject: 'اللغة الإنجليزية' },
       { day: 'wednesday', dayArabic: 'الأربعاء', periodNumber: 3, classId: 'class-3-1', className: 'ثالث 1', subject: 'اللغة الإنجليزية' },
-      // الخميس
+    // الخميس
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 1, classId: 'class-4-1', className: 'رابع 1', subject: 'اللغة الإنجليزية' },
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 2, classId: 'class-4-3', className: 'رابع 3', subject: 'اللغة الإنجليزية' },
       { day: 'thursday', dayArabic: 'الخميس', periodNumber: 3, classId: 'class-3-2', className: 'ثالث 2', subject: 'اللغة الإنجليزية' },
-      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 4, classId: 'class-4-2', className: 'رابع 2', subject: 'اللغة الإنجليزية' }
+      { day: 'thursday', dayArabic: 'الخميس', periodNumber: 4, classId: 'class-4-2', className: 'رابع 2', subject: 'اللغة الإنجليزية' },
     ]
   },
   {
@@ -676,7 +657,7 @@ export const LEGACY_TIMETABLE_TEACHER_ID_MAP: Record<string, string> = {
   'teacher-9': 'teacher-18',
   'teacher-10': 'teacher-13',
   'teacher-11': 'teacher-10',
-  'teacher-12': 'unmapped-محمد-القحطاني',
+  'teacher-12': 'teacher-7',
   'teacher-13': 'teacher-15',
   'teacher-14': 'teacher-25',
   'teacher-15': 'teacher-12',

@@ -256,7 +256,7 @@ async function assignmentSetMany(db: SupabaseClient, b: Record<string, unknown>)
   if (!version) throw new HttpError(409, "no_published_timetable");
 
   const [{ data: classes }, { data: teachers }, { data: current }] = await Promise.all([
-    db.from("classes").select("id, name").eq("school_id", SCHOOL_ID),
+    db.from("classes").select("id, name, short_name").eq("school_id", SCHOOL_ID),
     db.from("teachers").select("id, display_name, subject, role, is_active").eq("school_id", SCHOOL_ID),
     db.from("daily_period_assignments").select("id, class_id, day_of_week, period_number, teacher_id")
       .eq("school_id", SCHOOL_ID).eq("version_id", version.id),
@@ -287,6 +287,9 @@ async function assignmentSetMany(db: SupabaseClient, b: Record<string, unknown>)
       teacher_id: teacherId,
       teacher_name: teacher.display_name,
       subject: teacher.subject ?? null,
+      // A manual change is no longer «according to the approved timetable»; the old
+      // note named the previous lesson/teacher, so drop it rather than leave it stale.
+      notes: null,
       updated_at: now,
     };
     const { error } = existing
@@ -297,7 +300,8 @@ async function assignmentSetMany(db: SupabaseClient, b: Record<string, unknown>)
         school_id: SCHOOL_ID,
         version_id: version.id,
         class_id: classId,
-        class_name: cls.name,
+        // Same short form (e.g. «ثالث 1») as students, submissions and timetable cells.
+        class_name: cls.short_name ?? cls.name,
         day_of_week: day,
         day_arabic: DAY_AR[day],
         period_number: periodNumber,
