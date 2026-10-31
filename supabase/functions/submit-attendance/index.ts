@@ -122,6 +122,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // The class labels come from the classes table, never from the client: clients
+    // have sent «ثالث 1», «الصف الثالث الابتدائي - فصل 1», «home», … which split one
+    // class into several in every report that groups by name.
+    const { data: classInfo } = await supabase
+      .from("classes")
+      .select("short_name, grade_level")
+      .eq("id", s.classId)
+      .maybeSingle();
+
     const nowIso = new Date().toISOString();
 
     const { data: existingRow } = await supabase
@@ -149,8 +158,8 @@ Deno.serve(async (req) => {
           school_id: SCHOOL_ID,
           date: s.date,
           class_id: s.classId,
-          class_name: s.className ?? "",
-          grade_level: s.gradeLevel ?? "",
+          class_name: classInfo?.short_name ?? s.className ?? "",
+          grade_level: classInfo?.grade_level ?? s.gradeLevel ?? "",
           teacher_id: device.teacher_id,
           teacher_name: s.teacherName ?? "",
           period_number: periodNumber,
