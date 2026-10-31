@@ -21,7 +21,7 @@ describe('applyServerRoster', () => {
     const list = AttendanceService.getStudents();
     expect(list).toHaveLength(2);
     expect(list.find((s) => s.id === a.id)).toMatchObject({ classId: 'class-5-1', parentPhone: '0555555555' });
-    expect(list.find((s) => s.id === 's_new_1')).toMatchObject({ classId: 'class-3-1', nationalId: '' });
+    expect(list.find((s) => s.id === 's_new_1')).toMatchObject({ classId: 'class-3-1' });
     expect(list.find((s) => s.id === b.id)).toBeUndefined();
   });
 

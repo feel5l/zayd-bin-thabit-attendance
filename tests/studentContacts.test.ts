@@ -9,7 +9,7 @@ describe('student PII stays out of the bundle (S2)', () => {
   it('roster files carry no national ids, phones, birth dates or nationality', () => {
     for (const g of [3, 4, 5, 6]) {
       const src = readFileSync(join(ROOT, `services/studentsGrade${g}.ts`), 'utf8');
-      expect(src).not.toMatch(/nationalId: '[^']+'/);
+      expect(src).not.toMatch(/nationalId/);
       expect(src).not.toMatch(/parentPhone: '[^']+'/);
       expect(src).not.toMatch(/parentName: '[^']+'/);
       expect(src).not.toMatch(/birthDate:/);
@@ -30,19 +30,19 @@ describe('applyStudentContacts / scrubStudentContacts', () => {
     AttendanceService.saveStudent({ ...second, parentPhone: '0500000001' }); // stale local value
 
     const changed = AttendanceService.applyStudentContacts([
-      { id: first.id, parentName: 'ولي أمر', parentPhone: '0555555555', nationalId: '1000000001' },
+      { id: first.id, parentName: 'ولي أمر', parentPhone: '0555555555' },
       { id: second.id, parentPhone: '0599999999', parentName: 'ولي أمر ٢' },
       { id: 'unknown-student', parentPhone: '0511111111' },
     ]);
     expect(changed).toBe(2);
 
     const afterApply = AttendanceService.getStudents();
-    expect(afterApply.find((s) => s.id === first.id)).toMatchObject({ parentPhone: '0555555555', nationalId: '1000000001' });
+    expect(afterApply.find((s) => s.id === first.id)).toMatchObject({ parentPhone: '0555555555' });
     expect(afterApply.find((s) => s.id === second.id)?.parentPhone).toBe('0599999999');
 
     AttendanceService.scrubStudentContacts();
     const afterScrub = AttendanceService.getStudents();
-    expect(afterScrub.find((s) => s.id === first.id)).toMatchObject({ parentPhone: '', nationalId: '', parentName: '' });
+    expect(afterScrub.find((s) => s.id === first.id)).toMatchObject({ parentPhone: '', parentName: '' });
     expect(afterScrub.find((s) => s.id === second.id)).toMatchObject({ parentPhone: '', parentName: '' });
   });
 

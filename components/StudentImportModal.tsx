@@ -41,7 +41,6 @@ interface StudentImportModalProps {
 interface RawParsedStudent {
   tempId: string;
   name: string;
-  nationalId: string;
   studentNumber: string;
   gradeLevel: string;
   sectionHint: string;
@@ -333,7 +332,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
     // Step 1: Extract standardized objects from raw rows
     const extractedList: {
       name: string;
-      nationalId: string;
       studentNumber: string;
       gradeLevel: string;
       sectionHint: string;
@@ -354,7 +352,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
       };
 
       const nameKey = findKey(['اسم الطالب', 'الاسم', 'اسم_الطالب', 'name', 'student_name', 'طالب']) || keys[0];
-      const nationalIdKey = findKey(['السجل المدني', 'الهوية', 'رقم الهوية', 'السجل', 'national_id', 'id', 'هوية']);
       const studentNumKey = findKey(['الرقم الاكاديمي', 'رقم الطالب', 'الرقم', 'student_id', 'student_number', 'اكاديمي']);
       const gradeKey = findKey(['الصف', 'المرحلة', 'المستوى', 'grade', 'class_grade', 'صف']);
       const sectionKey = findKey(['الشعبة', 'الفصل', 'section', 'class', 'شعبه', 'فصل']);
@@ -363,10 +360,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
 
       const studentName = String(row[nameKey] || '').trim();
       if (!studentName) return; // Skip empty row
-
-      const nationalId = nationalIdKey && row[nationalIdKey] 
-        ? String(row[nationalIdKey]).trim() 
-        : `10${Math.floor(10000000 + Math.random() * 90000000)}`;
 
       const studentNumber = studentNumKey && row[studentNumKey]
         ? String(row[studentNumKey]).trim()
@@ -394,7 +387,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
 
       extractedList.push({
         name: studentName,
-        nationalId,
         studentNumber,
         gradeLevel,
         sectionHint,
@@ -561,7 +553,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
     const currentStudentsInDb = AttendanceService.getStudents();
     processed.forEach(p => {
       const isDup = currentStudentsInDb.some(dbS => 
-        (p.nationalId && dbS.nationalId === p.nationalId) ||
         (p.studentNumber && dbS.studentNumber === p.studentNumber) ||
         (p.name.trim().toLowerCase() === dbS.name.trim().toLowerCase())
       );
@@ -596,7 +587,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
     let finalStudentRecords: Student[] = processedStudents.map(st => ({
       id: `s_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
       name: st.name.trim(),
-      nationalId: st.nationalId.trim(),
       studentNumber: st.studentNumber.trim(),
       gradeLevel: st.gradeLevel,
       classId: st.assignedClassId,
@@ -623,14 +613,13 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
       const accepted: Student[] = [];
       for (const rec of finalStudentRecords) {
         const match = existing.find(s =>
-          (rec.nationalId && s.nationalId === rec.nationalId) ||
           (rec.studentNumber && s.studentNumber === rec.studentNumber)
         );
         if (match && duplicateHandling === 'skip_duplicates') { serverSkipped++; continue; }
         const target = match ? { ...rec, id: match.id } : rec;
         const r = await adminManage('student.save', {
           id: target.id, name: target.name, studentNumber: target.studentNumber, classId: target.classId,
-          gender: target.gender, nationalId: target.nationalId, parentName: target.parentName,
+          gender: target.gender, parentName: target.parentName,
           parentPhone: target.parentPhone, homePhone: target.homePhone, nationality: target.nationality,
         });
         if (r.ok) accepted.push(target);
@@ -680,7 +669,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
   const filteredPreviewStudents = processedStudents.filter(st => {
     const matchesSearch = 
       st.name.toLowerCase().includes(previewSearch.toLowerCase()) ||
-      st.nationalId.includes(previewSearch) ||
       st.parentPhone.includes(previewSearch);
 
     if (!matchesSearch) return false;
@@ -1225,7 +1213,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                           <tr>
                             <th className="p-3 w-12 text-center">#</th>
                             <th className="p-3">اسم الطالب</th>
-                            <th className="p-3">السجل المدني</th>
                             <th className="p-3">الصف الدراسي</th>
                             <th className="p-3">الفصل / الشعبة المسندة</th>
                             <th className="p-3">جوال ولي الأمر</th>
@@ -1237,7 +1224,6 @@ export const StudentImportModal: React.FC<StudentImportModalProps> = ({
                             <tr key={st.tempId} className="hover:bg-slate-50/80 transition">
                               <td className="p-3 text-center text-slate-400 font-mono text-[11px]">{idx + 1}</td>
                               <td className="p-3 font-bold text-slate-900">{st.name}</td>
-                              <td className="p-3 font-mono text-slate-600 text-[11px]">{st.nationalId}</td>
                               <td className="p-3 text-slate-700 text-[11px]">{st.gradeLevel}</td>
                               <td className="p-3">
                                 {/* Editable Class Dropdown in Preview */}
